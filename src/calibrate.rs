@@ -25,8 +25,6 @@ use std::io::Read;
 use chrono::DateTime;
 use sha2::{Digest, Sha256};
 
-use crate::compute::parse_half_life;
-
 /// Fewest observations, in total and in each half, a state needs.
 pub const MIN_OBSERVATIONS: usize = 50;
 pub const MIN_PER_HALF: usize = 10;
@@ -317,19 +315,10 @@ fn parse_bool(s: &str) -> Option<bool> {
     }
 }
 
-/// Seconds from a number of seconds or a duration ("30d", "6h").
+/// Seconds from a number of seconds or a duration ("30d", "6h", "0d").
 fn parse_age(s: &str) -> Result<f64, String> {
-    let s = s.trim();
-    if let Ok(n) = s.parse::<f64>() {
-        if n.is_finite() && n >= 0.0 {
-            return Ok(n);
-        }
-        return Err(format!("invalid age '{}' (must be zero or more)", s));
-    }
-    match parse_half_life(s) {
-        Ok(Some(seconds)) => Ok(seconds),
-        _ => Err(format!("invalid age '{}' (seconds, or a duration like 30d or 6h)", s)),
-    }
+    crate::compute::parse_duration(s)
+        .map_err(|_| format!("invalid age '{}' (zero or more: seconds, or a duration like 30d or 6h)", s.trim()))
 }
 
 /// Read observations from CSV with a header row.
@@ -497,6 +486,7 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compute::parse_half_life;
     use crate::registry::HalfLives;
 
     const DAY: f64 = 86_400.0;
@@ -652,7 +642,7 @@ mod tests {
 
     #[test]
     fn test_read_csv_age_column() {
-        let csv = "entity,age,correct,note\nc1,30d,true,x\nc2,3600,false,y\nc3,0,yes,\n";
+        let csv = "entity,age,correct,note\nc1,30d,true,x\nc2,3600,false,y\nc3,0d,yes,\n";
         let obs = read_csv(csv.as_bytes()).unwrap();
         assert_eq!(obs.len(), 3);
         assert_eq!(obs[0].age, 30.0 * DAY);

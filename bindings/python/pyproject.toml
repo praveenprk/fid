@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "fid"
+version = "0.1.0"
+description = "Information fidelity measurement: how much a stored fact can still be trusted"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.urls]
+Repository = "https://github.com/praveenprk/fid"
+Results = "https://praveenprk.github.io/fid/"
+
+[tool.maturin]
+module-name = "fid._fid"
+python-source = "python"
+features = ["pyo3/extension-module"]

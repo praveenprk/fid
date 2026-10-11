@@ -5,3 +5,6 @@
 /calibration/.cache
 __pycache__/
 /site/_site
+/bindings/python/target
+/bindings/python/.venv
+*.so

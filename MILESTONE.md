@@ -133,10 +133,16 @@ Input: CSV with a header.
 - Checked against calibration/: on the Wikidata CEO observations it gives
   5.84y (study: 5.8y) and identical held-out Brier scores.
 
-## 2. Library API and Python binding — TTL done, binding next
+## 2. Library API and Python binding — done
 
 Done: `compute::time_to_floor`, `FidEnvelope::expires_at`, and `fid ttl`
-(stdout: expires_at or "never"; exit code as `check`).
+(stdout: expires_at or "never"; exit code as `check`). Python package in
+bindings/python (PyO3 + maturin): stamp, check, expires_at, chain,
+fidelity, time_to_floor, registry lookups, calibrate — all calling the
+Rust library. Checked: the same CEO data gives the same fit from the CLI
+and from Python. CI runs both test suites.
+
+Next: publish to crates.io and PyPI.
 
 - A stable Rust API for scoring an envelope and computing TTL to a floor:
   `ttl = h × log2((source − b) / (floor − b))`.

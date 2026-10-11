@@ -24,11 +24,23 @@
 /// Unparseable or non-positive values are an error — never silently
 /// treated as infinite, which would hide decay.
 pub fn parse_half_life(s: &str) -> Result<Option<f64>, String> {
-    let s = s.trim().to_lowercase();
-    if s == "infinite" || s == "inf" {
+    let t = s.trim().to_lowercase();
+    if t == "infinite" || t == "inf" {
         return Ok(None);
     }
+    let seconds = parse_duration(&t).map_err(|_| {
+        format!("invalid half-life '{}' (expected e.g. 30s, 5m, 6h, 7d, 3mo, 3y, infinite)", t)
+    })?;
+    if seconds <= 0.0 {
+        return Err(format!("invalid half-life '{}' (must be a positive duration)", t));
+    }
+    Ok(Some(seconds))
+}
 
+/// Parse a duration ("30s", "5m", "6h", "7d", "3mo", "3y", or bare seconds)
+/// into seconds. Zero is allowed; negative, non-finite or unparseable is an error.
+pub fn parse_duration(s: &str) -> Result<f64, String> {
+    let s = s.trim().to_lowercase();
     let (num_str, multiplier) = if let Some(n) = s.strip_suffix("mo") {
         (n, 30.44 * 86400.0)
     } else if let Some(n) = s.strip_suffix('s') {
@@ -45,14 +57,13 @@ pub fn parse_half_life(s: &str) -> Result<Option<f64>, String> {
         // Assume seconds
         (s.as_str(), 1.0)
     };
-
     let n: f64 = num_str
         .parse()
-        .map_err(|_| format!("invalid half-life '{}' (expected e.g. 30s, 5m, 6h, 7d, 3mo, 3y, infinite)", s))?;
-    if !n.is_finite() || n <= 0.0 {
-        return Err(format!("invalid half-life '{}' (must be a positive duration)", s));
+        .map_err(|_| format!("invalid duration '{}' (expected e.g. 30s, 5m, 6h, 7d, 3mo, 3y)", s))?;
+    if !n.is_finite() || n < 0.0 {
+        return Err(format!("invalid duration '{}' (must be zero or more)", s));
     }
-    Ok(Some(n * multiplier))
+    Ok(n * multiplier)
 }
 
 /// Compute temporal fidelity decay.
@@ -200,6 +211,16 @@ mod tests {
     #[test]
     fn test_parse_half_life_infinite() {
         assert_eq!(parse_half_life("infinite"), Ok(None));
+    }
+
+    #[test]
+    fn test_parse_duration_allows_zero() {
+        assert_eq!(parse_duration("0d"), Ok(0.0));
+        assert_eq!(parse_duration("2h"), Ok(7200.0));
+        assert_eq!(parse_duration("90"), Ok(90.0));
+        assert!(parse_duration("-1d").is_err());
+        assert!(parse_duration("inf").is_err());
+        assert!(parse_duration("7days").is_err());
     }
 
     #[test]
