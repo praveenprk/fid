@@ -1,7 +1,7 @@
 """Shared analysis for fid calibration experiments.
 
 Every experiment reduces to the same shape: a set of observations, each
-an (entity, lag_seconds, still_correct) triple. "Entity" is whatever was
+an (entity, lag_seconds, still_correct) triple, counted in a Tally. "Entity" is whatever was
 observed (a company, a weather station, a vessel). "still_correct" says
 whether the stored fact, taken at lag 0, still matched reality `lag`
 seconds later.
@@ -94,19 +94,57 @@ def split_train(entity):
     return hashlib.sha256(str(entity).encode()).digest()[0] % 2 == 0
 
 
+# ── observations ─────────────────────────────────────────────────────────
+
+class Tally:
+    """Counts of observations by (train half?, lag, still correct?).
+
+    Every statistic here depends only on those three things, so counting
+    is exact and lets an experiment stream millions of observations
+    without holding them.
+    """
+
+    def __init__(self):
+        self.counts = {}
+        self.entities = set()
+        self._split = {}
+
+    def add(self, entity, lag, correct):
+        train = self._split.get(entity)
+        if train is None:
+            train = self._split[entity] = split_train(entity)
+            self.entities.add(entity)
+        key = (train, lag, bool(correct))
+        self.counts[key] = self.counts.get(key, 0) + 1
+
+    def extend(self, observations):
+        for entity, lag, correct in observations:
+            self.add(entity, lag, correct)
+        return self
+
+    def total(self):
+        return sum(self.counts.values())
+
+    def items(self, half=None):
+        """(lag, correct, n), optionally only the train (True) or test (False) half."""
+        for (train, lag, correct), n in self.counts.items():
+            if half is None or train == half:
+                yield lag, correct, n
+
+
+def as_tally(observations):
+    return observations if isinstance(observations, Tally) else Tally().extend(observations)
+
+
 # ── survival curve ───────────────────────────────────────────────────────
 
-def survival_curve(observations, lags):
-    """Fraction still correct at each lag.
-
-    `observations` is an iterable of (entity, lag, correct); lags must be
-    drawn from `lags`. Returns a list of (lag, fraction, n).
-    """
+def survival_curve(tally, lags, half=None):
+    """Fraction still correct at each lag: a list of (lag, fraction, n)."""
     counts = {lag: [0, 0] for lag in lags}
-    for _, lag, correct in observations:
+    for lag, correct, n in tally.items(half):
         c = counts[lag]
-        c[0] += 1 if correct else 0
-        c[1] += 1
+        c[0] += n if correct else 0
+        c[1] += n
     return [(lag, c[0] / c[1], c[1]) for lag, c in sorted(counts.items()) if c[1] > 0]
 
 
@@ -183,24 +221,23 @@ def shape_error(curve, s0, h, b=0.0):
 
 # ── calibration ──────────────────────────────────────────────────────────
 
-def brier(predict, observations):
-    total = n = 0
-    for _, lag, correct in observations:
-        p = predict(lag)
-        total += (p - (1.0 if correct else 0.0)) ** 2
-        n += 1
-    return total / n if n else float("nan")
+def brier(predict, tally, half=False):
+    total = n_all = 0
+    for lag, correct, n in tally.items(half):
+        total += n * (predict(lag) - (1.0 if correct else 0.0)) ** 2
+        n_all += n
+    return total / n_all if n_all else float("nan")
 
 
-def reliability(predict, observations, bins=10):
+def reliability(predict, tally, half=False, bins=10):
     """Bucket predictions; compare mean prediction with actual rate."""
     buckets = [[0.0, 0, 0] for _ in range(bins)]
-    for _, lag, correct in observations:
+    for lag, correct, n in tally.items(half):
         p = predict(lag)
         b = buckets[min(int(p * bins), bins - 1)]
-        b[0] += p
-        b[1] += 1 if correct else 0
-        b[2] += 1
+        b[0] += p * n
+        b[1] += n if correct else 0
+        b[2] += n
     out = []
     for i, (psum, k, n) in enumerate(buckets):
         if n:
@@ -225,18 +262,16 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
     `truth` describes what "still correct" means for this fact.
     """
     fmt = fmt or fmt_duration
-    observations = list(observations)
-    train = [o for o in observations if split_train(o[0])]
-    test = [o for o in observations if not split_train(o[0])]
-    entities = {o[0] for o in observations}
+    tally = as_tally(observations)
 
-    curve = survival_curve(observations, lags)
-    train_curve = survival_curve(train, lags)
+    curve = survival_curve(tally, lags)
+    train_curve = survival_curve(tally, lags, half=True)
     s0, h, _ = fit_exponential(train_curve)
     s0b, hb, b = fit_exponential(train_curve, with_baseline=True)
     s0_all, h_all, _ = fit_exponential(curve)
     s0b_all, hb_all, b_all = fit_exponential(curve, with_baseline=True)
-    base_rate = sum(1 for o in train if o[2]) / len(train)
+    train_n = sum(n for _, _, n in tally.items(True))
+    base_rate = sum(n for _, c, n in tally.items(True) if c) / train_n
 
     def fitted(lag):
         return exp_model(lag, s0, h)
@@ -245,20 +280,20 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
         return exp_model(lag, s0b, hb, b)
 
     scores = {
-        "fitted_half_life": brier(fitted, test),
-        "fitted_half_life_with_baseline": brier(fitted_baseline, test),
-        "constant_base_rate": brier(lambda _lag: base_rate, test),
+        "fitted_half_life": brier(fitted, tally),
+        "fitted_half_life_with_baseline": brier(fitted_baseline, tally),
+        "constant_base_rate": brier(lambda _lag: base_rate, tally),
     }
     if guess is not None:
         # The guess as fid would use it: source fidelity 1, guessed half-life
-        scores["guessed_half_life"] = brier(lambda lag: exp_model(lag, 1.0, guess), test)
+        scores["guessed_half_life"] = brier(lambda lag: exp_model(lag, 1.0, guess), tally)
 
     return {
         "experiment": name,
         "fact": fact,
         "truth": truth,
-        "entities": len(entities),
-        "observations": len(observations),
+        "entities": len(tally.entities),
+        "observations": tally.total(),
         "curve": [{"lag_s": l, "lag": fmt(l), "still_correct": s, "n": n} for l, s, n in curve],
         "empirical_half_life_s": empirical_half_life(curve),
         "empirical_half_life": fmt(empirical_half_life(curve)),
@@ -270,8 +305,8 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
         "shape_error_with_baseline": shape_error(curve, s0b_all, hb_all, b_all),
         "guess": {"label": guess_label, "half_life_s": guess, "half_life": fmt(guess)} if guess is not None else None,
         "brier_test": scores,
-        "reliability_test": reliability(fitted, test),
-        "reliability_test_with_baseline": reliability(fitted_baseline, test),
+        "reliability_test": reliability(fitted, tally),
+        "reliability_test_with_baseline": reliability(fitted_baseline, tally),
     }
 
 

@@ -4,3 +4,4 @@
 .DS_Store
 /calibration/.cache
 __pycache__/
+/site/_site

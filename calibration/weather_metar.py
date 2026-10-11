@@ -16,33 +16,45 @@ The nearest hand-picked guess in examples/half-lives.yaml is
 `weather_forecast: 6h` (sensor_reading is "domain_specific").
 
 Usage: python3 weather_metar.py
+       FID_WEATHER_TRAILING_DAYS=365 python3 weather_metar.py   (the last 365 days)
 """
 
 import csv
 import os
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import fidcal
 
 STATIONS = ["JFK", "ORD", "ATL", "DFW", "DEN", "LAX", "SFO", "SEA", "MIA", "BOS"]
 YEAR = 2024
+
+
+def window():
+    """(start, end) dates, end exclusive: calendar YEAR, or the trailing N days."""
+    trailing = os.environ.get("FID_WEATHER_TRAILING_DAYS")
+    if trailing:
+        end = date.today()
+        return end - timedelta(days=int(trailing)), end
+    return date(YEAR, 1, 1), date(YEAR + 1, 1, 1)
+
 LAG_HOURS = [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 21, 24, 30, 36, 48, 60, 72]
 LAGS = [h * 3600 for h in LAG_HOURS]
 TEMP_TOLERANCE_F = 2.0
 
 
 def fetch(cache_dir, station):
+    start, end = window()
     params = {
         "station": station,
         "data": "tmpf,vsby,skyc1,skyl1,skyc2,skyl2,skyc3,skyl3,skyc4,skyl4",
-        "year1": YEAR, "month1": 1, "day1": 1,
-        "year2": YEAR + 1, "month2": 1, "day2": 1,
+        "year1": start.year, "month1": start.month, "day1": start.day,
+        "year2": end.year, "month2": end.month, "day2": end.day,
         "tz": "Etc/UTC", "format": "onlycomma", "latlon": "no",
         "missing": "M", "trace": "T", "direct": "no", "report_type": "3",
     }
     url = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?" + urllib.parse.urlencode(params)
-    path = os.path.join(cache_dir, "metar", f"{station}_{YEAR}.csv")
+    path = os.path.join(cache_dir, "metar", f"{station}_{start}_{end}.csv")
     return fidcal.download(url, path)
 
 

@@ -1,0 +1,605 @@
+<style>
+/* Visual analysis: the finding in one sentence, then one chart per finding, one accent series. */
+.fs { max-width: 68rem; margin-inline: auto; display: grid; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+.fs-head { display: grid; gap: var(--cds-gap-sm); max-width: 46rem; }
+.fs-title { margin: 0; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.15; text-wrap: balance; }
+.fs-lede { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.55; color: var(--color-fg-muted); }
+.fs-lede b, .fs-note b { font-weight: 600; color: var(--color-fg); font-variant-numeric: tabular-nums; }
+.fs-section { display: grid; gap: var(--cds-gap-md); }
+.fs-h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); text-wrap: balance; }
+.fs-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.fs-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-sm); align-content: start; min-width: 0; }
+.fs-card-title { margin: 0; font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
+.fs-note { margin: 0; font-size: var(--cds-font-size-caption); line-height: 1.5; color: var(--color-fg-muted); max-width: 44rem; }
+.fs-chart { position: relative; min-height: 15rem; min-width: 0; }
+.fs-chart.fs-tall { min-height: 20rem; }
+.fs-chart.fs-short { min-height: 9rem; }
+.fs-svg { display: block; overflow: visible; }
+.fs-svg text { font-family: var(--font-anthropic-sans); }
+.fs-tick { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.fs-label { fill: var(--color-fg); font-size: var(--cds-font-size-caption); }
+.fs-value { fill: var(--color-fg); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.fs-muted-text { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.fs-grid-line { stroke: var(--cds-chart-grid); stroke-width: 1; }
+.fs-axis { stroke: var(--cds-chart-axis); stroke-width: 1; }
+.fs-ref { stroke: var(--cds-chart-reference); stroke-width: 1; stroke-dasharray: 4 4; }
+.fs-focus { stroke: var(--cds-chart-axis); stroke-width: 1; }
+.fs-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.fs-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.fs-key-line { width: 1rem; height: 0; border-top: 2px solid; }
+.fs-key-dash { width: 1rem; height: 0; border-top: 2px dashed; }
+.fs-key-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; }
+.fs-key-ring { width: 0.55rem; height: 0.55rem; border-radius: 50%; border: 2px solid; box-sizing: border-box; }
+.fs-tip { position: absolute; z-index: 2; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); display: grid; gap: 2px; min-width: 9rem; max-width: 16rem; }
+.fs-tip-h { color: var(--cds-text-secondary); }
+.fs-tip-row { display: flex; align-items: center; gap: 0.4rem; }
+.fs-tip-row b { margin-left: auto; padding-left: var(--cds-pad-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fs-sw { width: 0.55rem; height: 0.55rem; border-radius: 2px; flex: none; }
+.fs-table-wrap { overflow-x: auto; }
+.fs-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.fs-table th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: bottom; }
+.fs-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.fs-table td:first-child { white-space: normal; min-width: 9rem; }
+.fs-table .fs-n { text-align: right; }
+.fs-table .fs-best { font-weight: 600; color: var(--color-fg); }
+.fs-table .fs-dim { color: var(--color-fg-muted); }
+.fs-group th { border-bottom: 0; padding-bottom: 0; }
+.fs-failed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.fs-failed::before { content: ""; width: 0.375rem; height: 0.375rem; border-radius: 50%; background: var(--color-bad); }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.fs-foot { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.55; max-width: 46rem; display: grid; gap: var(--cds-gap-xs); }
+.fs-foot p { margin: 0; }
+.fs-foot code { font-size: 0.95em; }
+</style>
+
+<div class="fs">
+  <header class="fs-head" id="top">
+    <h1 class="fs-title">How fast facts go stale</h1>
+    <p class="fs-lede">fid scores a stored fact by how long ago it was measured, using a half-life per type of information. Tested against four public datasets where the truth is known, the hand-picked half-lives were off by up to <b class="fs-v dash-skeleton" data-source="worst_guess" data-fmt="x">—</b>×, and most facts decay toward a baseline rather than to zero.</p>
+  </header>
+
+  <section class="fs-section" id="overview">
+    <h2 class="fs-h2">Guessed half-lives against measured ones</h2>
+    <div class="fs-card">
+      <p class="fs-note">Half-life here is the time until half of the stored facts are wrong. A company's CEO lasts <b class="fs-v dash-skeleton" data-source="findings" data-field="measured_s" data-where="fact=Company%20CEO" data-fmt="dur">—</b>, not the 1 year guessed. A moving ship's position lasts <b class="fs-v dash-skeleton" data-source="findings" data-field="measured_s" data-where="fact=Ship%20position%2C%20underway" data-fmt="dur">—</b>, not 4 hours. Log scale.</p>
+      <div class="fs-chart fs-tall" id="guess-chart" data-source="findings guess_error"></div>
+    </div>
+    <div class="fs-card">
+      <h3 class="fs-card-title">Every fact, scored on data the fit never saw</h3>
+      <p class="fs-note">Each model is fitted on half of the companies, airports or ships and scored on the other half. Brier score is the mean squared error of a probability; lower is better, and the best in each row is bold. "Constant" ignores age entirely.</p>
+      <div class="fs-table-wrap">
+        <table class="fs-table" id="findings-table" data-source="findings" data-row-key="fact">
+          <thead>
+            <tr class="fs-group"><th colspan="6"></th><th colspan="4">Brier score</th></tr>
+            <tr>
+              <th data-field="fact">Fact</th>
+              <th data-field="source">Data</th>
+              <th data-field="observations" class="fs-n">Observations</th>
+              <th data-field="guess">Guess</th>
+              <th data-field="measured_s">Measured</th>
+              <th data-field="baseline" class="fs-n">Baseline</th>
+              <th data-field="brier_guess" class="fs-n">Guess</th>
+              <th data-field="brier_zero" class="fs-n">Decay to 0</th>
+              <th data-field="brier_baseline" class="fs-n">To baseline</th>
+              <th data-field="brier_constant" class="fs-n">Constant</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="fs-section" id="baseline">
+    <h2 class="fs-h2">Facts decay toward a baseline, not to zero</h2>
+    <p class="fs-note">A week-old "the airport is VFR" is still right <b class="fs-v dash-skeleton" data-source="findings" data-field="baseline" data-where="fact=Airport%20flight%20category" data-fmt="pct0">—</b> of the time, because clear weather is the usual weather. fid's original formula sends every stale fact to 0. Adding a baseline <i>b</i>, the chance a stale fact is right anyway, cuts the largest gap from <b class="fs-v dash-skeleton" data-source="findings" data-field="shape_error_zero" data-where="fact=Airport%20flight%20category" data-fmt="num3">—</b> to <b class="fs-v dash-skeleton" data-source="findings" data-field="shape_error_baseline" data-where="fact=Airport%20flight%20category" data-fmt="num3">—</b>. Where nothing is right by chance, as with a former CEO, the fit finds <i>b</i> = <b class="fs-v dash-skeleton" data-source="findings" data-field="baseline" data-where="fact=Company%20CEO" data-fmt="num2">—</b>.</p>
+    <div class="fs-grid">
+      <div class="fs-card">
+        <h3 class="fs-card-title">Airport flight category unchanged</h3>
+        <p class="fs-note">VFR, MVFR, IFR or LIFR, 10 US airports, a full year of reports</p>
+        <div class="fs-chart" id="chart-flight-category" data-source="curves findings"></div>
+      </div>
+      <div class="fs-card">
+        <h3 class="fs-card-title">Airport still IFR or worse</h3>
+        <p class="fs-note">Only reports of low ceiling or visibility</p>
+        <div class="fs-chart" id="chart-ifr" data-source="curves findings"></div>
+      </div>
+      <div class="fs-card">
+        <h3 class="fs-card-title">Same person still CEO</h3>
+        <p class="fs-note">Wikidata, yearly snapshots 2004–2016</p>
+        <div class="fs-chart" id="chart-ceo" data-source="curves findings"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="fs-section" id="state">
+    <h2 class="fs-h2">Half-life depends on what the thing is doing</h2>
+    <div class="fs-card">
+      <h3 class="fs-card-title">Ship still within 1 km of its reported position</h3>
+      <p class="fs-note">Cargo ships and tankers in US waters on six days spread through 2023, from AIS. Same ships, same days: a moving ship's position is half wrong after <b class="fs-v dash-skeleton" data-source="findings" data-field="measured_s" data-where="fact=Ship%20position%2C%20underway" data-fmt="dur">—</b>, while <b class="fs-v dash-skeleton" data-source="curves" data-field="still_correct" data-where="series=ship_moored&amp;lag_s=43200" data-fmt="pct0">—</b> of moored or anchored ships are still within 1 km after 12 hours. Square-root time scale.</p>
+      <div class="fs-chart fs-tall" id="chart-ships" data-source="curves"></div>
+    </div>
+  </section>
+
+  <section class="fs-section" id="periodic">
+    <h2 class="fs-h2">Some facts come back</h2>
+    <div class="fs-card">
+      <h3 class="fs-card-title">Airport temperature still within ±2 °F</h3>
+      <p class="fs-note">A reading 24 hours old is right <b class="fs-v dash-skeleton" data-source="curves" data-field="still_correct" data-where="series=temperature&amp;lag_s=86400" data-fmt="pct0">—</b> of the time; one 12 hours old, <b class="fs-v dash-skeleton" data-source="curves" data-field="still_correct" data-where="series=temperature&amp;lag_s=43200" data-fmt="pct0">—</b>. The daily cycle brings it back, and no decay model can express that.</p>
+      <div class="fs-chart" id="chart-temperature" data-source="curves"></div>
+    </div>
+  </section>
+
+  <section class="fs-section" id="independence">
+    <h2 class="fs-h2">Flight legs are not independent steps</h2>
+    <p class="fs-note"><b class="fs-v dash-skeleton" data-source="flights_total" data-fmt="int">—</b> US flights in 2024. fid multiplies a fixed noise per processing step, which assumes the steps are independent. For an aircraft's legs through a day, they are not: what happened on the last leg matters far more than the average.</p>
+    <div class="fs-grid">
+      <div class="fs-card">
+        <h3 class="fs-card-title">On time, by what the previous leg did</h3>
+        <p class="fs-note">Arrived within 15 minutes of schedule, not cancelled or diverted</p>
+        <div class="fs-chart fs-short" id="chart-legs" data-source="flights_legs"></div>
+      </div>
+      <div class="fs-card">
+        <h3 class="fs-card-title">On time, by scheduled departure</h3>
+        <p class="fs-note">Delays build through the day</p>
+        <div class="fs-chart" id="chart-hour" data-source="flights_hour"></div>
+      </div>
+      <div class="fs-card">
+        <h3 class="fs-card-title">On time, by month</h3>
+        <p class="fs-note">The same schedule is a weaker source in some months than others</p>
+        <div class="fs-chart" id="chart-month" data-source="flights_month"></div>
+      </div>
+      <div class="fs-card">
+        <h3 class="fs-card-title">On time, by airline</h3>
+        <p class="fs-note">One score per source hides a spread from <b class="fs-v dash-skeleton" data-source="airline_range" data-field="on_time" data-where="stat=lowest" data-fmt="pct0">—</b> to <b class="fs-v dash-skeleton" data-source="airline_range" data-field="on_time" data-where="stat=highest" data-fmt="pct0">—</b>. Carrier codes as reported to the DOT.</p>
+        <div class="fs-chart fs-tall" id="chart-airline" data-source="flights_airline airline_range"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="fs-foot" id="method">
+    <p>Sources: Wikidata CEO statements (P169) with start and end dates; routine METAR reports from the Iowa Environmental Mesonet ASOS archive; the Bureau of Transportation Statistics on-time database; NOAA MarineCadastre AIS. "Still correct" thresholds (±2 °F, 1 km, 15 minutes) are choices, and the half-lives scale with them. Six days of ship data, a year of flights, ten airports.</p>
+    <p>Code and full tables: <code>calibration/</code> in the fid repository.</p>
+  </footer>
+</div>
+
+<script>
+dash.calc('guess_error', {
+  inputs: ['findings'],
+  title: 'Guess error factor',
+  description: 'How many times longer or shorter the measured half-life is than the hand-picked one.',
+  fn: (findings) => findings
+    .filter((r) => Number(r.measured_s) > 0)
+    .map((r) => {
+      const guess = Number(r.guess_s), measured = Number(r.measured_s);
+      return { fact: r.fact, factor: Math.max(guess / measured, measured / guess), direction: measured > guess ? 'longer' : 'shorter' };
+    }),
+});
+
+dash.calc('worst_guess', {
+  inputs: ['guess_error'],
+  title: 'Worst guess',
+  description: 'The largest guess error factor across facts.',
+  fn: (guess_error) => Math.max(...guess_error.map((r) => r.factor)),
+});
+
+dash.calc('flights_total', {
+  inputs: ['flights_month'],
+  title: 'Flights in the year',
+  description: 'Total flights with a recorded outcome, summed over months.',
+  fn: (flights_month) => flights_month.reduce((sum, r) => sum + Number(r.n), 0),
+});
+
+dash.calc('airline_range', {
+  inputs: ['flights_airline'],
+  title: 'Airline on-time range',
+  description: 'The lowest and highest on-time rate across airlines.',
+  fn: (flights_airline) => {
+    const rows = flights_airline.map((r) => ({ airline: r.airline, on_time: Number(r.on_time) })).sort((a, b) => a.on_time - b.on_time);
+    return [{ stat: 'lowest', ...rows[0] }, { stat: 'highest', ...rows[rows.length - 1] }];
+  },
+});
+
+window.fsKit = (() => {
+  const pct0 = d3.format('.0%'), pct1 = d3.format('.1%'), int = d3.format(',');
+  const UNITS = [['year', 31557600], ['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]];
+  const SHORT = { year: 'y', day: 'd', hour: 'h', minute: 'min', second: 's' };
+  const round = (v) => (v < 10 ? Math.round(v * 10) / 10 : Math.round(v));
+  const dur = (s) => {
+    s = Number(s);
+    if (!(s > 0)) return '—';
+    for (const [u, size] of UNITS) if (s >= size) { const v = round(s / size); return `${v} ${u}${v === 1 ? '' : 's'}`; }
+    return '0 seconds';
+  };
+  const durShort = (s) => {
+    for (const [u, size] of UNITS) if (s >= size) return `${round(s / size)}${SHORT[u]}`;
+    return '0';
+  };
+  const FMT = {
+    pct0, pct1, int: (v) => int(v), dur,
+    x: (v) => (v < 10 ? d3.format('.1f')(v) : d3.format('.0f')(v)),
+    num2: d3.format('.2f'), num3: d3.format('.3f'), num4: d3.format('.4f'),
+    text: (v) => String(v),
+  };
+  const colors = () => dash.colors;
+  const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : null; };
+  const findRow = (rows, el) => {
+    if (el.dataset.row) return rows[Number(el.dataset.row)];
+    const w = el.dataset.where;
+    if (!w) return rows[0];
+    const conds = w.split('&').map((p) => p.split('=').map(decodeURIComponent));
+    return rows.find((r) => conds.every(([k, v]) => String(r[k]) === v));
+  };
+  const fillValues = () => {
+    document.querySelectorAll('#dash-root .fs-v').forEach((el) => {
+      const d = dash.data(el.dataset.source);
+      if (d.status !== 'ok') { el.textContent = '—'; el.classList.toggle('dash-skeleton', d.status === 'loading'); return; }
+      el.classList.remove('dash-skeleton');
+      let v;
+      if (el.dataset.field) { const r = findRow(Array.isArray(d.data) ? d.data : [], el); v = r ? r[el.dataset.field] : null; }
+      else v = d.data;
+      const n = Number(v);
+      el.textContent = v === null || v === undefined || v === '' ? '—' : FMT[el.dataset.fmt || 'text'](Number.isNaN(n) ? v : n);
+    });
+  };
+  // Box state for a chart whose sources aren't ready: empty while loading, a line when failed.
+  const boxState = (box, ids) => {
+    const states = ids.map((id) => dash.data(id).status);
+    if (states.every((s) => s === 'ok')) { box.classList.remove('dash-skeleton'); return true; }
+    box.replaceChildren();
+    if (states.some((s) => s === 'error' || s === 'connect' || s === 'declined' || s === 'missing')) {
+      box.classList.remove('dash-skeleton');
+      const f = document.createElement('div'); f.className = 'fs-failed'; f.textContent = 'Failed to load'; box.appendChild(f);
+    } else box.classList.add('dash-skeleton');
+    return false;
+  };
+  const measure = (svg, text, cls) => { const t = svg.append('text').attr('class', cls).text(text); const w = t.node().getComputedTextLength(); t.remove(); return w; };
+  // Keep tick labels from meeting: drop any that would overlap the last one kept.
+  const thin = (svg, ticks, x, label) => {
+    const kept = []; let lastRight = -Infinity;
+    for (const t of ticks) {
+      const w = measure(svg, label(t), 'fs-tick'), left = x(t) - w / 2;
+      if (left > lastRight + 8) { kept.push(t); lastRight = left + w; }
+    }
+    return kept;
+  };
+  const tip = (box) => {
+    let el = box.querySelector('.fs-tip');
+    if (!el) { el = document.createElement('div'); el.className = 'fs-tip'; el.hidden = true; box.appendChild(el); }
+    return {
+      show(x, y, header, lines) {
+        el.replaceChildren();
+        const h = document.createElement('div'); h.className = 'fs-tip-h'; h.textContent = header; el.appendChild(h);
+        for (const l of lines) {
+          const row = document.createElement('div'); row.className = 'fs-tip-row';
+          if (l.color) { const sw = document.createElement('span'); sw.className = 'fs-sw'; sw.style.background = l.color; row.appendChild(sw); }
+          const name = document.createElement('span'); name.textContent = l.name;
+          const val = document.createElement('b'); val.textContent = l.value;
+          row.append(name, val); el.appendChild(row);
+        }
+        el.hidden = false;
+        const bw = box.clientWidth, tw = el.offsetWidth, th = el.offsetHeight;
+        let left = x + 14; if (left + tw > bw) left = Math.max(0, x - tw - 14);
+        el.style.left = `${left}px`;
+        el.style.top = `${Math.max(0, Math.min(y - th / 2, box.clientHeight - th))}px`;
+      },
+      hide() { el.hidden = true; },
+    };
+  };
+  const legend = (box, items) => {
+    const lg = document.createElement('div'); lg.className = 'fs-legend';
+    for (const it of items) {
+      const s = document.createElement('span');
+      const k = document.createElement('i'); k.className = `fs-key-${it.kind}`;
+      if (it.kind === 'dot') k.style.background = it.color; else k.style.borderColor = it.color;
+      s.append(k, document.createTextNode(it.label)); lg.appendChild(s);
+    }
+    box.appendChild(lg);
+    return lg;
+  };
+  return { pct0, pct1, int, dur, durShort, FMT, colors, rowsOf, fillValues, boxState, measure, thin, tip, legend };
+})();
+</script>
+
+<script>
+// Guessed vs measured half-life: one row per fact, log time axis.
+window.fsGuessChart = (box) => {
+  const K = window.fsKit;
+  if (!K.boxState(box, ['findings', 'guess_error'])) return;
+  const findings = K.rowsOf('findings'), errors = K.rowsOf('guess_error');
+  const errorOf = new Map(errors.map((e) => [e.fact, e]));
+  box.replaceChildren();
+  const accent = K.colors()[0], muted = 'var(--cds-chart-muted)';
+  K.legend(box, [
+    { kind: 'ring', color: muted, label: 'Hand-picked guess' },
+    { kind: 'dot', color: accent, label: 'Measured' },
+  ]);
+  const W = box.clientWidth || 640, narrow = W < 560;
+  const rowH = narrow ? 52 : 40, mt = 8, mb = 30;
+  const H = mt + findings.length * rowH + mb;
+  const svg = d3.select(box).append('svg').attr('class', 'fs-svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const note = (r) => {
+    const e = errorOf.get(r.fact);
+    if (e) return `${K.FMT.x(e.factor)}× ${e.direction}`;
+    return `not reached in ${K.dur(r.window_s)}`;
+  };
+  const ml = narrow ? 8 : Math.ceil(d3.max(findings, (r) => K.measure(svg, r.fact, 'fs-label'))) + 16;
+  const mr = narrow ? 12 : Math.ceil(d3.max(findings, (r) => K.measure(svg, note(r), 'fs-value'))) + 16;
+  const x = d3.scaleLog().domain([30, 20 * 31557600]).range([ml, W - mr]);
+  const ticks = [60, 600, 3600, 21600, 86400, 604800, 2629800, 31557600, 315576000];
+  const labels = { 60: '1 min', 600: '10 min', 3600: '1 h', 21600: '6 h', 86400: '1 day', 604800: '1 week', 2629800: '1 month', 31557600: '1 year', 315576000: '10 years' };
+  const kept = K.thin(svg, ticks, x, (t) => labels[t]);
+  svg.append('g').selectAll('line').data(kept).join('line').attr('class', 'fs-grid-line')
+    .attr('x1', x).attr('x2', x).attr('y1', mt).attr('y2', H - mb);
+  svg.append('g').selectAll('text').data(kept).join('text').attr('class', 'fs-tick')
+    .attr('x', x).attr('y', H - mb + 18).attr('text-anchor', 'middle').text((t) => labels[t]);
+  const rowY = (i) => mt + i * rowH + (narrow ? rowH - 16 : rowH / 2);
+  const g = svg.append('g').selectAll('g').data(findings).join('g');
+  g.append('text').attr('class', 'fs-label')
+    .attr('x', narrow ? ml : ml - 12).attr('y', (r, i) => (narrow ? rowY(i) - 16 : rowY(i)))
+    .attr('dy', '0.32em').attr('text-anchor', narrow ? 'start' : 'end').text((r) => r.fact);
+  g.append('text').attr('class', 'fs-value')
+    .attr('x', narrow ? W - mr : W - mr + 12).attr('y', (r, i) => (narrow ? rowY(i) - 16 : rowY(i)))
+    .attr('dy', '0.32em').attr('text-anchor', narrow ? 'end' : 'start').text(note);
+  const end = (r) => (Number(r.measured_s) > 0 ? Number(r.measured_s) : Number(r.window_s));
+  g.append('line').attr('stroke', muted).attr('stroke-width', 2).attr('stroke-linecap', 'round')
+    .attr('x1', (r) => x(Number(r.guess_s))).attr('x2', (r) => x(end(r)))
+    .attr('y1', (r, i) => rowY(i)).attr('y2', (r, i) => rowY(i));
+  g.append('circle').attr('r', 5).attr('fill', 'var(--color-panel)').attr('stroke', muted).attr('stroke-width', 2)
+    .attr('cx', (r) => x(Number(r.guess_s))).attr('cy', (r, i) => rowY(i));
+  g.filter((r) => Number(r.measured_s) > 0).append('circle').attr('r', 5.5).attr('fill', accent)
+    .attr('stroke', 'var(--color-panel)').attr('stroke-width', 2)
+    .attr('cx', (r) => x(Number(r.measured_s))).attr('cy', (r) => rowY(findings.indexOf(r)));
+  // Not reached within the observed window: an arrow at the window's end
+  g.filter((r) => !(Number(r.measured_s) > 0)).append('path').attr('fill', accent)
+    .attr('d', (r) => { const cx = x(Number(r.window_s)), cy = rowY(findings.indexOf(r)); return `M${cx - 5},${cy - 6} L${cx + 6},${cy} L${cx - 5},${cy + 6} Z`; });
+  const t = K.tip(box);
+  g.append('rect').attr('x', 0).attr('width', W).attr('y', (r, i) => mt + i * rowH).attr('height', rowH).attr('fill', 'transparent')
+    .on('pointermove', (ev, r) => {
+      const [px, py] = d3.pointer(ev, box);
+      const measured = Number(r.measured_s) > 0 ? K.dur(r.measured_s) : `not reached in ${K.dur(r.window_s)}`;
+      t.show(px, py, r.fact, [
+        { name: `Guess (${r.guess.split(':')[0]})`, value: K.dur(r.guess_s), color: muted },
+        { name: 'Measured', value: measured, color: accent },
+        { name: 'Observations', value: K.int(r.observations) },
+      ]);
+    })
+    .on('pointerleave', () => t.hide());
+};
+
+// Decay curve: measured points, a decay-to-zero fit, a decay-to-baseline fit.
+window.fsDecayChart = (box, cfg) => {
+  const K = window.fsKit;
+  const ids = cfg.withFindings ? ['curves', 'findings'] : ['curves'];
+  if (!K.boxState(box, ids)) return;
+  const rows = K.rowsOf('curves').filter((r) => r.series === cfg.series || (cfg.extra && cfg.extra.some((e) => e.series === r.series)));
+  const finding = cfg.withFindings ? K.rowsOf('findings').find((f) => f.id === cfg.series) : null;
+  box.replaceChildren();
+  const series = cfg.lines(K.colors());
+  if (!cfg.noLegend) K.legend(box, series.map((s) => ({ kind: s.style === 'dots' ? 'dot' : s.style === 'dash' ? 'dash' : 'line', color: s.color, label: s.name })));
+  const W = box.clientWidth || 600, H = cfg.height || 220;
+  const svg = d3.select(box).append('svg').attr('class', 'fs-svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+  const ml = Math.ceil(d3.max(yTicks, (v) => K.measure(svg, K.pct0(v), 'fs-tick'))) + 10;
+  const endLabels = series.filter((s) => s.endLabel);
+  const mr = endLabels.length ? Math.ceil(d3.max(endLabels, (s) => K.measure(svg, s.endLabel, 'fs-label'))) + 14 : 12;
+  const mt = 10, mb = 30;
+  const xs = (cfg.xType === 'sqrt' ? d3.scaleSqrt() : d3.scaleLinear()).domain([0, cfg.xMax]).range([ml, W - mr]);
+  const xOf = (r) => xs(Number(r.lag_s) / cfg.unit);
+  const y = d3.scaleLinear().domain([0, 1]).range([H - mb, mt]);
+  svg.append('g').selectAll('line').data(yTicks).join('line').attr('class', 'fs-grid-line')
+    .attr('x1', ml).attr('x2', W - mr).attr('y1', y).attr('y2', y);
+  svg.append('g').selectAll('text').data(yTicks).join('text').attr('class', 'fs-tick')
+    .attr('x', ml - 8).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text(K.pct0);
+  svg.append('line').attr('class', 'fs-axis').attr('x1', ml).attr('x2', W - mr).attr('y1', H - mb).attr('y2', H - mb);
+  const xt = K.thin(svg, cfg.xTicks, xs, cfg.xTickLabel);
+  svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'fs-tick')
+    .attr('x', xs).attr('y', H - mb + 18).attr('text-anchor', 'middle').text(cfg.xTickLabel);
+  for (const ref of cfg.xRefs || []) {
+    svg.append('line').attr('class', 'fs-ref').attr('x1', xs(ref)).attr('x2', xs(ref)).attr('y1', mt).attr('y2', H - mb);
+  }
+  if (finding && Number(finding.baseline) > 0) {
+    const b = Number(finding.baseline);
+    svg.append('line').attr('class', 'fs-ref').attr('x1', ml).attr('x2', W - mr).attr('y1', y(b)).attr('y2', y(b));
+    svg.append('text').attr('class', 'fs-muted-text').attr('x', W - mr).attr('y', y(b) - 6).attr('text-anchor', 'end')
+      .text(`baseline ${K.FMT.num2(b)}`);
+  }
+  for (const s of series) {
+    const data = rows.filter((r) => r.series === (s.series || cfg.series)).sort((a, b) => a.lag_s - b.lag_s);
+    if (s.style === 'dots') {
+      svg.append('g').selectAll('circle').data(data).join('circle').attr('r', 4).attr('fill', s.color)
+        .attr('stroke', 'var(--color-panel)').attr('stroke-width', 1.5)
+        .attr('cx', xOf).attr('cy', (r) => y(Number(r[s.field])));
+    } else {
+      svg.append('path').datum(data).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2)
+        .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round').attr('stroke-dasharray', s.style === 'dash' ? '5 4' : null)
+        .attr('d', d3.line().x(xOf).y((r) => y(Number(r[s.field]))));
+    }
+    if (s.endLabel && data.length) {
+      const last = data[data.length - 1];
+      svg.append('text').attr('class', 'fs-label').attr('x', xOf(last) + 8).attr('y', y(Number(last[s.field]))).attr('dy', '0.32em').text(s.endLabel);
+    }
+  }
+  // Hover: nearest measured lag, every series at that lag
+  const lags = [...new Set(rows.map((r) => Number(r.lag_s)))].sort((a, b) => a - b);
+  const focus = svg.append('line').attr('class', 'fs-focus').attr('y1', mt).attr('y2', H - mb).attr('visibility', 'hidden');
+  const t = K.tip(box);
+  svg.append('rect').attr('x', ml).attr('y', mt).attr('width', Math.max(0, W - mr - ml)).attr('height', H - mt - mb).attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const [px] = d3.pointer(ev);
+      const lag = d3.least(lags, (l) => Math.abs(xs(l / cfg.unit) - px));
+      const at = rows.filter((r) => Number(r.lag_s) === lag);
+      const fx = xs(lag / cfg.unit);
+      focus.attr('x1', fx).attr('x2', fx).attr('visibility', 'visible');
+      const lines = series.map((s) => {
+        const r = at.find((a) => a.series === (s.series || cfg.series));
+        return r ? { name: s.name, value: K.pct1(Number(r[s.field])), color: s.color } : null;
+      }).filter(Boolean);
+      const n = at.find((a) => a.series === cfg.series);
+      if (n) lines.push({ name: 'Observations', value: K.int(n.n) });
+      const [bx, by] = d3.pointer(ev, box);
+      t.show(bx, by, `${cfg.ageLabel(lag)} old`, lines);
+    })
+    .on('pointerleave', () => { focus.attr('visibility', 'hidden'); t.hide(); });
+};
+
+// Horizontal bars of an on-time rate.
+window.fsBars = (box, cfg) => {
+  const K = window.fsKit;
+  if (!K.boxState(box, cfg.ids)) return;
+  const rows = cfg.rows();
+  box.replaceChildren();
+  const W = box.clientWidth || 400, barH = cfg.barH || 22, gap = 8, mt = 4, mb = cfg.axis ? 26 : 4;
+  const H = mt + rows.length * (barH + gap) - gap + mb;
+  const svg = d3.select(box).append('svg').attr('class', 'fs-svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const ml = Math.ceil(d3.max(rows, (r) => K.measure(svg, cfg.label(r), 'fs-label'))) + 12;
+  const mr = Math.ceil(K.measure(svg, '100.0%', 'fs-value')) + 10;
+  const x = d3.scaleLinear().domain([0, 1]).range([ml, W - mr]);
+  if (cfg.axis) {
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'fs-grid-line')
+      .attr('x1', x).attr('x2', x).attr('y1', mt).attr('y2', H - mb);
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('class', 'fs-tick')
+      .attr('x', x).attr('y', H - mb + 18).attr('text-anchor', 'middle').text(K.pct0);
+  }
+  const g = svg.append('g').selectAll('g').data(rows).join('g')
+    .attr('transform', (r, i) => `translate(0,${mt + i * (barH + gap)})`);
+  g.append('text').attr('class', 'fs-label').attr('x', ml - 10).attr('y', barH / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text(cfg.label);
+  g.append('rect').attr('x', ml).attr('height', barH).attr('rx', 4).attr('fill', cfg.color)
+    .attr('width', (r) => Math.max(0, x(Number(r.on_time)) - ml));
+  g.append('text').attr('class', 'fs-value').attr('x', (r) => x(Number(r.on_time)) + 6).attr('y', barH / 2).attr('dy', '0.32em')
+    .text((r) => K.pct1(Number(r.on_time)));
+  const t = K.tip(box);
+  g.append('rect').attr('x', 0).attr('width', W).attr('y', -gap / 2).attr('height', barH + gap).attr('fill', 'transparent')
+    .on('pointermove', (ev, r) => { const [bx, by] = d3.pointer(ev, box); t.show(bx, by, cfg.label(r), [{ name: 'On time', value: K.pct1(Number(r.on_time)), color: cfg.color(r) }, { name: 'Flights', value: K.int(r.n) }]); })
+    .on('pointerleave', () => t.hide());
+};
+
+// On-time rate across ordered categories (departure hour, month).
+window.fsRateLine = (box, cfg) => {
+  const K = window.fsKit;
+  if (!K.boxState(box, [cfg.id])) return;
+  const key = cfg.key;
+  const rows = K.rowsOf(cfg.id).slice().sort((a, b) => String(a[key]).localeCompare(String(b[key])));
+  box.replaceChildren();
+  const W = box.clientWidth || 400, H = 220, mt = 10, mb = 30;
+  const svg = d3.select(box).append('svg').attr('class', 'fs-svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const [lo, hi] = d3.extent(rows, (r) => Number(r.on_time));
+  const y = d3.scaleLinear().domain([lo - 0.03, hi + 0.03]).nice().range([H - mb, mt]);
+  const yTicks = y.ticks(4);
+  const ml = Math.ceil(d3.max(yTicks, (v) => K.measure(svg, K.pct0(v), 'fs-tick'))) + 10, mr = 12;
+  const x = d3.scalePoint().domain(rows.map((r) => r[key])).range([ml + 6, W - mr - 6]);
+  svg.append('g').selectAll('line').data(yTicks).join('line').attr('class', 'fs-grid-line').attr('x1', ml).attr('x2', W - mr).attr('y1', y).attr('y2', y);
+  svg.append('g').selectAll('text').data(yTicks).join('text').attr('class', 'fs-tick').attr('x', ml - 8).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text(K.pct0);
+  svg.append('line').attr('class', 'fs-axis').attr('x1', ml).attr('x2', W - mr).attr('y1', H - mb).attr('y2', H - mb);
+  const label = cfg.tickLabel;
+  const xt = K.thin(svg, rows.map((r) => r[key]), x, label);
+  svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'fs-tick').attr('x', x).attr('y', H - mb + 18).attr('text-anchor', 'middle').text(label);
+  const accent = K.colors()[0];
+  svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', accent).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+    .attr('d', d3.line().x((r) => x(r[key])).y((r) => y(Number(r.on_time))));
+  const dot = svg.append('circle').attr('r', 4.5).attr('fill', accent).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).attr('visibility', 'hidden');
+  const t = K.tip(box);
+  svg.append('rect').attr('x', ml).attr('y', mt).attr('width', Math.max(0, W - mr - ml)).attr('height', H - mt - mb).attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const [px] = d3.pointer(ev);
+      const r = d3.least(rows, (d) => Math.abs(x(d[key]) - px));
+      dot.attr('cx', x(r[key])).attr('cy', y(Number(r.on_time))).attr('visibility', 'visible');
+      const [bx, by] = d3.pointer(ev, box);
+      t.show(bx, by, cfg.tipHeader(r), [{ name: 'On time', value: K.pct1(Number(r.on_time)) }, { name: 'Flights', value: K.int(r.n) }]);
+    })
+    .on('pointerleave', () => { dot.attr('visibility', 'hidden'); t.hide(); });
+};
+</script>
+
+<script>
+(() => {
+  const K = window.fsKit;
+  const HOUR = 3600, YEAR = 31557600, MIN = 60;
+  const ageH = (s) => `${Math.round(s / HOUR)} h`;
+
+  const fillTable = () => {
+    const table = document.getElementById('findings-table');
+    const body = table.querySelector('tbody');
+    const rows = K.rowsOf('findings');
+    body.replaceChildren();
+    if (!rows) return;
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      const briers = ['brier_guess', 'brier_zero', 'brier_baseline', 'brier_constant'].map((k) => Number(r[k]));
+      const best = Math.min(...briers);
+      const cells = [
+        [r.fact], [r.source, 'fs-dim'], [K.int(r.observations), 'fs-n'], [r.guess, 'fs-dim'],
+        [Number(r.measured_s) > 0 ? K.dur(r.measured_s) : `not reached in ${K.dur(r.window_s)}`],
+        [K.FMT.num2(Number(r.baseline)), 'fs-n'],
+        ...briers.map((b) => [K.FMT.num4(b), b === best ? 'fs-n fs-best' : 'fs-n']),
+      ];
+      for (const [text, cls] of cells) { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); }
+      body.appendChild(tr);
+    }
+  };
+
+  const draw = () => {
+    K.fillValues();
+    fillTable();
+    window.fsGuessChart(document.getElementById('guess-chart'));
+
+    const fitLines = (c) => [
+      { name: 'Measured', field: 'still_correct', style: 'dots', color: c[0] },
+      { name: 'Decay to 0', field: 'model_zero', style: 'dash', color: 'var(--cds-chart-muted)' },
+      { name: 'Decay to baseline', field: 'model_baseline', style: 'line', color: c[0] },
+    ];
+    const hourTicks = [0, 12, 24, 36, 48, 60, 72];
+    window.fsDecayChart(document.getElementById('chart-flight-category'), {
+      series: 'flight_category', withFindings: true, lines: fitLines, unit: HOUR, xMax: 72,
+      xTicks: hourTicks, xTickLabel: (v) => `${v}h`, ageLabel: ageH,
+    });
+    window.fsDecayChart(document.getElementById('chart-ifr'), {
+      series: 'ifr', withFindings: true, lines: fitLines, unit: HOUR, xMax: 72,
+      xTicks: hourTicks, xTickLabel: (v) => `${v}h`, ageLabel: ageH,
+    });
+    window.fsDecayChart(document.getElementById('chart-ceo'), {
+      series: 'ceo', withFindings: true, lines: fitLines, unit: YEAR, xMax: 10,
+      xTicks: [0, 2, 4, 6, 8, 10], xTickLabel: (v) => `${v}y`, ageLabel: (s) => K.dur(s) === '—' ? '0 years' : K.dur(s),
+    });
+    window.fsDecayChart(document.getElementById('chart-ships'), {
+      series: 'ship_underway', extra: [{ series: 'ship_moored' }], unit: MIN, xMax: 720, xType: 'sqrt', height: 260,
+      lines: (c) => [
+        { name: 'Moored or at anchor', series: 'ship_moored', field: 'still_correct', style: 'line', color: c[1], endLabel: 'Moored' },
+        { name: 'Underway', series: 'ship_underway', field: 'still_correct', style: 'line', color: c[0], endLabel: 'Underway' },
+      ],
+      xTicks: [0, 5, 15, 30, 60, 120, 240, 480, 720],
+      xTickLabel: (v) => (v < 60 ? `${v} min` : `${v / 60} h`),
+      ageLabel: (s) => (s === 0 ? '0 min' : s < HOUR ? `${s / MIN} min` : `${s / HOUR} h`),
+    });
+    window.fsDecayChart(document.getElementById('chart-temperature'), {
+      series: 'temperature', unit: HOUR, xMax: 72, xRefs: [24, 48], noLegend: true,
+      lines: (c) => [{ name: 'Still within ±2 °F', field: 'still_correct', style: 'line', color: c[0] }, { name: 'Measured', field: 'still_correct', style: 'dots', color: c[0] }],
+      xTicks: hourTicks, xTickLabel: (v) => `${v}h`, ageLabel: ageH,
+    });
+
+    const accent = K.colors()[0], muted = 'var(--cds-chart-muted)';
+    window.fsBars(document.getElementById('chart-legs'), {
+      ids: ['flights_legs'], rows: () => K.rowsOf('flights_legs'), label: (r) => r.condition,
+      color: (r) => (r.condition.startsWith('Any') ? muted : accent), barH: 24,
+    });
+    window.fsRateLine(document.getElementById('chart-hour'), {
+      id: 'flights_hour', key: 'hour', tickLabel: (h) => String(h).slice(0, 2), tipHeader: (r) => `Departing ${r.hour}`,
+    });
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthName = (m) => MONTHS[Number(String(m).slice(5, 7)) - 1] || String(m);
+    window.fsRateLine(document.getElementById('chart-month'), {
+      id: 'flights_month', key: 'month', tickLabel: monthName, tipHeader: (r) => `${monthName(r.month)} ${String(r.month).slice(0, 4)}`,
+    });
+    window.fsBars(document.getElementById('chart-airline'), {
+      ids: ['flights_airline', 'airline_range'], axis: true, barH: 14,
+      rows: () => K.rowsOf('flights_airline').slice().sort((a, b) => Number(b.on_time) - Number(a.on_time)),
+      label: (r) => r.airline,
+      color: (r) => { const ends = (K.rowsOf('airline_range') || []).map((e) => e.airline); return ends.includes(r.airline) ? accent : muted; },
+    });
+  };
+
+  dash.onData(draw);
+})();
+</script>

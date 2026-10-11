@@ -1,0 +1,62 @@
+name: Results site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "calibration/**"
+      - "site/**"
+      - ".github/workflows/site.yml"
+  schedule:
+    - cron: "17 6 * * 1" # weekly, Monday 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Cheap experiments rerun on fresh data every build: Wikidata as edited
+      # today, airport weather over the last 365 days. If a public source is
+      # down, the committed results are used instead.
+      - name: Refresh CEO and weather results
+        continue-on-error: true
+        working-directory: calibration
+        env:
+          FID_WEATHER_TRAILING_DAYS: "365"
+        run: |
+          python3 wikidata_ceo.py > /dev/null
+          python3 weather_metar.py > /dev/null
+
+      - name: Build site
+        run: python3 site/build.py
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

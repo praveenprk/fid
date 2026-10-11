@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Fast Facts Go Stale</title>
+<meta name="description" content="fid's decay model tested against public ground truth — Wikidata CEOs, airport weather, US flights and cargo-ship AIS — with live airport reports going stale in real time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap">
+<style>
+/* Layout: one reading column, a live board up top, the analysis below. Instrument-panel blues on paper. */
+:root {
+  --bg: #f7f8f7; --panel: #ffffff; --fg: #17201f; --fg-muted: #5b6765; --line: #dfe4e2;
+  --grid: #e9edeb; --axis: #b9c2bf; --ref: #8f9a97; --muted-series: #a9b3b0;
+  --series-1: #0b6fb0; --series-2: #c2700f;
+  --ok: #1d7a46; --bad: #b42318; --ok-bg: #e3f2e9; --bad-bg: #fbe7e5;
+  --popover: #ffffff; --shadow: 0 6px 20px rgb(20 32 30 / 0.12);
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+
+  /* Tokens page.html expects from its host */
+  --color-bg: var(--bg); --color-panel: var(--panel); --color-fg: var(--fg); --color-fg-muted: var(--fg-muted);
+  --color-border-line: var(--line); --color-ok: var(--ok); --color-warn: #a15c00; --color-bad: var(--bad);
+  --cds-chart-grid: var(--grid); --cds-chart-axis: var(--axis); --cds-chart-reference: var(--ref); --cds-chart-muted: var(--muted-series);
+  --cds-surface-popover: var(--popover); --cds-border: var(--line); --cds-shadow-popover: var(--shadow); --cds-text-secondary: var(--fg-muted);
+  --cds-radius: 8px; --cds-pad-xs: 0.375rem; --cds-pad-sm: 0.625rem; --cds-pad-lg: 1.25rem;
+  --cds-gap-xs: 0.375rem; --cds-gap-sm: 0.625rem; --cds-gap-md: 1rem; --cds-gap-xl: 2.75rem;
+  --cds-font-size-caption: 0.8125rem; --cds-font-size-body: 1rem; --cds-font-size-heading: 1.25rem; --cds-font-size-title: clamp(2rem, 5vw, 3rem);
+  --cds-font-weight-medium: 500; --cds-dur-slow: 400ms;
+  --font-anthropic-sans: var(--sans); --font-anthropic-serif: var(--serif);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111615; --panel: #182020; --fg: #e8eeec; --fg-muted: #9aa8a5; --line: #2b3533;
+    --grid: #222b29; --axis: #3d4946; --ref: #6d7b78; --muted-series: #5d6a67;
+    --series-1: #3d9be0; --series-2: #c97a12;
+    --ok: #5cc98a; --bad: #f2867c; --ok-bg: #173325; --bad-bg: #3a1c1a;
+    --popover: #1f2828; --shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111615; --panel: #182020; --fg: #e8eeec; --fg-muted: #9aa8a5; --line: #2b3533;
+  --grid: #222b29; --axis: #3d4946; --ref: #6d7b78; --muted-series: #5d6a67;
+  --series-1: #3d9be0; --series-2: #c97a12;
+  --ok: #5cc98a; --bad: #f2867c; --ok-bg: #173325; --bad-bg: #3a1c1a;
+  --popover: #1f2828; --shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 1rem/1.5 var(--sans); padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); }
+a { color: var(--series-1); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.top { border-bottom: 1px solid var(--line); background: var(--panel); }
+.top-in, #dash-root { max-width: 68rem; margin-inline: auto; padding-inline: max(16px, 3vw); }
+.top-in { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 1rem; padding-block: 0.75rem; }
+.brand { font-family: var(--mono); font-weight: 500; font-size: 1.05rem; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; }
+.brand-sub { color: var(--fg-muted); font-size: var(--cds-font-size-caption); }
+.top-links { margin-left: auto; display: flex; gap: 1rem; font-size: var(--cds-font-size-caption); }
+#dash-root { padding-block: 2rem 3rem; }
+.dash-skeleton { color: transparent !important; background: var(--grid); border-radius: 4px; }
+.fs-chart.dash-skeleton { background: var(--grid); }
+
+/* Live board */
+.lv { display: grid; gap: var(--cds-gap-md); }
+.lv-head { display: grid; gap: var(--cds-gap-xs); max-width: 46rem; }
+.lv-title { margin: 0; font-size: var(--cds-font-size-heading); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; }
+.lv-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--bad); flex: none; }
+@media (prefers-reduced-motion: no-preference) { .lv-dot { animation: lv-pulse 2s ease-in-out infinite; } }
+@keyframes lv-pulse { 50% { opacity: 0.25; } }
+.lv-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--fg-muted); line-height: 1.5; }
+.lv-grid { display: grid; gap: var(--cds-gap-sm); grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr)); }
+.lv-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--cds-radius); padding: 0.875rem 1rem; display: grid; gap: 0.5rem; align-content: start; }
+.lv-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.lv-code { font-family: var(--mono); font-weight: 500; }
+.lv-city { color: var(--fg-muted); font-size: var(--cds-font-size-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-cat { font-family: var(--mono); font-size: 0.75rem; padding: 0.05rem 0.4rem; border-radius: 4px; border: 1px solid var(--line); color: var(--fg-muted); }
+.lv-fid { font-family: var(--serif); font-size: 2.25rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.lv-state { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; padding: 0.1rem 0.45rem; border-radius: 4px; }
+.lv-state.signal { color: var(--ok); background: var(--ok-bg); }
+.lv-state.noise { color: var(--bad); background: var(--bad-bg); }
+.lv-meter { position: relative; height: 6px; border-radius: 3px; background: var(--grid); overflow: visible; }
+.lv-meter i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--series-1); }
+.lv-meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); }
+.lv-meta { font-size: var(--cds-font-size-caption); color: var(--fg-muted); font-variant-numeric: tabular-nums; display: grid; gap: 0.1rem; }
+.lv-meta span { font-family: var(--mono); color: var(--fg); }
+.lv-raw { font-family: var(--mono); font-size: 0.6875rem; color: var(--fg-muted); overflow-wrap: anywhere; line-height: 1.4; }
+.built { font-size: var(--cds-font-size-caption); color: var(--fg-muted); margin: 0; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+// The `dash` API page.html is written against, backed by static JSON files.
+window.dash = (() => {
+  const FILES = ['findings', 'curves', 'flights_hour', 'flights_airline', 'flights_month', 'flights_legs'];
+  const store = Object.fromEntries(FILES.map((id) => [id, { status: 'loading', data: [] }]));
+  const calcs = {}, cache = {}, listeners = [];
+  let pending = false;
+  const notify = () => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      for (const fn of listeners) { try { fn(); } catch (e) { console.error(e); } }
+    });
+  };
+  const data = (id) => {
+    if (store[id]) return { status: store[id].status, data: store[id].data, message: store[id].message || '', refreshing: false, meta: [] };
+    const c = calcs[id];
+    if (!c) return { status: 'missing', data: [], meta: [] };
+    const inputs = c.inputs.map(data);
+    const notOk = inputs.find((d) => d.status !== 'ok');
+    if (notOk) return { status: notOk.status === 'loading' ? 'loading' : 'error', data: [], meta: [] };
+    const key = inputs.map((d) => d.data);
+    if (!cache[id] || cache[id].key.some((k, i) => k !== key[i])) {
+      try { cache[id] = { key, value: c.fn(...key) }; } catch (e) { return { status: 'error', data: [], message: String(e), meta: [] }; }
+    }
+    return { status: 'ok', data: cache[id].value, meta: [] };
+  };
+  for (const id of FILES) {
+    fetch(`data/${id}.json`, { cache: 'no-cache' })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((rows) => { store[id] = { status: 'ok', data: rows }; notify(); })
+      .catch((e) => { store[id] = { status: 'error', data: [], message: String(e) }; notify(); });
+  }
+  let width = window.innerWidth;
+  window.addEventListener('resize', () => { if (window.innerWidth !== width) { width = window.innerWidth; notify(); } });
+  return {
+    data,
+    onData: (fn) => { listeners.push(fn); fn(); },
+    calc: (id, spec) => { calcs[id] = spec; },
+    loader: () => {},
+    colors: ['var(--series-1)', 'var(--series-2)'],
+    refresh: () => {}, params: () => ({}), setParams: () => {}, resetParams: () => {}, setLink: () => {},
+  };
+})();
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="https://github.com/praveenprk/fid">fid</a>
+    <span class="brand-sub">information fidelity measurement</span>
+    <nav class="top-links">
+      <a href="#live">Live</a>
+      <a href="#method">Method</a>
+      <a href="https://github.com/praveenprk/fid">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="dash-root">
+{{PAGE}}
+</main>
+
+<section class="lv" id="live" aria-live="off">
+  <div class="lv-head">
+    <h2 class="lv-title"><span class="lv-dot" aria-hidden="true"></span>Right now: airport reports going stale</h2>
+    <p class="lv-note">The latest routine weather report (METAR) from each airport, scored by fid as it ages, using the half-lives and baselines measured below and a calibrated instrument as the source (0.97). Scores fall every second until the next report lands, usually once an hour. The floor is 0.75, fid's example threshold for safety decisions.</p>
+    <p class="lv-note" id="lv-status">Loading reports from the Iowa Environmental Mesonet…</p>
+  </div>
+  <div class="lv-grid" id="lv-grid"></div>
+</section>
+
+<script>
+// Live board: latest METAR per airport, fid score recomputed every second.
+(() => {
+  const STATIONS = [
+    ['JFK', 'NY_ASOS', 'New York JFK'], ['ORD', 'IL_ASOS', "Chicago O'Hare"], ['ATL', 'GA_ASOS', 'Atlanta'],
+    ['DFW', 'TX_ASOS', 'Dallas–Fort Worth'], ['DEN', 'CO_ASOS', 'Denver'], ['LAX', 'CA_ASOS', 'Los Angeles'],
+    ['SFO', 'CA_ASOS', 'San Francisco'], ['SEA', 'WA_ASOS', 'Seattle–Tacoma'], ['MIA', 'FL_ASOS', 'Miami'], ['BOS', 'MA_ASOS', 'Boston Logan'],
+  ];
+  const SOURCE = 0.97;      // fid source class: instrument
+  const FLOOR = 0.75;       // examples/floor.yaml: safety
+  const REFETCH_MS = 5 * 60 * 1000;
+  const grid = document.getElementById('lv-grid');
+  const status = document.getElementById('lv-status');
+  // Live board sits right under the page's header.
+  const head = document.getElementById('top');
+  if (head) head.after(document.getElementById('live'));
+
+  const obs = {};
+  const cards = {};
+
+  const category = (ob) => {
+    const vis = Number(ob['visibility[mile]']);
+    if (!Number.isFinite(vis)) return null;
+    const covers = ob['skycover[code]'] || [], levels = ob['skylevel[ft]'] || [];
+    let ceiling = Infinity;
+    for (let i = 0; i < covers.length; i++) {
+      if (['BKN', 'OVC', 'VV'].includes(covers[i]) && levels[i] != null) { ceiling = Number(levels[i]); break; }
+    }
+    if (ceiling < 500 || vis < 1) return 'LIFR';
+    if (ceiling < 1000 || vis < 3) return 'IFR';
+    if (ceiling <= 3000 || vis <= 5) return 'MVFR';
+    return 'VFR';
+  };
+
+  // Measured decay parameters for a report's category, from the findings dataset.
+  const params = (cat) => {
+    const d = dash.data('findings');
+    if (d.status !== 'ok') return null;
+    const id = cat === 'IFR' || cat === 'LIFR' ? 'ifr' : 'flight_category';
+    const f = d.data.find((r) => r.id === id);
+    if (!f || !(Number(f.half_life_baseline_s) > 0)) return null;
+    return { id, halfLife: Number(f.half_life_baseline_s), baseline: Math.min(Number(f.baseline), SOURCE) };
+  };
+
+  const fidelity = (p, age) => p.baseline + (SOURCE - p.baseline) * Math.pow(0.5, Math.max(0, age) / p.halfLife);
+  const untilFloor = (p, age) => {
+    if (FLOOR <= p.baseline) return Infinity;
+    return p.halfLife * Math.log2((SOURCE - p.baseline) / (FLOOR - p.baseline)) - age;
+  };
+  const clock = (s) => {
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
+  };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  const buildCard = ([code, , city]) => {
+    const card = el('article', 'lv-card');
+    const r1 = el('div', 'lv-row'); const name = el('div');
+    name.append(el('span', 'lv-code', code), document.createTextNode(' '), el('span', 'lv-city', city));
+    const cat = el('span', 'lv-cat', '—'); r1.append(name, cat);
+    const r2 = el('div', 'lv-row'); const fidEl = el('span', 'lv-fid', '—'); const state = el('span', 'lv-state', ''); r2.append(fidEl, state);
+    const meter = el('div', 'lv-meter'); const bar = el('i'); const tick = el('b'); tick.style.left = `${FLOOR * 100}%`; meter.append(bar, tick);
+    meter.setAttribute('role', 'img');
+    const meta = el('div', 'lv-meta'); const age = el('div'); const until = el('div'); meta.append(age, until);
+    const raw = el('div', 'lv-raw', '');
+    card.append(r1, r2, meter, meta, raw);
+    grid.appendChild(card);
+    return { cat, fidEl, state, bar, meter, age, until, raw };
+  };
+  STATIONS.forEach((s) => { cards[s[0]] = buildCard(s); });
+
+  const setLabeled = (node, label, value) => { node.replaceChildren(document.createTextNode(label), el('span', null, value)); };
+
+  const tick = () => {
+    const now = Date.now() / 1000;
+    for (const [code] of STATIONS) {
+      const c = cards[code], o = obs[code];
+      if (!o) continue;
+      const age = now - o.t;
+      const p = params(o.cat);
+      c.cat.textContent = o.cat || '—';
+      setLabeled(c.age, 'Report age ', clock(age));
+      if (!p) { c.fidEl.textContent = '—'; continue; }
+      const f = fidelity(p, age);
+      c.fidEl.textContent = f.toFixed(3);
+      c.bar.style.width = `${f * 100}%`;
+      c.meter.setAttribute('aria-label', `fidelity ${f.toFixed(2)} against floor ${FLOOR}`);
+      const signal = f >= FLOOR;
+      c.state.textContent = signal ? 'SIGNAL' : 'NOISE';
+      c.state.className = `lv-state ${signal ? 'signal' : 'noise'}`;
+      const left = untilFloor(p, age);
+      if (!Number.isFinite(left)) setLabeled(c.until, 'Below floor ', 'never (baseline above it)');
+      else if (left > 0) setLabeled(c.until, 'Below floor in ', clock(left));
+      else setLabeled(c.until, 'Below floor for ', clock(-left));
+    }
+  };
+
+  const load = async () => {
+    const results = await Promise.allSettled(STATIONS.map(async ([code, network]) => {
+      const r = await fetch(`https://mesonet.agron.iastate.edu/json/current.py?station=${code}&network=${network}`, { cache: 'no-cache' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const ob = j.last_ob;
+      if (!ob || !ob.utc_valid) throw new Error('no report');
+      obs[code] = { t: Date.parse(ob.utc_valid) / 1000, cat: category(ob) };
+      cards[code].raw.textContent = ob.raw || '';
+    }));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    status.textContent = failed === STATIONS.length
+      ? 'Could not reach the Iowa Environmental Mesonet. Retrying every 5 minutes.'
+      : `Reports fetched at ${at}${failed ? `; ${failed} airport${failed > 1 ? 's' : ''} did not answer` : ''}. Refreshes every 5 minutes.`;
+    tick();
+  };
+
+  load();
+  setInterval(load, REFETCH_MS);
+  setInterval(tick, 1000);
+  dash.onData(tick);
+})();
+
+// When the data was built
+fetch('data/meta.json', { cache: 'no-cache' }).then((r) => r.json()).then((m) => {
+  const foot = document.getElementById('method');
+  if (!foot || !m.built_at) return;
+  const p = document.createElement('p');
+  p.className = 'built';
+  p.textContent = `Results built ${new Date(m.built_at).toUTCString()}. Weather and CEO results refresh weekly; live reports every 5 minutes.`;
+  foot.appendChild(p);
+}).catch(() => {});
+</script>
+</body>
+</html>
