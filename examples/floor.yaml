@@ -1,0 +1,17 @@
+# Noise floor thresholds — per-domain.
+#
+# Below the floor, a record's correspondence to reality is
+# no better than chance. Records below the floor are noise
+# wearing the structural shape of data.
+#
+# The floor is a policy decision. The measurement is not.
+
+medical:        0.70
+pharmaceutical: 0.70
+financial:      0.60
+legal:          0.65
+safety:         0.75
+engineering:    0.50
+operational:    0.40
+marketing:      0.30
+informational:  0.20

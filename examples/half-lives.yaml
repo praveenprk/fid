@@ -1,0 +1,30 @@
+# Half-life registry — maps information types to their decay rates.
+#
+# The half-life is the time after which the probability of
+# correspondence to reality drops to 50%. This is a physical
+# property of the information type, not a policy choice.
+#
+# Organizations declare their own half-lives based on their
+# domain reality. This file is the equivalent of a calibration
+# certificate — it records the assumption under which fidelity
+# is computed.
+
+stock_price:        30s
+forex_rate:          1m
+weather_forecast:    6h
+news_headline:       3d
+product_inventory:  12h
+shipping_status:     4h
+social_media_post:   7d
+mailing_address:     3y
+legal_name:         20y
+phone_number:        2y
+email_address:      18m
+employee_role:       1y
+company_revenue:    90d
+medical_diagnosis:  domain_specific
+drug_interaction:   domain_specific
+sensor_reading:     domain_specific
+llm_inference:       7d
+mathematical:       infinite
+physical_constant:  infinite

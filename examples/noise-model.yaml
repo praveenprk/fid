@@ -1,0 +1,31 @@
+# Noise model — per-transform noise estimates.
+#
+# Every processing step introduces noise. These estimates
+# don't need to be perfect. They need to exist. Engineers
+# use nominal impedance values for signal integrity budgets,
+# not exact measurements. Approximate noise models are
+# infinitely more useful than no noise model.
+#
+# Range: 0.0 (lossless) to 1.0 (total destruction).
+# Typical transforms fall between 0.01 and 0.30.
+
+# Deterministic transforms — low noise
+copy:         0.00    # bit-identical, zero noise
+filter:       0.01    # lossless if predicate correct
+sort:         0.00    # reorder, no information loss
+normalize:    0.02    # deterministic, minimal noise
+validate:     0.01    # pass/fail, content preserved
+
+# Lossy transforms — moderate noise
+join:         0.05    # schema-level, low if keys match
+aggregate:    0.08    # lossy by definition
+deduplicate:  0.03    # information removed intentionally
+format:       0.04    # structural change, content preserved
+
+# Inference transforms — high noise
+summarize:    0.15    # lossy, language-dependent
+translate:    0.12    # semantic transfer, meaning drift
+classify:     0.10    # reduction to category
+llm_infer:    0.30    # high noise, model-dependent
+llm_extract:  0.20    # structured extraction from text
+embedding:    0.25    # dimensionality reduction
