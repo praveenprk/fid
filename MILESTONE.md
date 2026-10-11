@@ -94,3 +94,65 @@ Open:
 
 - periodic facts (temperature) — no decay model expresses "comes back"
 - source fidelity per context (airline, time of day), not only per class
+
+---
+
+# Milestone 3 — calibrate your own data
+
+Goal: turn the calibration study into something anyone can run on their
+own records, and make fid usable from other systems. First integration
+target: ContextOS (see its `fid-contextos.md`).
+
+## 1. `fid calibrate` — done
+
+Fit half-life and baseline from a log of re-checked facts and write the
+half-life registry YAML that `fid stamp --half-lives` reads.
+
+Input: CSV with a header.
+
+| Column | Required | Meaning |
+|---|---|---|
+| `entity` | yes | what the fact is about; the held-out split is by entity |
+| `age` | one of | seconds, or a duration (`30d`, `6h`) |
+| `observed_at`, `checked_at` | one of | RFC 3339 times; age = checked − observed |
+| `correct` | yes | still true when checked: `true/false`, `1/0`, `yes/no` |
+| `state` | no | fit one half-life per state |
+
+    fid calibrate ledger.csv --type company_ceo > half-lives.yaml
+
+- Model: `S(age) = b + (s0 − b) × 0.5^(age / h)`. For a fixed `h` this is
+  linear in `b` and `s0`, so each candidate `h` is solved in closed form;
+  `h` is searched on a log grid.
+- Ages with few distinct values are used as they are; continuous ages
+  are grouped into equal-count bins.
+- Fit on half the entities, score on the other half (Brier) against
+  decay-to-zero and a constant. Keep the baseline only when it scores
+  better on the held-out half.
+- Report (stderr): the curve, the fit, the held-out scores. Registry
+  YAML (stdout). Too little data is an error, never a guessed value.
+- Checked against calibration/: on the Wikidata CEO observations it gives
+  5.84y (study: 5.8y) and identical held-out Brier scores.
+
+## 2. Library API and Python binding
+
+- A stable Rust API for scoring an envelope and computing TTL to a floor:
+  `ttl = h × log2((source − b) / (floor − b))`.
+- `fid ttl` command for the same, for shells and other languages.
+- Python package via PyO3 / maturin, so Python systems call one
+  implementation instead of porting the formula.
+
+## 3. ContextOS pilot
+
+Designed in the ContextOS project. fid's side: the binding, the
+calibrate input format for ledger exports, and conformance test vectors.
+
+## 4. Write-up
+
+The five findings from calibration/ as a short paper or post, with the
+results site as the evidence.
+
+## Later
+
+- `scan`, `filter`, `watch`
+- periodic facts
+- source fidelity per context

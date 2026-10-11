@@ -46,6 +46,9 @@ cat ais.json | fid stamp --source ais-366999 --source-class instrument \
 cat leg.json | fid stamp --source leg-3 \
     --noise-model noise-model.yaml --transform flight_leg --condition previous_leg_late
 
+# Measure your own half-lives from facts you re-checked, instead of guessing
+fid calibrate ledger.csv --type policy_claim > half-lives.yaml
+
 # Filter to signal only
 cat records.jsonl | fid filter --floor 0.50 > signal.jsonl
 ```
@@ -148,7 +151,26 @@ infrastructure. Until now.
 
 Apache 2.0
 
-## Calibration
+## Calibrate your own data
+
+`fid calibrate` fits a half-life and baseline from facts that were
+checked again later, and writes the registry `fid stamp --half-lives`
+reads. Input is CSV: `entity`, `correct`, and either `age` (seconds or a
+duration like `30d`) or `observed_at` and `checked_at` (RFC 3339);
+an optional `state` column fits one half-life per state.
+
+```bash
+$ fid calibrate ledger.csv --type company_ceo > half-lives.yaml
+company_ceo — 91799 observations, 283 entities
+  half-life 5.84y, baseline 0.00, correct when fresh 1.000
+  held-out Brier (lower is better): with baseline 0.2008 · decay to 0 0.2008 · constant 0.2507
+```
+
+It fits on half the entities and scores on the other half, keeps the
+baseline only when it helps there, and refuses to guess from too little
+data. On the Wikidata CEO data it reproduces the published study.
+
+## Calibration study
 
 The half-lives above are hand-picked. [`calibration/`](calibration/)
 tests the model against public data with known ground truth — Wikidata

@@ -1,3 +1,4 @@
+pub mod calibrate;
 pub mod chain;
 pub mod check;
 pub mod compute;

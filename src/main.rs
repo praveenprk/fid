@@ -128,6 +128,19 @@ enum Commands {
         floor: f64,
     },
 
+    /// Fit half-life and baseline from re-checked facts; print registry YAML
+    ///
+    /// CSV columns: entity, correct, and age (seconds or e.g. 30d) or
+    /// observed_at + checked_at (RFC 3339); optional state.
+    Calibrate {
+        /// Path to the CSV ("-" for stdin)
+        path: String,
+
+        /// Information type to name in the registry (e.g. "company_ceo")
+        #[arg(long = "type")]
+        info_type: String,
+    },
+
     /// Filter stdin (jsonl) to records above the noise floor
     Filter {
         /// Fidelity floor threshold
@@ -186,6 +199,12 @@ fn main() {
         Some(Commands::Chain { path, floor }) => {
             if let Err(e) = run_chain(&path, floor) {
                 eprintln!("fid chain: {}", e);
+                std::process::exit(EXIT_ERROR);
+            }
+        }
+        Some(Commands::Calibrate { path, info_type }) => {
+            if let Err(e) = run_calibrate(&path, &info_type) {
+                eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         }
@@ -297,5 +316,19 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
     let stamped = read_stamped(path)?;
     let result = assess(&stamped, floor, Utc::now())?;
     println!("{}", fid::chain::report(&stamped, &result));
+    Ok(())
+}
+
+/// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
+fn run_calibrate(path: &str, info_type: &str) -> Result<(), String> {
+    let observations = if path == "-" {
+        fid::calibrate::read_csv(std::io::stdin())?
+    } else {
+        let file = std::fs::File::open(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
+        fid::calibrate::read_csv(file)?
+    };
+    let fits = fid::calibrate::calibrate(&observations)?;
+    eprint!("{}", fid::calibrate::report(info_type, &fits));
+    print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
 }
