@@ -128,6 +128,15 @@ infrastructure. Until now.
 
 Apache 2.0
 
+## Calibration
+
+The half-lives above are hand-picked. [`calibration/`](calibration/)
+tests the model against public data with known ground truth — Wikidata
+CEOs, airport weather, US flights, and cargo-ship AIS tracks. The short
+version: measured half-lives differ from the guesses by 6× to 75×,
+facts decay toward a baseline rather than to zero, and transform noise
+is not independent. See [calibration/README.md](calibration/README.md).
+
 ## Full Design Document
 
 See [docs/DISCOVERY.md](docs/DISCOVERY.md) for the complete

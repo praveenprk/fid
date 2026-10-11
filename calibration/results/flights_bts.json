@@ -1,0 +1,108 @@
+[
+  {
+    "experiment": "Flight legs",
+    "fact": "aircraft's k-th leg of the day arrives on schedule",
+    "truth": "arrived within 15 min, not cancelled or diverted; lag = legs flown before it",
+    "entities": 5604,
+    "observations": 540812,
+    "curve": [
+      {
+        "lag_s": 0,
+        "lag": "0 legs",
+        "still_correct": 0.7861596451699755,
+        "n": 141138
+      },
+      {
+        "lag_s": 1,
+        "lag": "1 legs",
+        "still_correct": 0.7437956546169695,
+        "n": 128136
+      },
+      {
+        "lag_s": 2,
+        "lag": "2 legs",
+        "still_correct": 0.7287229051327766,
+        "n": 106570
+      },
+      {
+        "lag_s": 3,
+        "lag": "3 legs",
+        "still_correct": 0.7073274396463788,
+        "n": 82348
+      },
+      {
+        "lag_s": 4,
+        "lag": "4 legs",
+        "still_correct": 0.6878848358741347,
+        "n": 47098
+      },
+      {
+        "lag_s": 5,
+        "lag": "5 legs",
+        "still_correct": 0.6888751640546592,
+        "n": 25906
+      },
+      {
+        "lag_s": 6,
+        "lag": "6 legs",
+        "still_correct": 0.6186526989669722,
+        "n": 6873
+      },
+      {
+        "lag_s": 7,
+        "lag": "7 legs",
+        "still_correct": 0.6091870215092964,
+        "n": 2743
+      }
+    ],
+    "empirical_half_life_s": null,
+    "empirical_half_life": "\u2014",
+    "fitted": {
+      "s0": 0.7861596451699755,
+      "half_life_s": 19.897786248507753,
+      "half_life": "19.9 legs"
+    },
+    "shape_error": 0.028384543362222736,
+    "fitted_with_baseline": {
+      "s0": 0.7861596451699755,
+      "baseline": 0.6210661196842807,
+      "half_life_s": 3.0282175343523696,
+      "half_life": "3.0 legs"
+    },
+    "shape_error_with_baseline": 0.0451352391620804,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.19251981782922847,
+      "fitted_half_life_with_baseline": 0.19249481507477764,
+      "constant_base_rate": 0.19388487232663
+    },
+    "reliability_test": [
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6722475810586841,
+        "actual": 0.6780933967876264,
+        "n": 40344
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7518026418452496,
+        "actual": 0.7473986953593079,
+        "n": 225656
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6808203560728553,
+        "actual": 0.6780933967876264,
+        "n": 40344
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7476015860338111,
+        "actual": 0.7473986953593079,
+        "n": 225656
+      }
+    ]
+  }
+]
