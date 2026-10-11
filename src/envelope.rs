@@ -158,6 +158,35 @@ impl FidEnvelope {
             self.baseline.unwrap_or(0.0),
         ))
     }
+
+    /// When fidelity falls below `floor`: the TTL implied by measured decay.
+    ///
+    /// Ok(None) if the source class is Unknown (indeterminate).
+    pub fn expires_at(&self, floor: f64) -> Result<Option<Expiry>, String> {
+        let half_life = match &self.half_life {
+            Some(hl) => crate::compute::parse_half_life(hl)?,
+            None => None,
+        };
+        let Some(source) = self.source_class.default_fidelity() else {
+            return Ok(None);
+        };
+        let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
+        let at_measurement = source * crate::compute::transform_factor(&noise);
+        let ttl = crate::compute::time_to_floor(at_measurement, half_life, self.baseline.unwrap_or(0.0), floor);
+        Ok(Some(match ttl {
+            crate::compute::TimeToFloor::Never => Expiry::Never,
+            crate::compute::TimeToFloor::After(seconds) => {
+                Expiry::At(self.measured_at + chrono::Duration::milliseconds((seconds * 1000.0).round() as i64))
+            }
+        }))
+    }
+}
+
+/// When a fact's fidelity falls below a floor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Expiry {
+    At(DateTime<Utc>),
+    Never,
 }
 
 /// A fid-stamped artifact: the envelope plus the content it wraps.
@@ -324,6 +353,20 @@ mod tests {
         env.baseline = Some(0.70);
         let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
         assert!((f - 0.80).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_expires_at() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Database; // 0.90
+        env.transforms.clear();
+        env.half_life = Some("1d".into());
+        // 0.90 → 0.45 takes one half-life
+        assert_eq!(env.expires_at(0.45).unwrap(), Some(Expiry::At(env.measured_at + chrono::Duration::days(1))));
+        env.baseline = Some(0.5);
+        assert_eq!(env.expires_at(0.45).unwrap(), Some(Expiry::Never));
+        env.source_class = SourceClass::Unknown;
+        assert_eq!(env.expires_at(0.45).unwrap(), None);
     }
 
     #[test]

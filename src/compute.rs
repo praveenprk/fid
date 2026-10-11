@@ -106,6 +106,35 @@ pub fn total_fidelity(
     Some(apply_decay(f_source * f_transform, f_temporal, baseline))
 }
 
+/// When fidelity falls below a floor, measured from the moment of measurement.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TimeToFloor {
+    /// Seconds after measurement (0 if it starts at or below the floor)
+    After(f64),
+    /// Never: no decay, or the baseline is at or above the floor
+    Never,
+}
+
+/// Time for fidelity to fall from `fidelity` (at measurement) to `floor`.
+///
+/// Solves b + (f − b) × 0.5^(t / h) = floor:
+///   t = h × log2((f − b) / (floor − b))
+///
+/// This is the TTL a store can enforce as a hard cutoff, derived from
+/// measured decay instead of declared.
+pub fn time_to_floor(fidelity: f64, half_life_seconds: Option<f64>, baseline: f64, floor: f64) -> TimeToFloor {
+    if fidelity < floor {
+        return TimeToFloor::After(0.0);
+    }
+    let b = baseline.clamp(0.0, fidelity.max(0.0));
+    match half_life_seconds {
+        None => TimeToFloor::Never,
+        Some(_) if floor <= b => TimeToFloor::Never,
+        Some(h) if h <= 0.0 => TimeToFloor::After(0.0),
+        Some(h) => TimeToFloor::After(h * ((fidelity - b) / (floor - b)).log2()),
+    }
+}
+
 /// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
 pub fn apply_decay(fidelity: f64, temporal: f64, baseline: f64) -> f64 {
     let b = baseline.clamp(0.0, fidelity.max(0.0));
@@ -254,6 +283,36 @@ mod tests {
         // fidelity already 0.25 after transforms; baseline 0.70 must not lift it
         let result = total_fidelity(Some(0.50), 86400.0, Some(86400.0), &[0.50], 0.70);
         assert!((result.unwrap() - 0.25).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_time_to_floor_round_trips() {
+        let h = 7.0 * 86400.0;
+        match time_to_floor(0.97, Some(h), 0.2, 0.7) {
+            TimeToFloor::After(t) => {
+                let at = apply_decay(0.97, temporal_decay(t, Some(h)), 0.2);
+                assert!((at - 0.7).abs() < 1e-9);
+            }
+            other => panic!("{:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_time_to_floor_one_half_life() {
+        // 0.8 → 0.4 with no baseline takes exactly one half-life
+        assert_eq!(time_to_floor(0.8, Some(100.0), 0.0, 0.4), TimeToFloor::After(100.0));
+    }
+
+    #[test]
+    fn test_time_to_floor_never() {
+        assert_eq!(time_to_floor(0.97, None, 0.0, 0.7), TimeToFloor::Never);
+        // baseline 0.73 never falls below a 0.70 floor
+        assert_eq!(time_to_floor(0.97, Some(3600.0), 0.73, 0.70), TimeToFloor::Never);
+    }
+
+    #[test]
+    fn test_time_to_floor_already_below() {
+        assert_eq!(time_to_floor(0.5, Some(3600.0), 0.0, 0.7), TimeToFloor::After(0.0));
     }
 
     #[test]

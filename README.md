@@ -46,6 +46,9 @@ cat ais.json | fid stamp --source ais-366999 --source-class instrument \
 cat leg.json | fid stamp --source leg-3 \
     --noise-model noise-model.yaml --transform flight_leg --condition previous_leg_late
 
+# When does this fact fall below the floor? (a TTL derived from measured decay)
+fid ttl record.json --floor 0.70      # prints expires_at, or "never"
+
 # Measure your own half-lives from facts you re-checked, instead of guessing
 fid calibrate ledger.csv --type policy_claim > half-lives.yaml
 

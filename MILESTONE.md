@@ -133,7 +133,10 @@ Input: CSV with a header.
 - Checked against calibration/: on the Wikidata CEO observations it gives
   5.84y (study: 5.8y) and identical held-out Brier scores.
 
-## 2. Library API and Python binding
+## 2. Library API and Python binding — TTL done, binding next
+
+Done: `compute::time_to_floor`, `FidEnvelope::expires_at`, and `fid ttl`
+(stdout: expires_at or "never"; exit code as `check`).
 
 - A stable Rust API for scoring an envelope and computing TTL to a floor:
   `ttl = h × log2((source − b) / (floor − b))`.

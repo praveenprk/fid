@@ -155,3 +155,29 @@ fn chain_errors_exit_3() {
     assert_eq!(fid(&["chain", "/nonexistent/a.json"], "").status.code(), Some(3));
     assert_eq!(fid(&["chain", "-"], "not json").status.code(), Some(3));
 }
+
+#[test]
+fn ttl_prints_expiry_and_exit_code() {
+    // database 0.90, 1d half-life: falls below 0.45 one day after measurement
+    let artifact = stamped(&["--source", "s", "--source-class", "database", "--half-life", "1d"]);
+    let v: Value = serde_json::from_str(&artifact).unwrap();
+    let measured = chrono::DateTime::parse_from_rfc3339(v["fid"]["measured_at"].as_str().unwrap()).unwrap();
+    let out = fid(&["ttl", "-", "--floor", "0.45"], &artifact);
+    assert_eq!(out.status.code(), Some(0));
+    let printed = String::from_utf8(out.stdout).unwrap();
+    let at = chrono::DateTime::parse_from_rfc3339(printed.trim()).unwrap();
+    assert!(((at - measured).num_seconds() - 86_400).abs() <= 1, "{}", printed);
+}
+
+#[test]
+fn ttl_never_and_unknown() {
+    let never = stamped(&["--source", "s", "--source-class", "instrument", "--half-life", "1h", "--baseline", "0.8"]);
+    let out = fid(&["ttl", "-", "--floor", "0.7"], &never);
+    assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "never");
+    assert_eq!(out.status.code(), Some(0));
+
+    let unknown = stamped(&["--source", "mystery"]);
+    let out = fid(&["ttl", "-", "--floor", "0.7"], &unknown);
+    assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "unknown");
+    assert_eq!(out.status.code(), Some(2));
+}

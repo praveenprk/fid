@@ -128,6 +128,18 @@ enum Commands {
         floor: f64,
     },
 
+    /// When a stamped fact falls below a floor (its TTL); exit code as `check`
+    ///
+    /// Prints expires_at (RFC 3339) or "never" to stdout.
+    Ttl {
+        /// Path to the fid-stamped file ("-" for stdin)
+        path: String,
+
+        /// Fidelity floor
+        #[arg(long, default_value = "0.50")]
+        floor: f64,
+    },
+
     /// Fit half-life and baseline from re-checked facts; print registry YAML
     ///
     /// CSV columns: entity, correct, and age (seconds or e.g. 30d) or
@@ -202,6 +214,13 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         }
+        Some(Commands::Ttl { path, floor }) => match run_ttl(&path, floor) {
+            Ok(code) => std::process::exit(code),
+            Err(e) => {
+                eprintln!("fid ttl: {}", e);
+                std::process::exit(EXIT_ERROR);
+            }
+        },
         Some(Commands::Calibrate { path, info_type }) => {
             if let Err(e) = run_calibrate(&path, &info_type) {
                 eprintln!("fid calibrate: {}", e);
@@ -331,4 +350,36 @@ fn run_calibrate(path: &str, info_type: &str) -> Result<(), String> {
     eprint!("{}", fid::calibrate::report(info_type, &fits));
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
+}
+
+/// Print when a stamped fact falls below the floor; exit code as `check`.
+fn run_ttl(path: &str, floor: f64) -> Result<i32, String> {
+    let stamped = read_stamped(path)?;
+    let now = Utc::now();
+    let result = assess(&stamped, floor, now)?;
+    let expiry = stamped.fid.expires_at(floor)?;
+    match expiry {
+        None => {
+            eprintln!("UNKNOWN  source fidelity indeterminate; no TTL");
+            println!("unknown");
+        }
+        Some(fid::envelope::Expiry::Never) => {
+            eprintln!("never    stays at or above floor {:.2} (no decay, or baseline at or above it)", floor);
+            println!("never");
+        }
+        Some(fid::envelope::Expiry::At(at)) => {
+            let remaining = (at - now).num_milliseconds() as f64 / 1000.0;
+            let when = if remaining > 0.0 {
+                format!("in {}", fid::check::format_age(remaining))
+            } else {
+                format!("{} ago", fid::check::format_age(-remaining))
+            };
+            eprintln!("expires  {} ({}), floor {:.2}", at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), when, floor);
+            println!("{}", at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        }
+    }
+    if !result.integrity_ok {
+        eprintln!("integrity mismatch: content changed since last stamp");
+    }
+    Ok(result.assessment.status.exit_code())
 }
