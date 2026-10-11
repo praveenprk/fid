@@ -134,6 +134,18 @@ def main():
     extra = "\n".join(lines)
     print(extra)
 
+    chain["source_fidelity"] = {
+        "overall": overall,
+        "flights": len(flights),
+        "by_airline": [{"airline": k, "on_time": p, "n": n} for k, p, n in rate_table(by_airline)],
+        "by_hour": [{"hour": k, "on_time": p, "n": n} for k, p, n in rate_table(by_hour)],
+    }
+    chain["after_previous_leg"] = {
+        "per_leg_noise": per_leg_noise,
+        "on_time": {"on_time": p_after_on, "n": len(after["on_time"])},
+        "late": {"on_time": p_after_late, "n": len(after["late"])},
+    }
+
     here = os.path.dirname(os.path.abspath(__file__))
     fidcal.write_results([chain], "flights_bts")
     with open(os.path.join(here, "results", "flights_bts.md"), "a") as f:
