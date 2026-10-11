@@ -1,0 +1,332 @@
+//! Registries — measured decay and noise values, looked up by name.
+//!
+//! A half-life registry maps an information type to its half-life, and
+//! optionally a baseline and per-state overrides. A type's half-life can
+//! depend on the state of the thing observed: a ship's position goes
+//! stale in minutes while it is underway and in days while it is moored.
+//!
+//! ```yaml
+//! employee_role: 1y                     # half-life only
+//! airport_flight_category:              # decays toward a baseline
+//!   half_life: 2.9h
+//!   baseline: 0.73
+//! vessel_position:                      # depends on state
+//!   states:
+//!     underway: 2.3m
+//!     moored: { half_life: 1.6d }
+//! ```
+//!
+//! A noise model maps a transform to its noise, and optionally to noise
+//! conditioned on what is known upstream:
+//!
+//! ```yaml
+//! summarize: 0.15
+//! flight_leg:
+//!   noise: 0.034
+//!   conditions:
+//!     previous_leg_late: 0.54
+//! ```
+//!
+//! Lookups fail closed: an unknown type, state, transform or condition
+//! is an error, never a silent default.
+
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
+
+use crate::compute::parse_half_life;
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum HalfLifeEntry {
+    /// `type: 3y`
+    Simple(String),
+    /// `type: { half_life, baseline, states }`
+    Spec(HalfLifeSpec),
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HalfLifeSpec {
+    pub half_life: Option<String>,
+    pub baseline: Option<f64>,
+    #[serde(default)]
+    pub states: BTreeMap<String, HalfLifeEntry>,
+}
+
+impl HalfLifeEntry {
+    fn spec(&self) -> HalfLifeSpec {
+        match self {
+            Self::Simple(h) => HalfLifeSpec { half_life: Some(h.clone()), ..Default::default() },
+            Self::Spec(s) => s.clone(),
+        }
+    }
+}
+
+/// A resolved decay specification, ready for the envelope.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DecaySpec {
+    pub half_life: String,
+    pub baseline: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HalfLives(BTreeMap<String, HalfLifeEntry>);
+
+impl HalfLives {
+    pub fn from_yaml(text: &str) -> Result<Self, String> {
+        serde_yaml::from_str(text)
+            .map(Self)
+            .map_err(|e| format!("invalid half-life registry: {}", e))
+    }
+
+    pub fn load(path: &str) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
+        Self::from_yaml(&text).map_err(|e| format!("{}: {}", path, e))
+    }
+
+    /// Resolve the half-life and baseline for a type, and state if given.
+    /// A state's values override the type's.
+    pub fn lookup(&self, info_type: &str, state: Option<&str>) -> Result<DecaySpec, String> {
+        let entry = self.0.get(info_type).ok_or_else(|| {
+            format!("unknown information type '{}' (known: {})", info_type, names(self.0.keys()))
+        })?;
+        let mut spec = entry.spec();
+
+        if let Some(state) = state {
+            let child = spec.states.get(state).ok_or_else(|| {
+                if spec.states.is_empty() {
+                    format!("information type '{}' has no states", info_type)
+                } else {
+                    format!(
+                        "unknown state '{}' for '{}' (known: {})",
+                        state,
+                        info_type,
+                        names(spec.states.keys())
+                    )
+                }
+            })?;
+            let child = child.spec();
+            if !child.states.is_empty() {
+                return Err(format!("state '{}' of '{}' cannot have its own states", state, info_type));
+            }
+            spec.half_life = child.half_life.or(spec.half_life);
+            spec.baseline = child.baseline.or(spec.baseline);
+        }
+
+        let half_life = spec.half_life.ok_or_else(|| {
+            format!("information type '{}' needs a state (one of: {})", info_type, names(spec.states.keys()))
+        })?;
+        parse_half_life(&half_life).map_err(|e| format!("'{}': {}", info_type, e))?;
+        if let Some(b) = spec.baseline {
+            check_unit(b, "baseline").map_err(|e| format!("'{}': {}", info_type, e))?;
+        }
+        Ok(DecaySpec { half_life, baseline: spec.baseline })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum NoiseEntry {
+    /// `transform: 0.15`
+    Simple(f64),
+    /// `transform: { noise, conditions }`
+    Spec(NoiseSpec),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoiseSpec {
+    pub noise: Option<f64>,
+    #[serde(default)]
+    pub conditions: BTreeMap<String, f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NoiseModel(BTreeMap<String, NoiseEntry>);
+
+impl NoiseModel {
+    pub fn from_yaml(text: &str) -> Result<Self, String> {
+        serde_yaml::from_str(text)
+            .map(Self)
+            .map_err(|e| format!("invalid noise model: {}", e))
+    }
+
+    pub fn load(path: &str) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
+        Self::from_yaml(&text).map_err(|e| format!("{}: {}", path, e))
+    }
+
+    /// Resolve the noise for a transform, conditioned if a condition is given.
+    pub fn lookup(&self, transform: &str, condition: Option<&str>) -> Result<f64, String> {
+        let entry = self.0.get(transform).ok_or_else(|| {
+            format!("unknown transform '{}' (known: {})", transform, names(self.0.keys()))
+        })?;
+        let noise = match (entry, condition) {
+            (NoiseEntry::Simple(_), Some(c)) => {
+                return Err(format!("transform '{}' has no conditions (asked for '{}')", transform, c))
+            }
+            (NoiseEntry::Simple(n), None) => *n,
+            (NoiseEntry::Spec(spec), Some(c)) => *spec.conditions.get(c).ok_or_else(|| {
+                format!(
+                    "unknown condition '{}' for '{}' (known: {})",
+                    c,
+                    transform,
+                    names(spec.conditions.keys())
+                )
+            })?,
+            (NoiseEntry::Spec(spec), None) => spec.noise.ok_or_else(|| {
+                format!(
+                    "transform '{}' needs a condition (one of: {})",
+                    transform,
+                    names(spec.conditions.keys())
+                )
+            })?,
+        };
+        check_unit(noise, "noise").map_err(|e| format!("'{}': {}", transform, e))?;
+        Ok(noise)
+    }
+}
+
+/// Check a value is in [0, 1].
+pub fn check_unit(value: f64, what: &str) -> Result<(), String> {
+    if value.is_finite() && (0.0..=1.0).contains(&value) {
+        Ok(())
+    } else {
+        Err(format!("invalid {} {} (must be between 0.0 and 1.0)", what, value))
+    }
+}
+
+fn names<'a>(keys: impl Iterator<Item = &'a String>) -> String {
+    keys.map(String::as_str).collect::<Vec<_>>().join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HALF_LIVES: &str = "
+employee_role: 1y
+legal_name: 20y
+medical_diagnosis: domain_specific
+airport_flight_category:
+  half_life: 2.9h
+  baseline: 0.73
+vessel_position:
+  states:
+    underway: 2.3m
+    moored: { half_life: 1.6d, baseline: 0.1 }
+with_default:
+  half_life: 1d
+  baseline: 0.2
+  states:
+    fast: 1h
+";
+
+    const NOISE: &str = "
+summarize: 0.15
+flight_leg:
+  noise: 0.034
+  conditions:
+    previous_leg_late: 0.54
+conditional_only:
+  conditions:
+    a: 0.1
+";
+
+    fn half_lives() -> HalfLives {
+        HalfLives::from_yaml(HALF_LIVES).unwrap()
+    }
+
+    fn noise() -> NoiseModel {
+        NoiseModel::from_yaml(NOISE).unwrap()
+    }
+
+    #[test]
+    fn test_simple_half_life() {
+        let spec = half_lives().lookup("employee_role", None).unwrap();
+        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None });
+    }
+
+    #[test]
+    fn test_half_life_with_baseline() {
+        let spec = half_lives().lookup("airport_flight_category", None).unwrap();
+        assert_eq!(spec.half_life, "2.9h");
+        assert_eq!(spec.baseline, Some(0.73));
+    }
+
+    #[test]
+    fn test_state_half_life() {
+        let h = half_lives();
+        assert_eq!(h.lookup("vessel_position", Some("underway")).unwrap().half_life, "2.3m");
+        let moored = h.lookup("vessel_position", Some("moored")).unwrap();
+        assert_eq!(moored.half_life, "1.6d");
+        assert_eq!(moored.baseline, Some(0.1));
+    }
+
+    #[test]
+    fn test_state_inherits_type_baseline() {
+        let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2) });
+        assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
+    }
+
+    #[test]
+    fn test_stateful_type_without_state_is_error() {
+        let err = half_lives().lookup("vessel_position", None).unwrap_err();
+        assert!(err.contains("needs a state") && err.contains("underway"));
+    }
+
+    #[test]
+    fn test_unknown_type_state_is_error() {
+        let h = half_lives();
+        assert!(h.lookup("nope", None).unwrap_err().contains("employee_role"));
+        assert!(h.lookup("vessel_position", Some("sinking")).unwrap_err().contains("moored"));
+        assert!(h.lookup("employee_role", Some("x")).unwrap_err().contains("no states"));
+    }
+
+    #[test]
+    fn test_unparseable_half_life_fails_on_lookup_only() {
+        let h = half_lives();
+        assert!(h.lookup("medical_diagnosis", None).is_err());
+        assert!(h.lookup("legal_name", None).is_ok());
+    }
+
+    #[test]
+    fn test_bad_baseline_is_error() {
+        let h = HalfLives::from_yaml("x: { half_life: 1d, baseline: 1.5 }").unwrap();
+        assert!(h.lookup("x", None).is_err());
+    }
+
+    #[test]
+    fn test_unknown_field_is_error() {
+        assert!(HalfLives::from_yaml("x: { half_life: 1d, baselin: 0.5 }").is_err());
+        assert!(NoiseModel::from_yaml("x: { noise: 0.1, condition: {} }").is_err());
+    }
+
+    #[test]
+    fn test_noise_lookup() {
+        let n = noise();
+        assert_eq!(n.lookup("summarize", None).unwrap(), 0.15);
+        assert_eq!(n.lookup("flight_leg", None).unwrap(), 0.034);
+        assert_eq!(n.lookup("flight_leg", Some("previous_leg_late")).unwrap(), 0.54);
+    }
+
+    #[test]
+    fn test_noise_lookup_errors() {
+        let n = noise();
+        assert!(n.lookup("nope", None).unwrap_err().contains("summarize"));
+        assert!(n.lookup("summarize", Some("x")).unwrap_err().contains("no conditions"));
+        assert!(n.lookup("flight_leg", Some("x")).unwrap_err().contains("previous_leg_late"));
+        assert!(n.lookup("conditional_only", None).unwrap_err().contains("needs a condition"));
+        let bad = NoiseModel::from_yaml("x: 1.2").unwrap();
+        assert!(bad.lookup("x", None).is_err());
+    }
+
+    #[test]
+    fn test_example_files_parse() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        HalfLives::load(&format!("{}/examples/half-lives.yaml", root)).unwrap();
+        NoiseModel::load(&format!("{}/examples/noise-model.yaml", root)).unwrap();
+    }
+}

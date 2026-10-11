@@ -75,3 +75,22 @@ TOTAL:             0.62  SIGNAL (floor: 0.50)
 5. chain command — read envelope → walk transforms → report (done — chain.rs)
 
 One at a time.
+
+---
+
+# Milestone 2 — calibrated model
+
+Driven by calibration/ (public ground-truth data). Done:
+
+- `baseline` — facts decay toward the chance they are right anyway,
+  not toward zero
+- state-dependent half-lives — `--half-lives FILE --type T --state S`
+- conditional transform noise — `--noise-model FILE --transform T --condition C`,
+  recorded on the transform step
+- envelope `fid_version` 0.2; 0.1 envelopes still read
+- examples/*.yaml carry the measured values
+
+Open:
+
+- periodic facts (temperature) — no decay model expresses "comes back"
+- source fidelity per context (airline, time of day), not only per class

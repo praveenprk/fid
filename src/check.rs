@@ -8,7 +8,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::compute::{parse_half_life, temporal_decay, transform_factor};
+use crate::compute::{apply_decay, parse_half_life, temporal_decay, transform_factor};
 use crate::envelope::{integrity_hash, FidAssessment, FidStatus, Stamped};
 
 /// Result of checking one artifact.
@@ -41,7 +41,8 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     let source = env.source_class.default_fidelity();
     let temporal = temporal_decay(age_seconds, half_life);
     let transforms = transform_factor(&noise);
-    let fidelity = source.map(|s| s * temporal * transforms);
+    let baseline = env.baseline.unwrap_or(0.0);
+    let fidelity = source.map(|s| apply_decay(s * transforms, temporal, baseline));
 
     let integrity_ok = integrity_hash(&stamped.content) == env.integrity;
     let status = match fidelity {
@@ -52,7 +53,7 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     };
 
     Ok(CheckResult {
-        assessment: FidAssessment { source, temporal, transforms, fidelity, floor, status },
+        assessment: FidAssessment { source, temporal, baseline, transforms, fidelity, floor, status },
         age_seconds,
         integrity_ok,
     })
@@ -78,6 +79,21 @@ pub fn format_age(seconds: f64) -> String {
     } else {
         parts.join(" ")
     }
+}
+
+/// "half-life 2.3m (vessel_position/underway), baseline 0.73"
+pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> String {
+    let mut out = format!("half-life {}", env.half_life.as_deref().unwrap_or("none"));
+    match (&env.info_type, &env.state) {
+        (Some(t), Some(s)) => out.push_str(&format!(" ({}/{})", t, s)),
+        (Some(t), None) => out.push_str(&format!(" ({})", t)),
+        (None, Some(s)) => out.push_str(&format!(" ({})", s)),
+        (None, None) => {}
+    }
+    if baseline > 0.0 {
+        out.push_str(&format!(", baseline {:.2}", baseline));
+    }
+    out
 }
 
 /// The stderr report for `fid check`.
@@ -107,12 +123,11 @@ pub fn report(stamped: &Stamped, result: &CheckResult) -> String {
         Some(s) => format!("  source      {:.4}  {} ({})", s, class, env.source_id),
         None => format!("  source      ?       {} ({})", class, env.source_id),
     });
-    let half_life = env.half_life.as_deref().unwrap_or("none");
     lines.push(format!(
-        "  temporal    {:.4}  age {}, half-life {}",
+        "  temporal    {:.4}  age {}, {}",
         a.temporal,
         format_age(result.age_seconds),
-        half_life
+        decay_description(env, a.baseline)
     ));
     lines.push(format!(
         "  transforms  {:.4}  {} step{}",
@@ -143,9 +158,12 @@ mod tests {
                 source_id: "src".to_string(),
                 measured_at: t0(),
                 half_life: half_life.map(str::to_string),
+                baseline: None,
+                info_type: None,
+                state: None,
                 transforms: noise
                     .iter()
-                    .map(|&n| TransformStep { step: "t".to_string(), noise: n, at: t0() })
+                    .map(|&n| TransformStep { step: "t".to_string(), noise: n, at: t0(), condition: None })
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
@@ -187,6 +205,30 @@ mod tests {
         let s = stamped(SourceClass::Database, None, &[]);
         let r = assess(&s, 0.90, t0()).unwrap();
         assert_eq!(r.assessment.status, FidStatus::Signal);
+    }
+
+    #[test]
+    fn test_baseline_keeps_stale_fact_above_floor() {
+        // flight category: stale VFR is still right 73% of the time
+        let mut s = stamped(SourceClass::Instrument, Some("2.9h"), &[]);
+        s.fid.baseline = Some(0.73);
+        let r = assess(&s, 0.70, t0() + Duration::days(3)).unwrap();
+        assert_eq!(r.assessment.status, FidStatus::Signal);
+        assert!((r.assessment.fidelity.unwrap() - 0.73).abs() < 1e-6);
+
+        s.fid.baseline = None;
+        let r = assess(&s, 0.70, t0() + Duration::days(3)).unwrap();
+        assert_eq!(r.assessment.status, FidStatus::Noise);
+    }
+
+    #[test]
+    fn test_report_shows_type_state_baseline() {
+        let mut s = stamped(SourceClass::Instrument, Some("2.3m"), &[]);
+        s.fid.info_type = Some("vessel_position".into());
+        s.fid.state = Some("underway".into());
+        s.fid.baseline = Some(0.03);
+        let r = assess(&s, 0.5, t0()).unwrap();
+        assert!(report(&s, &r).contains("half-life 2.3m (vessel_position/underway), baseline 0.03"));
     }
 
     #[test]

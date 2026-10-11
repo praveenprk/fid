@@ -7,6 +7,14 @@
 //!
 //! Total: fidelity = f_source × f_temporal × f_transform
 //!
+//! With a baseline b — the chance a stale fact is right anyway — temporal
+//! decay goes toward b instead of toward zero:
+//!
+//!   fidelity = b + (f_source × f_transform − b) × f_temporal
+//!
+//! Measured against public data, most facts decay toward a baseline
+//! (see calibration/README.md). b = 0 recovers the original model.
+//!
 //! It never spontaneously increases.
 //! New measurement is the only restoration mechanism.
 
@@ -79,7 +87,10 @@ pub fn transform_factor(noise_values: &[f64]) -> f64 {
 
 /// Compute total fidelity.
 ///
-/// fidelity = f_source × f_temporal × f_transform
+/// fidelity = b + (f_source × f_transform − b) × f_temporal
+///
+/// `baseline` is clamped to [0, f_source × f_transform]: decay can only
+/// lower fidelity, never raise it toward a baseline above it.
 ///
 /// Returns None if source fidelity is indeterminate (Unknown source class).
 pub fn total_fidelity(
@@ -87,11 +98,18 @@ pub fn total_fidelity(
     age_seconds: f64,
     half_life_seconds: Option<f64>,
     noise_values: &[f64],
+    baseline: f64,
 ) -> Option<f64> {
     let f_source = source_fidelity?;
     let f_temporal = temporal_decay(age_seconds, half_life_seconds);
     let f_transform = transform_factor(noise_values);
-    Some(f_source * f_temporal * f_transform)
+    Some(apply_decay(f_source * f_transform, f_temporal, baseline))
+}
+
+/// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
+pub fn apply_decay(fidelity: f64, temporal: f64, baseline: f64) -> f64 {
+    let b = baseline.clamp(0.0, fidelity.max(0.0));
+    b + (fidelity - b) * temporal
 }
 
 #[cfg(test)]
@@ -207,14 +225,41 @@ mod tests {
     #[test]
     fn test_total_fidelity_basic() {
         // source: 0.90, age: 1 half-life, one transform at 0.10 noise
-        let result = total_fidelity(Some(0.90), 86400.0, Some(86400.0), &[0.10]);
+        let result = total_fidelity(Some(0.90), 86400.0, Some(86400.0), &[0.10], 0.0);
         let expected = 0.90 * 0.5 * 0.90;
         assert!((result.unwrap() - expected).abs() < 1e-10);
     }
 
     #[test]
     fn test_total_fidelity_unknown_source() {
-        let result = total_fidelity(None, 0.0, Some(86400.0), &[]);
+        let result = total_fidelity(None, 0.0, Some(86400.0), &[], 0.0);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_total_fidelity_with_baseline() {
+        // source 0.90, one half-life, baseline 0.70: 0.70 + 0.20 × 0.5
+        let result = total_fidelity(Some(0.90), 86400.0, Some(86400.0), &[], 0.70);
+        assert!((result.unwrap() - 0.80).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_baseline_is_the_long_run_limit() {
+        let result = total_fidelity(Some(0.97), 1e12, Some(60.0), &[], 0.73);
+        assert!((result.unwrap() - 0.73).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_baseline_above_fidelity_never_raises_it() {
+        // fidelity already 0.25 after transforms; baseline 0.70 must not lift it
+        let result = total_fidelity(Some(0.50), 86400.0, Some(86400.0), &[0.50], 0.70);
+        assert!((result.unwrap() - 0.25).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_zero_baseline_matches_original_model() {
+        let with = total_fidelity(Some(0.9), 3600.0, Some(7200.0), &[0.1, 0.2], 0.0).unwrap();
+        let original = 0.9 * temporal_decay(3600.0, Some(7200.0)) * transform_factor(&[0.1, 0.2]);
+        assert!((with - original).abs() < 1e-12);
     }
 }

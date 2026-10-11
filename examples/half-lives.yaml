@@ -8,6 +8,37 @@
 # domain reality. This file is the equivalent of a calibration
 # certificate — it records the assumption under which fidelity
 # is computed.
+#
+# An entry is a half-life, or a map with:
+#   half_life — time for fidelity to fall halfway to the baseline
+#   baseline  — chance the fact is right anyway once fully stale
+#   states    — per-state overrides (look up with --state)
+#
+#   fid stamp --half-lives half-lives.yaml --type vessel_position --state underway ...
+
+# ── Measured ────────────────────────────────────────────────────
+# Fitted to public ground-truth data; see calibration/README.md.
+
+company_ceo:        5.8y          # Wikidata CEO tenures, 2004–2026
+
+airport_flight_category:          # METAR, 10 US airports, 2024
+  half_life:  2.9h
+  baseline:   0.73                # stale "VFR" is usually still right
+
+airport_ifr:                      # same data, IFR-or-worse reports
+  half_life:  3.5h
+  baseline:   0.20
+
+vessel_position:                  # NOAA AIS, cargo ships + tankers, ±1 km
+  states:
+    underway: { half_life: 2.3m, baseline: 0.03 }
+    moored:   1.6d                # moored or at anchor
+
+# airport_temperature is deliberately absent: it is periodic (a 24h-old
+# reading beats a 12h-old one), which no decay model expresses.
+
+# ── Hand-picked, not yet measured ───────────────────────────────
+# employee_role was guessed at 1y; CEOs measured 5.8y (above).
 
 stock_price:        30s
 forex_rate:          1m

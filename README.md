@@ -40,6 +40,12 @@ cat raw.json | transform | fid stamp --source transform.py --noise 0.08 | classi
 # Inspect the fidelity chain
 fid chain output.json
 
+# Look up measured half-lives and noise instead of passing numbers
+cat ais.json | fid stamp --source ais-366999 --source-class instrument \
+    --half-lives half-lives.yaml --type vessel_position --state underway
+cat leg.json | fid stamp --source leg-3 \
+    --noise-model noise-model.yaml --transform flight_leg --condition previous_leg_late
+
 # Filter to signal only
 cat records.jsonl | fid filter --floor 0.50 > signal.jsonl
 ```
@@ -47,7 +53,7 @@ cat records.jsonl | fid filter --floor 0.50 > signal.jsonl
 ## Exit Codes
 
 ```
-0 — SIGNAL    fidelity above threshold
+0 — SIGNAL    fidelity at or above threshold
 1 — NOISE     fidelity below floor
 2 — UNKNOWN   source fidelity indeterminate
 3 — ERROR     bad arguments, unreadable or malformed input
@@ -55,10 +61,11 @@ cat records.jsonl | fid filter --floor 0.50 > signal.jsonl
 
 ## Three Axes of Fidelity
 
-**Temporal decay.** Every information type has an intrinsic half-life.
-A stock price decays in seconds. A mailing address decays over years.
-A mathematical constant never decays. The half-life is a property of
-the information type, not a policy choice.
+**Temporal decay.** Every information type has a half-life. A stock
+price decays in seconds. A mailing address decays over years. A
+mathematical constant never decays. The half-life can also depend on
+the state of the thing observed: a ship's position goes stale in
+minutes while it is underway, and in days while it is moored.
 
 **Transformation noise.** Every processing step — join, filter,
 aggregate, infer, summarize — introduces noise. Signal degrades at
@@ -70,8 +77,13 @@ An ungrounded LLM inference starts low. The source sets the ceiling.
 Everything after can only decrease it.
 
 ```
-fidelity = source × temporal_decay(t) × transform_noise
+fidelity = baseline + (source × transform_noise − baseline) × temporal_decay(t)
 ```
+
+The baseline is the chance a fully stale fact is right anyway — a
+week-old "the airport is VFR" is still right 73% of the time, because
+VFR is the usual weather. With no baseline this is
+`source × temporal_decay(t) × transform_noise`.
 
 It never spontaneously increases. New measurement is the only
 restoration mechanism.
@@ -79,17 +91,25 @@ restoration mechanism.
 ## Configuration
 
 ```yaml
-# half-lives.yaml — domain-specific decay rates
+# half-lives.yaml — decay per information type, optionally per state
 stock_price:      30s
-weather_forecast:  6h
 mailing_address:   3y
-llm_inference:     7d
+company_ceo:      5.8y               # measured
+airport_flight_category:             # measured; decays toward a baseline
+  half_life: 2.9h
+  baseline:  0.73
+vessel_position:                     # measured; depends on state
+  states:
+    underway: { half_life: 2.3m, baseline: 0.03 }
+    moored:   1.6d
 
-# noise-model.yaml — per-transform noise estimates
+# noise-model.yaml — per-transform noise, optionally per upstream condition
 normalize:   0.02
-aggregate:   0.08
-llm_infer:   0.30
 summarize:   0.15
+flight_leg:                          # measured
+  noise: 0.034
+  conditions:
+    previous_leg_late: 0.54
 
 # floor.yaml — noise floor thresholds
 medical:      0.70

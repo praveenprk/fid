@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::compute::parse_half_life;
+use crate::registry::check_unit;
 use crate::envelope::{integrity_hash, FidEnvelope, SourceClass, Stamped, TransformStep, FID_VERSION};
 
 /// Options for a single stamp.
@@ -22,6 +23,14 @@ pub struct StampOptions {
     pub noise: f64,
     /// Half-life; overrides any inherited half-life
     pub half_life: Option<String>,
+    /// Baseline the fact decays toward; overrides any inherited baseline
+    pub baseline: Option<f64>,
+    /// Information type (e.g. "vessel_position"); overrides any inherited type
+    pub info_type: Option<String>,
+    /// State of the observed thing (e.g. "underway"); overrides any inherited state
+    pub state: Option<String>,
+    /// Upstream condition this step's noise was conditioned on
+    pub condition: Option<String>,
     /// Path to the upstream fid-stamped artifact, recorded as given
     pub derived_from: Option<String>,
 }
@@ -66,6 +75,9 @@ pub fn stamp(
     if let Some(hl) = &opts.half_life {
         parse_half_life(hl)?;
     }
+    if let Some(b) = opts.baseline {
+        check_unit(b, "baseline")?;
+    }
 
     let mut warnings = Vec::new();
     let (content, upstream_stdin) = parse_input(input)?;
@@ -78,6 +90,7 @@ pub fn stamp(
         step: opts.source.clone(),
         noise: opts.noise,
         at: now,
+        condition: opts.condition.clone(),
     };
 
     let mut envelope = match upstream_stdin.or(upstream_file) {
@@ -91,6 +104,15 @@ pub fn stamp(
             if opts.half_life.is_some() {
                 upstream.half_life = opts.half_life.clone();
             }
+            if opts.baseline.is_some() {
+                upstream.baseline = opts.baseline;
+            }
+            if opts.info_type.is_some() {
+                upstream.info_type = opts.info_type.clone();
+            }
+            if opts.state.is_some() {
+                upstream.state = opts.state.clone();
+            }
             upstream.transforms.push(step);
             upstream.derived_from = opts.derived_from.clone();
             upstream
@@ -101,7 +123,11 @@ pub fn stamp(
             source_id: opts.source.clone(),
             measured_at: now,
             half_life: opts.half_life.clone(),
-            transforms: if opts.noise > 0.0 { vec![step] } else { Vec::new() },
+            baseline: opts.baseline,
+            info_type: opts.info_type.clone(),
+            state: opts.state.clone(),
+            // A lossless root has no transform step, unless it records a condition
+            transforms: if opts.noise > 0.0 || opts.condition.is_some() { vec![step] } else { Vec::new() },
             fid_at_stamp: None,
             derived_from: opts.derived_from.clone(),
             integrity: String::new(),
@@ -133,6 +159,10 @@ mod tests {
             source_class: None,
             noise: 0.0,
             half_life: None,
+            baseline: None,
+            info_type: None,
+            state: None,
+            condition: None,
             derived_from: None,
         }
     }
@@ -272,6 +302,65 @@ mod tests {
     fn test_invalid_half_life_is_error() {
         let o = StampOptions { half_life: Some("7days".into()), ..opts("x") };
         assert!(stamp("{}", &o, None, t0()).is_err());
+    }
+
+    #[test]
+    fn test_root_records_type_state_baseline() {
+        let o = StampOptions {
+            source_class: Some(SourceClass::Instrument),
+            half_life: Some("2.9h".into()),
+            baseline: Some(0.73),
+            info_type: Some("airport_flight_category".into()),
+            state: Some("vfr".into()),
+            ..opts("metar-jfk")
+        };
+        let out = stamp("{}", &o, None, t0()).unwrap();
+        let env = &out.stamped.fid;
+        assert_eq!(env.baseline, Some(0.73));
+        assert_eq!(env.info_type.as_deref(), Some("airport_flight_category"));
+        assert_eq!(env.state.as_deref(), Some("vfr"));
+    }
+
+    #[test]
+    fn test_baseline_slows_decay_at_stamp() {
+        let root = StampOptions {
+            source_class: Some(SourceClass::Database),
+            half_life: Some("1d".into()),
+            baseline: Some(0.70),
+            ..opts("s")
+        };
+        let first = stamp("{}", &root, None, t0()).unwrap();
+        let later = stamp(&to_json(&first), &opts("copy"), None, t0() + Duration::days(1)).unwrap();
+        // 0.70 + (0.90 − 0.70) × 0.5
+        assert!((later.stamped.fid.fid_at_stamp.unwrap() - 0.80).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_restamp_inherits_and_overrides_state() {
+        let root = StampOptions { state: Some("underway".into()), baseline: Some(0.1), ..opts("ais") };
+        let first = stamp("{}", &root, None, t0()).unwrap();
+        let kept = stamp(&to_json(&first), &opts("step"), None, t0()).unwrap();
+        assert_eq!(kept.stamped.fid.state.as_deref(), Some("underway"));
+        assert_eq!(kept.stamped.fid.baseline, Some(0.1));
+        let changed = StampOptions { state: Some("moored".into()), ..opts("step") };
+        let second = stamp(&to_json(&first), &changed, None, t0()).unwrap();
+        assert_eq!(second.stamped.fid.state.as_deref(), Some("moored"));
+    }
+
+    #[test]
+    fn test_condition_recorded_on_step() {
+        let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("schedule") }, None, t0()).unwrap();
+        let o = StampOptions { noise: 0.54, condition: Some("previous_leg_late".into()), ..opts("flight_leg") };
+        let second = stamp(&to_json(&first), &o, None, t0()).unwrap();
+        assert_eq!(second.stamped.fid.transforms[0].condition.as_deref(), Some("previous_leg_late"));
+    }
+
+    #[test]
+    fn test_invalid_baseline_is_error() {
+        for baseline in [-0.1, 1.1, f64::NAN] {
+            let o = StampOptions { baseline: Some(baseline), ..opts("x") };
+            assert!(stamp("{}", &o, None, t0()).is_err());
+        }
     }
 
     #[test]

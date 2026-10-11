@@ -8,6 +8,27 @@
 #
 # Range: 0.0 (lossless) to 1.0 (total destruction).
 # Typical transforms fall between 0.01 and 0.30.
+#
+# An entry is a noise value, or a map with:
+#   noise      — noise when nothing more is known upstream
+#   conditions — noise given a known upstream condition
+#                (look up with --condition)
+#
+#   fid stamp --noise-model noise-model.yaml --transform flight_leg --condition previous_leg_late ...
+
+# ── Measured ────────────────────────────────────────────────────
+# See calibration/README.md (BTS on-time data, Jan 2024).
+
+flight_leg:
+  noise: 0.034                    # fleet average per leg of an aircraft's day
+  conditions:
+    # On time 32.8% after a late leg vs 71.9% for legs after the first:
+    # 1 − 0.328 / 0.719
+    previous_leg_late: 0.54
+    # An on-time previous leg raises confidence (84.6%). Noise cannot be
+    # negative; fid treats that as new evidence — stamp a fresh root.
+
+# ── Hand-picked, not yet measured ───────────────────────────────
 
 # Deterministic transforms — low noise
 copy:         0.00    # bit-identical, zero noise

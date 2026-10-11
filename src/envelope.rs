@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
 /// Current envelope schema version.
-pub const FID_VERSION: &str = "0.1";
+pub const FID_VERSION: &str = "0.2";
 
 /// Source class — determines initial fidelity ceiling.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -89,6 +89,10 @@ pub struct TransformStep {
 
     /// When this transformation occurred
     pub at: DateTime<Utc>,
+
+    /// Upstream condition the noise was conditioned on (e.g. "previous_leg_late")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<String>,
 }
 
 /// The fidelity envelope — carried with every fid-stamped artifact.
@@ -108,6 +112,19 @@ pub struct FidEnvelope {
 
     /// Domain-specific half-life (e.g. "7d", "30s", "3y", "infinite")
     pub half_life: Option<String>,
+
+    /// Chance the fact is right anyway once fully stale (0.0 to 1.0).
+    /// Temporal decay goes toward this instead of toward zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<f64>,
+
+    /// Information type, as named in a half-life registry (e.g. "vessel_position")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub info_type: Option<String>,
+
+    /// State of the observed thing at measurement (e.g. "underway", "moored")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
 
     /// Ordered list of transformation steps since measurement
     pub transforms: Vec<TransformStep>,
@@ -138,6 +155,7 @@ impl FidEnvelope {
             age_seconds,
             half_life,
             &noise,
+            self.baseline.unwrap_or(0.0),
         ))
     }
 }
@@ -170,10 +188,13 @@ pub struct FidAssessment {
     /// Temporal decay factor
     pub temporal: f64,
 
+    /// Baseline that temporal decay goes toward (0.0 if none)
+    pub baseline: f64,
+
     /// Transformation noise factor
     pub transforms: f64,
 
-    /// Total fidelity (source × temporal × transforms)
+    /// Total fidelity: baseline + (source × transforms − baseline) × temporal
     pub fidelity: Option<f64>,
 
     /// Noise floor threshold applied
@@ -217,10 +238,14 @@ mod tests {
             source_id: "sensor-12".to_string(),
             measured_at: at,
             half_life: Some("30d".to_string()),
+            baseline: None,
+            info_type: None,
+            state: None,
             transforms: vec![TransformStep {
                 step: "normalize.py".to_string(),
                 noise: 0.05,
                 at,
+                condition: None,
             }],
             fid_at_stamp: Some(0.8265),
             derived_from: None,
@@ -267,6 +292,38 @@ mod tests {
         assert_eq!(back.transforms[0].noise, 0.05);
         assert_eq!(back.fid_at_stamp, env.fid_at_stamp);
         assert_eq!(back.integrity, env.integrity);
+    }
+
+    #[test]
+    fn test_v01_envelope_without_new_fields_still_reads() {
+        let mut value = serde_json::to_value(sample_envelope()).unwrap();
+        let obj = value.as_object_mut().unwrap();
+        obj.remove("baseline");
+        obj.remove("info_type");
+        obj.remove("state");
+        obj.insert("fid_version".into(), Value::String("0.1".into()));
+        let env: FidEnvelope = serde_json::from_value(value).unwrap();
+        assert_eq!(env.baseline, None);
+        assert_eq!(env.transforms[0].condition, None);
+    }
+
+    #[test]
+    fn test_new_fields_omitted_when_unset() {
+        let value = serde_json::to_value(sample_envelope()).unwrap();
+        assert!(value.get("baseline").is_none());
+        assert!(value.get("state").is_none());
+        assert!(value["transforms"][0].get("condition").is_none());
+    }
+
+    #[test]
+    fn test_fidelity_at_uses_baseline() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Database; // 0.90
+        env.transforms.clear();
+        env.half_life = Some("1d".into());
+        env.baseline = Some(0.70);
+        let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
+        assert!((f - 0.80).abs() < 1e-10);
     }
 
     #[test]

@@ -1,9 +1,10 @@
 use std::io::Read;
 
 use chrono::Utc;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use fid::check::{assess, report};
 use fid::envelope::{SourceClass, Stamped};
+use fid::registry::{HalfLives, NoiseModel};
 use fid::stamp::{stamp, StampOptions};
 
 /// fid — information fidelity measurement for computing systems.
@@ -24,6 +25,62 @@ struct Cli {
 
     /// Path to a file to measure fidelity of (shorthand for `fid measure <path>`)
     path: Option<String>,
+}
+
+/// Options for `fid stamp`.
+///
+/// Registries supply measured values by name; explicit flags override them.
+#[derive(Args)]
+struct StampArgs {
+    /// Source identifier (who/what produced this data)
+    #[arg(long)]
+    source: String,
+
+    /// Source class (root stamps only; defaults to unknown):
+    /// instrument | human_observation | human_attestation | database |
+    /// llm_grounded | llm_ungrounded | hearsay | unknown
+    #[arg(long)]
+    source_class: Option<String>,
+
+    /// Transform noise (0.0 to 1.0); overrides --noise-model
+    #[arg(long)]
+    noise: Option<f64>,
+
+    /// Half-life duration (e.g. "7d", "6h", "30s"); overrides --half-lives
+    #[arg(long)]
+    half_life: Option<String>,
+
+    /// Baseline the fact decays toward instead of 0 (0.0 to 1.0); overrides --half-lives
+    #[arg(long)]
+    baseline: Option<f64>,
+
+    /// Half-life registry (YAML) to look up --type and --state in
+    #[arg(long, requires = "info_type")]
+    half_lives: Option<String>,
+
+    /// Information type (e.g. "vessel_position")
+    #[arg(long = "type")]
+    info_type: Option<String>,
+
+    /// State of the observed thing (e.g. "underway", "moored")
+    #[arg(long)]
+    state: Option<String>,
+
+    /// Noise model (YAML) to look up --transform and --condition in
+    #[arg(long, requires = "transform")]
+    noise_model: Option<String>,
+
+    /// Transform name in the noise model (e.g. "flight_leg")
+    #[arg(long, requires = "noise_model")]
+    transform: Option<String>,
+
+    /// Upstream condition this step's noise depends on (e.g. "previous_leg_late")
+    #[arg(long)]
+    condition: Option<String>,
+
+    /// Derived-from: path to the upstream fid-stamped artifact
+    #[arg(long)]
+    derived_from: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -59,29 +116,7 @@ enum Commands {
     },
 
     /// Stamp a fidelity envelope onto stdin content
-    Stamp {
-        /// Source identifier (who/what produced this data)
-        #[arg(long)]
-        source: String,
-
-        /// Source class (root stamps only; defaults to unknown):
-        /// instrument | human_observation | human_attestation | database |
-        /// llm_grounded | llm_ungrounded | hearsay | unknown
-        #[arg(long)]
-        source_class: Option<String>,
-
-        /// Transform noise (0.0 to 1.0)
-        #[arg(long, default_value = "0.0")]
-        noise: f64,
-
-        /// Half-life duration (e.g. "7d", "6h", "30s")
-        #[arg(long)]
-        half_life: Option<String>,
-
-        /// Derived-from: path to the upstream fid-stamped artifact
-        #[arg(long)]
-        derived_from: Option<String>,
-    },
+    Stamp(StampArgs),
 
     /// Inspect the fidelity chain of a stamped artifact
     Chain {
@@ -142,8 +177,8 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Stamp { source, source_class, noise, half_life, derived_from }) => {
-            if let Err(e) = run_stamp(source, source_class, noise, half_life, derived_from) {
+        Some(Commands::Stamp(args)) => {
+            if let Err(e) = run_stamp(args) {
                 eprintln!("fid stamp: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
@@ -176,16 +211,27 @@ fn main() {
 }
 
 /// Read stdin, wrap it in a fidelity envelope, write JSON to stdout.
-fn run_stamp(
-    source: String,
-    source_class: Option<String>,
-    noise: f64,
-    half_life: Option<String>,
-    derived_from: Option<String>,
-) -> Result<(), String> {
-    let source_class = source_class
-        .map(|s| s.parse::<SourceClass>())
-        .transpose()?;
+fn run_stamp(args: StampArgs) -> Result<(), String> {
+    let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
+
+    // Registry values first, explicit flags override.
+    let (mut half_life, mut baseline) = (None, None);
+    if let Some(path) = &args.half_lives {
+        let info_type = args.info_type.as_deref().expect("clap enforces --type");
+        let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
+        half_life = Some(spec.half_life);
+        baseline = spec.baseline;
+    }
+    half_life = args.half_life.or(half_life);
+    baseline = args.baseline.or(baseline);
+
+    let mut noise = 0.0;
+    if let Some(path) = &args.noise_model {
+        let transform = args.transform.as_deref().expect("clap enforces --transform");
+        noise = NoiseModel::load(path)?.lookup(transform, args.condition.as_deref())?;
+    }
+    let noise = args.noise.unwrap_or(noise);
+    let derived_from = args.derived_from;
 
     let upstream_file = match &derived_from {
         Some(path) => {
@@ -203,7 +249,17 @@ fn run_stamp(
         .read_to_string(&mut input)
         .map_err(|e| format!("cannot read stdin: {}", e))?;
 
-    let opts = StampOptions { source, source_class, noise, half_life, derived_from };
+    let opts = StampOptions {
+        source: args.source,
+        source_class,
+        noise,
+        half_life,
+        baseline,
+        info_type: args.info_type,
+        state: args.state,
+        condition: args.condition,
+        derived_from,
+    };
     let out = stamp(&input, &opts, upstream_file, Utc::now())?;
 
     for warning in &out.warnings {

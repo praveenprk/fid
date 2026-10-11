@@ -106,3 +106,76 @@ fn stamp_rejects_malformed_envelope() {
     assert_eq!(out.status.code(), Some(3));
     assert!(String::from_utf8_lossy(&out.stderr).contains("not a valid fid-stamped artifact"));
 }
+
+fn example(name: &str) -> String {
+    format!("{}/examples/{}", env!("CARGO_MANIFEST_DIR"), name)
+}
+
+#[test]
+fn stamp_looks_up_state_half_life() {
+    let registry = example("half-lives.yaml");
+    let out = fid(
+        &["stamp", "--source", "ais", "--source-class", "instrument",
+          "--half-lives", &registry, "--type", "vessel_position", "--state", "underway"],
+        "{}",
+    );
+    let v = stdout_json(&out);
+    assert_eq!(v["fid"]["half_life"], "2.3m");
+    assert_eq!(v["fid"]["baseline"], 0.03);
+    assert_eq!(v["fid"]["info_type"], "vessel_position");
+    assert_eq!(v["fid"]["state"], "underway");
+}
+
+#[test]
+fn stamp_flags_override_registry() {
+    let registry = example("half-lives.yaml");
+    let out = fid(
+        &["stamp", "--source", "m", "--half-lives", &registry, "--type", "airport_flight_category",
+          "--half-life", "1h", "--baseline", "0.5"],
+        "{}",
+    );
+    let v = stdout_json(&out);
+    assert_eq!(v["fid"]["half_life"], "1h");
+    assert_eq!(v["fid"]["baseline"], 0.5);
+}
+
+#[test]
+fn stamp_looks_up_conditional_noise() {
+    let model = example("noise-model.yaml");
+    let first = fid(&["stamp", "--source", "schedule", "--source-class", "database"], "{}");
+    let out = fid(
+        &["stamp", "--source", "leg-3", "--noise-model", &model, "--transform", "flight_leg",
+          "--condition", "previous_leg_late"],
+        &String::from_utf8(first.stdout).unwrap(),
+    );
+    let v = stdout_json(&out);
+    assert_eq!(v["fid"]["transforms"][0]["noise"], 0.54);
+    assert_eq!(v["fid"]["transforms"][0]["condition"], "previous_leg_late");
+}
+
+#[test]
+fn stamp_registry_errors_exit_3() {
+    let registry = example("half-lives.yaml");
+    let model = example("noise-model.yaml");
+    let cases: &[&[&str]] = &[
+        // stateful type without a state
+        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "vessel_position"],
+        // unknown state
+        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "vessel_position", "--state", "sinking"],
+        // unknown type
+        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "nope"],
+        // registry without --type
+        &["stamp", "--source", "x", "--half-lives", &registry],
+        // unknown condition
+        &["stamp", "--source", "x", "--noise-model", &model, "--transform", "flight_leg", "--condition", "x"],
+        // bad baseline
+        &["stamp", "--source", "x", "--baseline", "1.5"],
+        // missing registry file
+        &["stamp", "--source", "x", "--half-lives", "/nonexistent.yaml", "--type", "t"],
+    ];
+    for args in cases {
+        let out = fid(args, "{}");
+        assert_eq!(out.status.code(), Some(3), "args: {:?}", args);
+        assert!(out.stdout.is_empty());
+    }
+}

@@ -7,11 +7,12 @@
 //! ```text
 //! sensor-12        → fid: 0.97 (source: instrument)
 //! normalize.py     → fid: 0.92 (−0.05 transform noise)
-//! temporal (18d)   → fid: 0.62 (−0.30 temporal decay, half-life: 30d)
+//! temporal (18d)   → fid: 0.62 (−0.30 temporal decay, half-life 30d)
 //! TOTAL:             0.62  SIGNAL (floor: 0.50)
 //! ```
 
-use crate::check::{format_age, CheckResult};
+use crate::check::{decay_description, format_age, CheckResult};
+use crate::compute::apply_decay;
 use crate::envelope::{FidStatus, Stamped};
 
 /// One contribution to the chain.
@@ -49,22 +50,28 @@ pub fn chain_lines(stamped: &Stamped, result: &CheckResult) -> Vec<ChainLine> {
         lines.push(ChainLine {
             label: t.step.clone(),
             fid: current,
-            note: match (before, current) {
-                (Some(b), Some(c)) => format!("−{:.2} transform noise", b - c),
-                _ => format!("noise {:.2}", t.noise),
+            note: {
+                let base = match (before, current) {
+                    (Some(b), Some(c)) => format!("−{:.2} transform noise", b - c),
+                    _ => format!("noise {:.2}", t.noise),
+                };
+                match &t.condition {
+                    Some(cond) => format!("{}, given {}", base, cond),
+                    None => base,
+                }
             },
         });
     }
 
     let before = current;
-    current = current.map(|f| f * a.temporal);
-    let half_life = env.half_life.as_deref().unwrap_or("none");
+    current = current.map(|f| apply_decay(f, a.temporal, a.baseline));
+    let decay = decay_description(env, a.baseline);
     lines.push(ChainLine {
         label: format!("temporal ({})", format_age(result.age_seconds)),
         fid: current,
         note: match (before, current) {
-            (Some(b), Some(c)) => format!("−{:.2} temporal decay, half-life: {}", b - c, half_life),
-            _ => format!("decay ×{:.2}, half-life: {}", a.temporal, half_life),
+            (Some(b), Some(c)) => format!("−{:.2} temporal decay, {}", b - c, decay),
+            _ => format!("decay ×{:.2}, {}", a.temporal, decay),
         },
     });
 
@@ -140,9 +147,12 @@ mod tests {
                 source_id: "sensor-12".to_string(),
                 measured_at: t0(),
                 half_life: half_life.map(str::to_string),
+                baseline: None,
+                info_type: None,
+                state: None,
                 transforms: steps
                     .iter()
-                    .map(|&(s, n)| TransformStep { step: s.to_string(), noise: n, at: t0() })
+                    .map(|&(s, n)| TransformStep { step: s.to_string(), noise: n, at: t0(), condition: None })
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
@@ -175,7 +185,21 @@ mod tests {
         // Last line equals check's total
         assert!((lines[3].fid.unwrap() - r.assessment.fidelity.unwrap()).abs() < 1e-12);
         assert_eq!(lines[1].note, "−0.05 transform noise");
-        assert!(lines[3].note.contains("half-life: 30d"));
+        assert!(lines[3].note.contains("half-life 30d"));
+    }
+
+    #[test]
+    fn test_chain_baseline_and_condition() {
+        let mut s = stamped(SourceClass::Database, Some("1d"), &[("flight_leg", 0.5)]);
+        s.fid.transforms[0].condition = Some("previous_leg_late".into());
+        s.fid.baseline = Some(0.2);
+        let r = assess(&s, 0.50, t0() + Duration::days(1)).unwrap();
+        let lines = chain_lines(&s, &r);
+        assert_eq!(lines[1].note, "−0.45 transform noise, given previous_leg_late");
+        // 0.45 decays halfway toward 0.2
+        assert!((lines[2].fid.unwrap() - 0.325).abs() < 1e-10);
+        assert!(lines[2].note.contains("baseline 0.20"));
+        assert!((lines[2].fid.unwrap() - r.assessment.fidelity.unwrap()).abs() < 1e-12);
     }
 
     #[test]
