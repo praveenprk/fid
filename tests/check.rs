@@ -134,3 +134,24 @@ fn check_in_shell_pipeline() {
     let out = Command::new("sh").arg("-c").arg(&script).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "proceed");
 }
+
+#[test]
+fn chain_walks_pipeline() {
+    let first = stamped(&["--source", "sensor-12", "--source-class", "instrument", "--half-life", "30d"]);
+    let second = fid(&["stamp", "--source", "normalize.py", "--noise", "0.05"], &first);
+    let out = fid(&["chain", "-", "--floor", "0.5"], &String::from_utf8(second.stdout).unwrap());
+    assert_eq!(out.status.code(), Some(0));
+    let text = String::from_utf8(out.stdout).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 4);
+    assert!(lines[0].starts_with("sensor-12"));
+    assert!(lines[1].contains("normalize.py") && lines[1].contains("−0.05 transform noise"));
+    assert!(lines[2].starts_with("temporal ("));
+    assert!(lines[3].contains("0.92  SIGNAL (floor: 0.50)"));
+}
+
+#[test]
+fn chain_errors_exit_3() {
+    assert_eq!(fid(&["chain", "/nonexistent/a.json"], "").status.code(), Some(3));
+    assert_eq!(fid(&["chain", "-"], "not json").status.code(), Some(3));
+}

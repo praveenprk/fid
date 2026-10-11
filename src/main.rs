@@ -85,8 +85,12 @@ enum Commands {
 
     /// Inspect the fidelity chain of a stamped artifact
     Chain {
-        /// Path to the fid-stamped file
+        /// Path to the fid-stamped file ("-" for stdin)
         path: String,
+
+        /// Fidelity floor shown in the TOTAL line
+        #[arg(long, default_value = "0.50")]
+        floor: f64,
     },
 
     /// Filter stdin (jsonl) to records above the noise floor
@@ -144,9 +148,11 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         }
-        Some(Commands::Chain { path }) => {
-            eprintln!("fid: chain not yet implemented — {}", path);
-            std::process::exit(2);
+        Some(Commands::Chain { path, floor }) => {
+            if let Err(e) = run_chain(&path, floor) {
+                eprintln!("fid chain: {}", e);
+                std::process::exit(EXIT_ERROR);
+            }
         }
         Some(Commands::Filter { .. }) => {
             eprintln!("fid: filter not yet implemented");
@@ -208,8 +214,8 @@ fn run_stamp(
     Ok(())
 }
 
-/// Read a stamped artifact, assess it, report to stderr, return the exit code.
-fn run_check(path: &str, floor: f64) -> Result<i32, String> {
+/// Read a stamped artifact from a path, or stdin if the path is "-".
+fn read_stamped(path: &str) -> Result<Stamped, String> {
     let text = if path == "-" {
         let mut input = String::new();
         std::io::stdin()
@@ -219,10 +225,21 @@ fn run_check(path: &str, floor: f64) -> Result<i32, String> {
     } else {
         std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?
     };
-    let stamped: Stamped = serde_json::from_str(&text)
-        .map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))?;
+    serde_json::from_str(&text).map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))
+}
 
+/// Read a stamped artifact, assess it, report to stderr, return the exit code.
+fn run_check(path: &str, floor: f64) -> Result<i32, String> {
+    let stamped = read_stamped(path)?;
     let result = assess(&stamped, floor, Utc::now())?;
     eprintln!("{}", report(&stamped, &result));
     Ok(result.assessment.status.exit_code())
+}
+
+/// Read a stamped artifact and print its fidelity chain to stdout.
+fn run_chain(path: &str, floor: f64) -> Result<(), String> {
+    let stamped = read_stamped(path)?;
+    let result = assess(&stamped, floor, Utc::now())?;
+    println!("{}", fid::chain::report(&stamped, &result));
+    Ok(())
 }

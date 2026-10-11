@@ -72,6 +72,6 @@ TOTAL:             0.62  SIGNAL (floor: 0.50)
 2. envelope.rs — data structures (done — has serialization tests)
 3. stamp command — stdin → envelope → stdout (done — stamp.rs, tests/stamp.rs)
 4. check command — read envelope → compute → exit code (done — check.rs, tests/check.rs)
-5. chain command — read envelope → walk transforms → report
+5. chain command — read envelope → walk transforms → report (done — chain.rs)
 
 One at a time.
