@@ -1,7 +1,8 @@
 """How fast does a cargo ship's reported position go stale?
 
-Ground truth: one day (15 March 2023) of AIS broadcasts from every cargo
-ship and tanker in US waters, from NOAA / BOEM MarineCadastre. AIS is
+Ground truth: AIS broadcasts from every cargo ship and tanker in US
+waters on six days spread through 2023 (the 15th of every other month),
+from NOAA / BOEM MarineCadastre. Days are processed one at a time. AIS is
 what ports, coast guards and other ships use to know where a vessel is.
 
 Fact: "vessel V is at position P". Still correct if a later AIS report
@@ -15,7 +16,7 @@ this tests whether one is enough.
 
 Tests examples/half-lives.yaml's `shipping_status: 4h`, the nearest guess.
 
-Usage: python3 ships_ais.py   (downloads ~320 MB once)
+Usage: python3 ships_ais.py   (downloads ~320 MB per day, once)
 """
 
 import csv
@@ -27,8 +28,8 @@ from collections import defaultdict
 
 import fidcal
 
-DAY = "2023_03_15"
-URL = f"https://coast.noaa.gov/htdata/CMSP/AISDataHandler/2023/AIS_{DAY}.zip"
+DAYS = ["2023_01_15", "2023_03_15", "2023_05_15", "2023_07_15", "2023_09_15", "2023_11_15"]
+URL = "https://coast.noaa.gov/htdata/CMSP/AISDataHandler/{year}/AIS_{day}.zip"
 LAG_MINUTES = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 600, 720]
 LAGS = [m * 60 for m in LAG_MINUTES]
 OBS_START_MINUTES = range(0, 12 * 60, 30)
@@ -97,26 +98,36 @@ def observations(tracks, threshold_km):
                 yield (mmsi, lag, haversine_km(first, later) <= threshold_km, underway)
 
 
+GROUPS = [("all vessels", None), ("underway", True), ("moored or at anchor", False)]
+THRESHOLDS_KM = (1.0, 10.0)
+
+
 def main():
-    path = fidcal.download(URL, os.path.join(fidcal.default_cache_dir(), "ais", f"AIS_{DAY}.zip"))
-    tracks = load(path)
-    fidcal.log(f"{len(tracks):,} cargo ships and tankers")
+    cache = fidcal.default_cache_dir()
+    tallies = {(t, g): fidcal.Tally() for t in THRESHOLDS_KM for g, _ in GROUPS}
+    vessels = set()
+    for day in DAYS:
+        url = URL.format(year=day[:4], day=day)
+        tracks = load(fidcal.download(url, os.path.join(cache, "ais", f"AIS_{day}.zip")))
+        vessels.update(tracks)
+        fidcal.log(f"{day}: {len(tracks):,} cargo ships and tankers")
+        for threshold in THRESHOLDS_KM:
+            for mmsi, lag, correct, underway in observations(tracks, threshold):
+                for label, want in GROUPS:
+                    if want is None or want == underway:
+                        tallies[(threshold, label)].add(mmsi, lag, correct)
+        del tracks
+    fidcal.log(f"{len(vessels):,} distinct vessels over {len(DAYS)} days")
 
     guess = dict(guess=4 * fidcal.HOUR, guess_label="shipping_status: 4h")
     results = []
-    for threshold in (1.0, 10.0):
-        obs = list(observations(tracks, threshold))
-        truth = f"next report within {threshold:.0f} km"
-        groups = [
-            ("all vessels", obs),
-            ("underway", [o for o in obs if o[3]]),
-            ("moored or at anchor", [o for o in obs if not o[3]]),
-        ]
-        for label, group in groups:
+    for threshold in THRESHOLDS_KM:
+        for label, _ in GROUPS:
             results.append(fidcal.analyze(
                 f"AIS {threshold:.0f} km, {label}",
                 f"vessel V is at position P (±{threshold:.0f} km)",
-                ((m, l, c) for m, l, c, _ in group), LAGS, truth=truth, **guess,
+                tallies[(threshold, label)], LAGS,
+                truth=f"next report within {threshold:.0f} km", **guess,
             ))
     fidcal.write_results(results, "ships_ais")
 

@@ -1,8 +1,9 @@
 """Is a published flight schedule true, and does each leg add noise?
 
-Ground truth: every US domestic flight in January 2024 from the Bureau
-of Transportation Statistics on-time database (~550,000 flights) — the
-scheduled arrival, and what actually happened.
+Ground truth: every US domestic flight in 2024 from the Bureau of
+Transportation Statistics on-time database (~7 million flights) — the
+scheduled arrival, and what actually happened. Months are processed one
+at a time, so memory stays flat.
 
 Fact: "flight F arrives at its scheduled time". Correct if it arrived
 within 15 minutes of schedule (the DOT definition of on-time), and was
@@ -32,7 +33,10 @@ from collections import defaultdict
 
 import fidcal
 
-URL = "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2024_1.zip"
+YEAR = 2024
+MONTHS = range(1, 13)
+URL = "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{year}_{month}.zip"
+MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 MAX_LEG = 8
 
 
@@ -65,39 +69,55 @@ def load(path):
     return flights
 
 
+class Rate:
+    """On-time count and total."""
+
+    def __init__(self):
+        self.on_time = self.n = 0
+
+    def add(self, on_time):
+        self.on_time += 1 if on_time else 0
+        self.n += 1
+
+    @property
+    def p(self):
+        return self.on_time / self.n
+
+
 def rate_table(groups, min_n=2000):
-    rows = []
-    for key, outcomes in sorted(groups.items()):
-        if len(outcomes) >= min_n:
-            rows.append((key, sum(outcomes) / len(outcomes), len(outcomes)))
-    return rows
+    return [(key, r.p, r.n) for key, r in sorted(groups.items()) if r.n >= min_n]
 
 
 def main():
-    path = fidcal.download(URL, os.path.join(fidcal.default_cache_dir(), "bts", "ontime_2024_01.zip"))
-    flights = load(path)
-    fidcal.log(f"{len(flights):,} flights")
+    cache = fidcal.default_cache_dir()
+    overall = Rate()
+    by_airline, by_hour, by_month = defaultdict(Rate), defaultdict(Rate), defaultdict(Rate)
+    legs = fidcal.Tally()
+    after = {"on_time": Rate(), "late": Rate()}
 
-    overall = sum(f["on_time"] for f in flights) / len(flights)
-    by_airline = defaultdict(list)
-    by_hour = defaultdict(list)
-    for f in flights:
-        by_airline[f["airline"]].append(f["on_time"])
-        by_hour[f"{f['dep'] // 100:02d}:00"].append(f["on_time"])
+    for month in MONTHS:
+        url = URL.format(year=YEAR, month=month)
+        path = fidcal.download(url, os.path.join(cache, "bts", f"ontime_{YEAR}_{month:02d}.zip"))
+        flights = load(path)
+        fidcal.log(f"{YEAR}-{month:02d}: {len(flights):,} flights")
 
-    # Legs of each aircraft's day, in scheduled order
-    days = defaultdict(list)
-    for f in flights:
-        if f["tail"]:
-            days[(f["tail"], f["date"])].append(f)
-    legs = []
-    after = {"on_time": [], "late": []}
-    for (tail, _date), day in days.items():
-        day.sort(key=lambda f: f["dep"])
-        for k, f in enumerate(day[:MAX_LEG]):
-            legs.append((tail, k, f["on_time"]))
-            if k > 0:
-                after["on_time" if day[k - 1]["on_time"] else "late"].append(f["on_time"])
+        for f in flights:
+            overall.add(f["on_time"])
+            by_airline[f["airline"]].add(f["on_time"])
+            by_hour[f"{f['dep'] // 100:02d}:00"].add(f["on_time"])
+            by_month[f"{YEAR}-{month:02d}"].add(f["on_time"])
+
+        # Legs of each aircraft's day, in scheduled order. Days never span months.
+        days = defaultdict(list)
+        for f in flights:
+            if f["tail"]:
+                days[(f["tail"], f["date"])].append(f)
+        for (tail, _date), day in days.items():
+            day.sort(key=lambda f: f["dep"])
+            for k, f in enumerate(day[:MAX_LEG]):
+                legs.add(tail, k, f["on_time"])
+                if k > 0:
+                    after["on_time" if day[k - 1]["on_time"] else "late"].add(f["on_time"])
 
     chain = fidcal.analyze(
         "Flight legs", "aircraft's k-th leg of the day arrives on schedule",
@@ -108,14 +128,18 @@ def main():
     h = chain["fitted"]["half_life_s"]
     per_leg_noise = 1 - 0.5 ** (1 / h) if h and not math.isinf(h) else 0.0
 
-    p_after_on = sum(after["on_time"]) / len(after["on_time"])
-    p_after_late = sum(after["late"]) / len(after["late"])
+    p_after_on = after["on_time"].p
+    p_after_late = after["late"].p
+    p_any = (after["on_time"].on_time + after["late"].on_time) / (after["on_time"].n + after["late"].n)
 
     lines = [
         "### Flight schedules: source fidelity",
         "",
-        f"- {len(flights):,} flights, January 2024",
-        f"- The schedule is true (on time, ±15 min) for **{overall:.1%}** of flights",
+        f"- {overall.n:,} flights, {YEAR}",
+        f"- The schedule is true (on time, ±15 min) for **{overall.p:.1%}** of flights",
+        "",
+        "| Month | On time | n |", "|---|---|---|",
+        *[f"| {k} | {p:.3f} | {n:,} |" for k, p, n in rate_table(by_month)],
         "",
         "| Airline | On time | n |", "|---|---|---|",
         *[f"| {k} | {p:.3f} | {n:,} |" for k, p, n in rate_table(by_airline)],
@@ -126,8 +150,10 @@ def main():
         "### Flight legs: independence of transform noise",
         "",
         f"- Fitted per-leg noise (fid model): **{per_leg_noise:.3f}**",
-        f"- On time after an on-time previous leg: **{p_after_on:.3f}** (n = {len(after['on_time']):,})",
-        f"- On time after a late previous leg: **{p_after_late:.3f}** (n = {len(after['late']):,})",
+        f"- On time after an on-time previous leg: **{p_after_on:.3f}** (n = {after['on_time'].n:,})",
+        f"- On time after a late previous leg: **{p_after_late:.3f}** (n = {after['late'].n:,})",
+        f"- On time, any leg after the first: **{p_any:.3f}**",
+        f"- Conditional noise after a late leg: 1 − {p_after_late:.3f} / {p_any:.3f} = **{1 - p_after_late / p_any:.2f}**",
         "- If legs were independent, as multiplying per-step noise assumes, these two would match.",
         "",
     ]
@@ -135,15 +161,19 @@ def main():
     print(extra)
 
     chain["source_fidelity"] = {
-        "overall": overall,
-        "flights": len(flights),
+        "overall": overall.p,
+        "flights": overall.n,
+        "year": YEAR,
         "by_airline": [{"airline": k, "on_time": p, "n": n} for k, p, n in rate_table(by_airline)],
         "by_hour": [{"hour": k, "on_time": p, "n": n} for k, p, n in rate_table(by_hour)],
+        "by_month": [{"month": k, "on_time": p, "n": n} for k, p, n in rate_table(by_month)],
     }
     chain["after_previous_leg"] = {
         "per_leg_noise": per_leg_noise,
-        "on_time": {"on_time": p_after_on, "n": len(after["on_time"])},
-        "late": {"on_time": p_after_late, "n": len(after["late"])},
+        "on_time": {"on_time": p_after_on, "n": after["on_time"].n},
+        "late": {"on_time": p_after_late, "n": after["late"].n},
+        "any_after_first": p_any,
+        "noise_given_late": 1 - p_after_late / p_any,
     }
 
     here = os.path.dirname(os.path.abspath(__file__))

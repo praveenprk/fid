@@ -106,16 +106,16 @@ airport_flight_category:             # measured; decays toward a baseline
   baseline:  0.73
 vessel_position:                     # measured; depends on state
   states:
-    underway: { half_life: 2.3m, baseline: 0.03 }
-    moored:   1.6d
+    underway: { half_life: 1.9m, baseline: 0.02 }
+    moored:   1.4d
 
 # noise-model.yaml — per-transform noise, optionally per upstream condition
 normalize:   0.02
 summarize:   0.15
 flight_leg:                          # measured
-  noise: 0.034
+  noise: 0.045
   conditions:
-    previous_leg_late: 0.54
+    previous_leg_late: 0.55
 
 # floor.yaml — noise floor thresholds
 medical:      0.70
@@ -189,8 +189,8 @@ data. On the Wikidata CEO data it reproduces the published study.
 
 The half-lives above are hand-picked. [`calibration/`](calibration/)
 tests the model against public data with known ground truth — Wikidata
-CEOs, airport weather, US flights, and cargo-ship AIS tracks. The short
-version: measured half-lives differ from the guesses by 6× to 75×,
+CEOs, airport weather, 7 million US flights, and cargo-ship AIS tracks. The short
+version: measured half-lives differ from the guesses by 6× to 80×,
 facts decay toward a baseline rather than to zero, and transform noise
 is not independent. See [calibration/README.md](calibration/README.md).
 

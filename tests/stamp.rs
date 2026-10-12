@@ -120,8 +120,8 @@ fn stamp_looks_up_state_half_life() {
         "{}",
     );
     let v = stdout_json(&out);
-    assert_eq!(v["fid"]["half_life"], "2.3m");
-    assert_eq!(v["fid"]["baseline"], 0.03);
+    assert_eq!(v["fid"]["half_life"], "1.9m");
+    assert_eq!(v["fid"]["baseline"], 0.02);
     assert_eq!(v["fid"]["info_type"], "vessel_position");
     assert_eq!(v["fid"]["state"], "underway");
 }
@@ -149,7 +149,7 @@ fn stamp_looks_up_conditional_noise() {
         &String::from_utf8(first.stdout).unwrap(),
     );
     let v = stdout_json(&out);
-    assert_eq!(v["fid"]["transforms"][0]["noise"], 0.54);
+    assert_eq!(v["fid"]["transforms"][0]["noise"], 0.55);
     assert_eq!(v["fid"]["transforms"][0]["condition"], "previous_leg_late");
 }
 

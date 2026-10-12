@@ -29,10 +29,10 @@ airport_ifr:                      # same data, IFR-or-worse reports
   half_life:  3.5h
   baseline:   0.20
 
-vessel_position:                  # NOAA AIS, cargo ships + tankers, ±1 km
+vessel_position:                  # NOAA AIS, 6,592 cargo ships + tankers, 6 days of 2023, ±1 km
   states:
-    underway: { half_life: 2.3m, baseline: 0.03 }
-    moored:   1.6d                # moored or at anchor
+    underway: { half_life: 1.9m, baseline: 0.02 }
+    moored:   1.4d                # moored or at anchor; only 12h observed
 
 # airport_temperature is deliberately absent: it is periodic (a 24h-old
 # reading beats a 12h-old one), which no decay model expresses.

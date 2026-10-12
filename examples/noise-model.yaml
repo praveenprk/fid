@@ -17,15 +17,15 @@
 #   fid stamp --noise-model noise-model.yaml --transform flight_leg --condition previous_leg_late ...
 
 # ── Measured ────────────────────────────────────────────────────
-# See calibration/README.md (BTS on-time data, Jan 2024).
+# See calibration/README.md (BTS on-time data, all of 2024, 7.08M flights).
 
 flight_leg:
-  noise: 0.034                    # fleet average per leg of an aircraft's day
+  noise: 0.045                    # fleet average per leg of an aircraft's day
   conditions:
-    # On time 32.8% after a late leg vs 71.9% for legs after the first:
-    # 1 − 0.328 / 0.719
-    previous_leg_late: 0.54
-    # An on-time previous leg raises confidence (84.6%). Noise cannot be
+    # On time 33.8% after a late leg vs 75.8% for legs after the first:
+    # 1 − 0.338 / 0.758
+    previous_leg_late: 0.55
+    # An on-time previous leg raises confidence (85.9%). Noise cannot be
     # negative; fid treats that as new evidence — stamp a fresh root.
 
 # ── Hand-picked, not yet measured ───────────────────────────────

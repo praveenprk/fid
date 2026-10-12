@@ -1,319 +1,323 @@
 ### AIS 1 km, all vessels: vessel V is at position P (±1 km)
 
 - Still correct means: next report within 1 km
-- 1,448 entities, 437,736 observations
+- 6,146 entities, 2,945,357 observations
 - Empirical half-life: **—** (never fell to 50% in the observed range)
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **11h**, shape error 0.242 — poor fit
-- Fitted with baseline (decay to b): b = 0.70, half-life = **3.4m**, shape error 0.065
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **7.4h**, shape error 0.314 — poor fit
+- Fitted with baseline (decay to b): b = 0.62, half-life = **2.7m**, shape error 0.067
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life with baseline | 0.1896 |
-| constant base rate | 0.1950 |
-| fitted half life | 0.2197 |
-| guessed half life | 0.2540 |
+| fitted half life with baseline | 0.2168 |
+| constant base rate | 0.2256 |
+| fitted half life | 0.2681 |
+| guessed half life | 0.2803 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 28,662 |
-| 5.0m | 0.780 | 28,369 |
-| 10m | 0.754 | 28,149 |
-| 15m | 0.746 | 28,041 |
-| 20m | 0.738 | 27,999 |
-| 30m | 0.728 | 27,974 |
-| 45m | 0.723 | 27,825 |
-| 1.0h | 0.720 | 27,771 |
-| 1.5h | 0.717 | 27,600 |
-| 2.0h | 0.714 | 27,441 |
-| 3.0h | 0.710 | 27,146 |
-| 4.0h | 0.704 | 26,872 |
-| 6.0h | 0.689 | 26,433 |
-| 8.0h | 0.673 | 26,067 |
-| 10h | 0.656 | 25,784 |
-| 12h | 0.635 | 25,603 |
+| 0s | 1.000 | 193,938 |
+| 5.0m | 0.700 | 190,254 |
+| 10m | 0.671 | 188,926 |
+| 15m | 0.664 | 188,511 |
+| 20m | 0.659 | 187,621 |
+| 30m | 0.652 | 187,302 |
+| 45m | 0.645 | 186,040 |
+| 1.0h | 0.640 | 186,199 |
+| 1.5h | 0.635 | 185,090 |
+| 2.0h | 0.630 | 184,346 |
+| 3.0h | 0.622 | 182,783 |
+| 4.0h | 0.614 | 181,337 |
+| 6.0h | 0.600 | 179,188 |
+| 8.0h | 0.585 | 176,666 |
+| 10h | 0.570 | 174,459 |
+| 12h | 0.553 | 172,697 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.4–0.5 | 0.470 | 0.632 | 13,156 |
-| 0.5–0.6 | 0.533 | 0.654 | 13,210 |
-| 0.6–0.7 | 0.646 | 0.681 | 26,829 |
-| 0.7–0.8 | 0.778 | 0.707 | 13,697 |
-| 0.8–0.9 | 0.855 | 0.717 | 27,800 |
-| 0.9–1.0 | 0.969 | 0.771 | 128,523 |
+| 0.3–0.4 | 0.357 | 0.562 | 177,720 |
+| 0.4–0.5 | 0.471 | 0.586 | 90,356 |
+| 0.5–0.6 | 0.569 | 0.601 | 91,667 |
+| 0.6–0.7 | 0.686 | 0.616 | 92,783 |
+| 0.7–0.8 | 0.754 | 0.623 | 93,540 |
+| 0.8–0.9 | 0.848 | 0.634 | 189,069 |
+| 0.9–1.0 | 0.965 | 0.707 | 772,366 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.7–0.8 | 0.704 | 0.711 | 194,177 |
-| 0.8–0.9 | 0.803 | 0.783 | 14,451 |
-| 0.9–1.0 | 1.000 | 1.000 | 14,587 |
+| 0.6–0.7 | 0.623 | 0.627 | 1,310,782 |
+| 0.7–0.8 | 0.718 | 0.702 | 97,402 |
+| 0.9–1.0 | 1.000 | 1.000 | 99,317 |
 
 ### AIS 1 km, underway: vessel V is at position P (±1 km)
 
 - Still correct means: next report within 1 km
-- 732 entities, 113,975 observations
-- Empirical half-life: **3.2m**
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **2.6m**, shape error 0.068
-- Fitted with baseline (decay to b): b = 0.03, half-life = **2.3m**, shape error 0.046
+- 3,885 entities, 1,001,246 observations
+- Empirical half-life: **3.0m**
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **2.0m**, shape error 0.046
+- Fitted with baseline (decay to b): b = 0.02, half-life = **1.9m**, shape error 0.029
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life with baseline | 0.0414 |
-| fitted half life | 0.0420 |
-| constant base rate | 0.1038 |
-| guessed half life | 0.4931 |
+| fitted half life with baseline | 0.0299 |
+| fitted half life | 0.0303 |
+| constant base rate | 0.0919 |
+| guessed half life | 0.4956 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 8,167 |
-| 5.0m | 0.223 | 7,989 |
-| 10m | 0.119 | 7,832 |
-| 15m | 0.087 | 7,764 |
-| 20m | 0.063 | 7,725 |
-| 30m | 0.029 | 7,669 |
-| 45m | 0.024 | 7,556 |
-| 1.0h | 0.024 | 7,491 |
-| 1.5h | 0.023 | 7,324 |
-| 2.0h | 0.024 | 7,172 |
-| 3.0h | 0.024 | 6,895 |
-| 4.0h | 0.024 | 6,661 |
-| 6.0h | 0.024 | 6,293 |
-| 8.0h | 0.025 | 5,985 |
-| 10h | 0.024 | 5,775 |
-| 12h | 0.025 | 5,677 |
+| 0s | 1.000 | 69,876 |
+| 5.0m | 0.163 | 68,167 |
+| 10m | 0.072 | 66,885 |
+| 15m | 0.052 | 66,442 |
+| 20m | 0.039 | 65,934 |
+| 30m | 0.022 | 65,552 |
+| 45m | 0.017 | 64,726 |
+| 1.0h | 0.016 | 64,569 |
+| 1.5h | 0.016 | 63,611 |
+| 2.0h | 0.015 | 62,898 |
+| 3.0h | 0.015 | 61,512 |
+| 4.0h | 0.015 | 60,208 |
+| 6.0h | 0.015 | 58,048 |
+| 8.0h | 0.015 | 55,858 |
+| 10h | 0.015 | 54,106 |
+| 12h | 0.015 | 52,854 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.0–0.1 | 0.008 | 0.036 | 49,028 |
-| 0.2–0.3 | 0.275 | 0.215 | 3,994 |
-| 0.9–1.0 | 1.000 | 1.000 | 4,080 |
+| 0.0–0.1 | 0.003 | 0.025 | 438,436 |
+| 0.1–0.2 | 0.181 | 0.164 | 34,676 |
+| 0.9–1.0 | 1.000 | 1.000 | 35,588 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.0–0.1 | 0.045 | 0.036 | 49,028 |
-| 0.2–0.3 | 0.252 | 0.215 | 3,994 |
-| 0.9–1.0 | 1.000 | 1.000 | 4,080 |
+| 0.0–0.1 | 0.022 | 0.025 | 438,436 |
+| 0.1–0.2 | 0.173 | 0.164 | 34,676 |
+| 0.9–1.0 | 1.000 | 1.000 | 35,588 |
 
 ### AIS 1 km, moored or at anchor: vessel V is at position P (±1 km)
 
 - Still correct means: next report within 1 km
-- 1,018 entities, 323,761 observations
+- 4,541 entities, 1,944,111 observations
 - Empirical half-life: **—** (never fell to 50% in the observed range)
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **1.6d**, shape error 0.006
-- Fitted with baseline (decay to b): b = 0.51, half-life = **17h**, shape error 0.004
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **1.4d**, shape error 0.012
+- Fitted with baseline (decay to b): b = 0.64, half-life = **9.8h**, shape error 0.005
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life with baseline | 0.0467 |
-| fitted half life | 0.0467 |
-| constant base rate | 0.0504 |
-| guessed half life | 0.1718 |
+| fitted half life with baseline | 0.0532 |
+| fitted half life | 0.0532 |
+| constant base rate | 0.0578 |
+| guessed half life | 0.1707 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 20,495 |
-| 5.0m | 0.999 | 20,380 |
-| 10m | 0.998 | 20,317 |
-| 15m | 0.998 | 20,277 |
-| 20m | 0.995 | 20,274 |
-| 30m | 0.992 | 20,305 |
-| 45m | 0.984 | 20,269 |
-| 1.0h | 0.977 | 20,280 |
-| 1.5h | 0.967 | 20,276 |
-| 2.0h | 0.959 | 20,269 |
-| 3.0h | 0.943 | 20,251 |
-| 4.0h | 0.928 | 20,211 |
-| 6.0h | 0.897 | 20,140 |
-| 8.0h | 0.866 | 20,082 |
-| 10h | 0.838 | 20,009 |
-| 12h | 0.809 | 19,926 |
+| 0s | 1.000 | 124,062 |
+| 5.0m | 0.999 | 122,087 |
+| 10m | 0.999 | 122,041 |
+| 15m | 0.998 | 122,069 |
+| 20m | 0.995 | 121,687 |
+| 30m | 0.991 | 121,750 |
+| 45m | 0.981 | 121,314 |
+| 1.0h | 0.972 | 121,630 |
+| 1.5h | 0.959 | 121,479 |
+| 2.0h | 0.948 | 121,448 |
+| 3.0h | 0.929 | 121,271 |
+| 4.0h | 0.912 | 121,129 |
+| 6.0h | 0.880 | 121,140 |
+| 8.0h | 0.848 | 120,808 |
+| 10h | 0.819 | 120,353 |
+| 12h | 0.791 | 119,843 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.8–0.9 | 0.853 | 0.850 | 41,161 |
-| 0.9–1.0 | 0.980 | 0.979 | 124,952 |
+| 0.7–0.8 | 0.784 | 0.789 | 61,636 |
+| 0.8–0.9 | 0.851 | 0.847 | 186,207 |
+| 0.9–1.0 | 0.978 | 0.973 | 750,958 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.8–0.9 | 0.854 | 0.850 | 41,161 |
-| 0.9–1.0 | 0.979 | 0.979 | 124,952 |
+| 0.7–0.8 | 0.797 | 0.789 | 61,636 |
+| 0.8–0.9 | 0.848 | 0.847 | 186,207 |
+| 0.9–1.0 | 0.974 | 0.973 | 750,958 |
 
 ### AIS 10 km, all vessels: vessel V is at position P (±10 km)
 
 - Still correct means: next report within 10 km
-- 1,448 entities, 437,736 observations
+- 6,146 entities, 2,945,357 observations
 - Empirical half-life: **—** (never fell to 50% in the observed range)
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **14h**, shape error 0.173 — poor fit
-- Fitted with baseline (decay to b): b = 0.71, half-life = **43m**, shape error 0.062
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **9.5h**, shape error 0.243 — poor fit
+- Fitted with baseline (decay to b): b = 0.63, half-life = **35m**, shape error 0.093
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life with baseline | 0.1252 |
-| fitted half life | 0.1334 |
-| constant base rate | 0.1380 |
-| guessed half life | 0.1865 |
+| fitted half life with baseline | 0.1529 |
+| fitted half life | 0.1695 |
+| constant base rate | 0.1750 |
+| guessed half life | 0.1954 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 28,662 |
-| 5.0m | 0.999 | 28,369 |
-| 10m | 0.999 | 28,149 |
-| 15m | 0.999 | 28,041 |
-| 20m | 0.981 | 27,999 |
-| 30m | 0.859 | 27,974 |
-| 45m | 0.792 | 27,825 |
-| 1.0h | 0.780 | 27,771 |
-| 1.5h | 0.771 | 27,600 |
-| 2.0h | 0.766 | 27,441 |
-| 3.0h | 0.757 | 27,146 |
-| 4.0h | 0.746 | 26,872 |
-| 6.0h | 0.728 | 26,433 |
-| 8.0h | 0.713 | 26,067 |
-| 10h | 0.699 | 25,784 |
-| 12h | 0.679 | 25,603 |
+| 0s | 1.000 | 193,938 |
+| 5.0m | 1.000 | 190,254 |
+| 10m | 0.999 | 188,926 |
+| 15m | 0.998 | 188,511 |
+| 20m | 0.962 | 187,621 |
+| 30m | 0.784 | 187,302 |
+| 45m | 0.704 | 186,040 |
+| 1.0h | 0.692 | 186,199 |
+| 1.5h | 0.683 | 185,090 |
+| 2.0h | 0.677 | 184,346 |
+| 3.0h | 0.667 | 182,783 |
+| 4.0h | 0.657 | 181,337 |
+| 6.0h | 0.640 | 179,188 |
+| 8.0h | 0.625 | 176,666 |
+| 10h | 0.611 | 174,459 |
+| 12h | 0.595 | 172,697 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.5–0.6 | 0.555 | 0.677 | 13,156 |
-| 0.6–0.7 | 0.644 | 0.707 | 26,542 |
-| 0.7–0.8 | 0.745 | 0.730 | 13,497 |
-| 0.8–0.9 | 0.842 | 0.757 | 27,530 |
-| 0.9–1.0 | 0.969 | 0.898 | 142,490 |
+| 0.4–0.5 | 0.446 | 0.604 | 177,720 |
+| 0.5–0.6 | 0.555 | 0.627 | 90,356 |
+| 0.6–0.7 | 0.643 | 0.642 | 91,667 |
+| 0.7–0.8 | 0.745 | 0.660 | 92,783 |
+| 0.8–0.9 | 0.854 | 0.679 | 282,609 |
+| 0.9–1.0 | 0.973 | 0.894 | 772,366 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.7–0.8 | 0.725 | 0.736 | 108,738 |
-| 0.8–0.9 | 0.848 | 0.815 | 42,557 |
-| 0.9–1.0 | 0.957 | 0.996 | 71,920 |
+| 0.6–0.7 | 0.635 | 0.647 | 735,135 |
+| 0.7–0.8 | 0.759 | 0.701 | 190,539 |
+| 0.8–0.9 | 0.855 | 0.873 | 191,872 |
+| 0.9–1.0 | 0.951 | 0.999 | 389,955 |
 
 ### AIS 10 km, underway: vessel V is at position P (±10 km)
 
 - Still correct means: next report within 10 km
-- 732 entities, 113,975 observations
-- Empirical half-life: **30m**
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **39m**, shape error 0.237 — poor fit
-- Fitted with baseline (decay to b): b = 0.08, half-life = **33m**, shape error 0.249 — poor fit
+- 3,885 entities, 1,001,246 observations
+- Empirical half-life: **28m**
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **32m**, shape error 0.273 — poor fit
+- Fitted with baseline (decay to b): b = 0.04, half-life = **30m**, shape error 0.278 — poor fit
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life with baseline | 0.1057 |
-| fitted half life | 0.1075 |
-| guessed half life | 0.2261 |
-| constant base rate | 0.2480 |
+| fitted half life with baseline | 0.0897 |
+| fitted half life | 0.0903 |
+| constant base rate | 0.2416 |
+| guessed half life | 0.2437 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 8,167 |
-| 5.0m | 1.000 | 7,989 |
-| 10m | 1.000 | 7,832 |
-| 15m | 0.998 | 7,764 |
-| 20m | 0.934 | 7,725 |
-| 30m | 0.486 | 7,669 |
-| 45m | 0.237 | 7,556 |
-| 1.0h | 0.193 | 7,491 |
-| 1.5h | 0.166 | 7,324 |
-| 2.0h | 0.153 | 7,172 |
-| 3.0h | 0.134 | 6,895 |
-| 4.0h | 0.112 | 6,661 |
-| 6.0h | 0.095 | 6,293 |
-| 8.0h | 0.093 | 5,985 |
-| 10h | 0.093 | 5,775 |
-| 12h | 0.087 | 5,677 |
+| 0s | 1.000 | 69,876 |
+| 5.0m | 1.000 | 68,167 |
+| 10m | 0.999 | 66,885 |
+| 15m | 0.993 | 66,442 |
+| 20m | 0.892 | 65,934 |
+| 30m | 0.382 | 65,552 |
+| 45m | 0.152 | 64,726 |
+| 1.0h | 0.119 | 64,569 |
+| 1.5h | 0.101 | 63,611 |
+| 2.0h | 0.093 | 62,898 |
+| 3.0h | 0.081 | 61,512 |
+| 4.0h | 0.072 | 60,208 |
+| 6.0h | 0.063 | 58,048 |
+| 8.0h | 0.061 | 55,858 |
+| 10h | 0.061 | 54,106 |
+| 12h | 0.059 | 52,854 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.0–0.1 | 0.010 | 0.100 | 18,812 |
-| 0.1–0.2 | 0.155 | 0.160 | 7,224 |
-| 0.3–0.4 | 0.337 | 0.195 | 3,738 |
-| 0.4–0.5 | 0.442 | 0.242 | 3,776 |
-| 0.5–0.6 | 0.580 | 0.490 | 3,828 |
-| 0.6–0.7 | 0.696 | 0.935 | 3,857 |
-| 0.7–0.8 | 0.762 | 0.997 | 3,874 |
-| 0.8–0.9 | 0.834 | 0.999 | 3,919 |
-| 0.9–1.0 | 0.957 | 1.000 | 8,074 |
+| 0.0–0.1 | 0.015 | 0.073 | 205,654 |
+| 0.1–0.2 | 0.140 | 0.104 | 32,319 |
+| 0.2–0.3 | 0.269 | 0.122 | 32,844 |
+| 0.3–0.4 | 0.374 | 0.156 | 32,915 |
+| 0.5–0.6 | 0.519 | 0.380 | 33,338 |
+| 0.6–0.7 | 0.646 | 0.889 | 33,529 |
+| 0.7–0.8 | 0.720 | 0.995 | 33,804 |
+| 0.8–0.9 | 0.850 | 0.999 | 68,709 |
+| 0.9–1.0 | 1.000 | 1.000 | 35,588 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.0–0.1 | 0.081 | 0.091 | 15,367 |
-| 0.1–0.2 | 0.127 | 0.146 | 7,020 |
-| 0.2–0.3 | 0.218 | 0.169 | 3,649 |
-| 0.3–0.4 | 0.340 | 0.195 | 3,738 |
-| 0.4–0.5 | 0.436 | 0.242 | 3,776 |
-| 0.5–0.6 | 0.569 | 0.490 | 3,828 |
-| 0.6–0.7 | 0.684 | 0.935 | 3,857 |
-| 0.7–0.8 | 0.751 | 0.997 | 3,874 |
-| 0.8–0.9 | 0.825 | 0.999 | 3,919 |
-| 0.9–1.0 | 0.954 | 1.000 | 8,074 |
+| 0.0–0.1 | 0.042 | 0.073 | 205,654 |
+| 0.1–0.2 | 0.152 | 0.104 | 32,319 |
+| 0.2–0.3 | 0.273 | 0.122 | 32,844 |
+| 0.3–0.4 | 0.374 | 0.156 | 32,915 |
+| 0.5–0.6 | 0.516 | 0.380 | 33,338 |
+| 0.6–0.7 | 0.642 | 0.889 | 33,529 |
+| 0.7–0.8 | 0.716 | 0.995 | 33,804 |
+| 0.8–0.9 | 0.848 | 0.999 | 68,709 |
+| 0.9–1.0 | 1.000 | 1.000 | 35,588 |
 
 ### AIS 10 km, moored or at anchor: vessel V is at position P (±10 km)
 
 - Still correct means: next report within 10 km
-- 1,018 entities, 323,761 observations
+- 4,541 entities, 1,944,111 observations
 - Empirical half-life: **—** (never fell to 50% in the observed range)
-- Fitted fid model (decay to 0): s0 = 1.000, half-life = **2.2d**, shape error 0.009
-- Fitted with baseline (decay to b): b = 0.00, half-life = **2.2d**, shape error 0.009
+- Fitted fid model (decay to 0): s0 = 1.000, half-life = **1.9d**, shape error 0.011
+- Fitted with baseline (decay to b): b = 0.00, half-life = **1.9d**, shape error 0.011
 - Hand-picked guess (shipping_status: 4h): 4.0h
 
 | Predictor (held-out half) | Brier score (lower is better) |
 |---|---|
-| fitted half life | 0.0315 |
-| fitted half life with baseline | 0.0315 |
-| constant base rate | 0.0338 |
-| guessed half life | 0.1728 |
+| fitted half life | 0.0353 |
+| fitted half life with baseline | 0.0353 |
+| constant base rate | 0.0384 |
+| guessed half life | 0.1708 |
 
 | Lag | Still correct | n |
 |---|---|---|
-| 0s | 1.000 | 20,495 |
-| 5.0m | 0.999 | 20,380 |
-| 10m | 0.999 | 20,317 |
-| 15m | 1.000 | 20,277 |
-| 20m | 0.999 | 20,274 |
-| 30m | 1.000 | 20,305 |
-| 45m | 0.999 | 20,269 |
-| 1.0h | 0.996 | 20,280 |
-| 1.5h | 0.990 | 20,276 |
-| 2.0h | 0.983 | 20,269 |
-| 3.0h | 0.969 | 20,251 |
-| 4.0h | 0.955 | 20,211 |
-| 6.0h | 0.926 | 20,140 |
-| 8.0h | 0.898 | 20,082 |
-| 10h | 0.874 | 20,009 |
-| 12h | 0.848 | 19,926 |
+| 0s | 1.000 | 124,062 |
+| 5.0m | 1.000 | 122,087 |
+| 10m | 0.999 | 122,041 |
+| 15m | 1.000 | 122,069 |
+| 20m | 1.000 | 121,687 |
+| 30m | 1.000 | 121,750 |
+| 45m | 0.999 | 121,314 |
+| 1.0h | 0.996 | 121,630 |
+| 1.5h | 0.988 | 121,479 |
+| 2.0h | 0.980 | 121,448 |
+| 3.0h | 0.964 | 121,271 |
+| 4.0h | 0.947 | 121,129 |
+| 6.0h | 0.916 | 121,140 |
+| 8.0h | 0.885 | 120,808 |
+| 10h | 0.858 | 120,353 |
+| 12h | 0.831 | 119,843 |
 
 Reliability on the held-out half, decay to 0:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.8–0.9 | 0.866 | 0.860 | 20,534 |
-| 0.9–1.0 | 0.975 | 0.980 | 145,579 |
+| 0.8–0.9 | 0.864 | 0.856 | 185,583 |
+| 0.9–1.0 | 0.979 | 0.984 | 813,218 |
 
 Reliability on the held-out half, decay to baseline:
 
 | Predicted bin | Mean predicted | Actual | n |
 |---|---|---|---|
-| 0.8–0.9 | 0.866 | 0.860 | 20,534 |
-| 0.9–1.0 | 0.975 | 0.980 | 145,579 |
+| 0.8–0.9 | 0.864 | 0.856 | 185,583 |
+| 0.9–1.0 | 0.979 | 0.984 | 813,218 |

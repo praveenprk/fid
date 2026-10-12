@@ -43,11 +43,13 @@ def default_cache_dir():
     return os.environ.get("FID_CAL_CACHE", os.path.join(here, ".cache"))
 
 
-def download(url, path, data=None, attempts=5, pause=3.0):
+def download(url, path, data=None, attempts=5, pause=3.0, deadline=900):
     """Download `url` to `path` unless it is already there. Returns `path`.
 
     Public archives rate-limit, so: pause before each request and retry
-    with exponential backoff on connection errors.
+    with exponential backoff on connection errors. A stalled transfer can
+    trickle bytes forever without tripping the socket timeout, so each
+    attempt also has an overall deadline in seconds.
     """
     if os.path.exists(path) and os.path.getsize(path) > 0:
         return path
@@ -57,13 +59,16 @@ def download(url, path, data=None, attempts=5, pause=3.0):
     for attempt in range(attempts):
         time.sleep(pause * 2 ** attempt)
         req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
+        give_up = time.monotonic() + deadline
         try:
-            with urllib.request.urlopen(req, timeout=600) as resp, open(tmp, "wb") as out:
+            with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as out:
                 while True:
-                    chunk = resp.read(1 << 20)
+                    chunk = resp.read(1 << 16)
                     if not chunk:
                         break
                     out.write(chunk)
+                    if time.monotonic() > give_up:
+                        raise TimeoutError(f"no complete download within {deadline}s")
             os.replace(tmp, path)
             return path
         except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
