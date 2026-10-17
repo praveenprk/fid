@@ -133,7 +133,7 @@ cargo install fidmeter        # the fid command
 pip install fidmeter          # import fid
 ```
 
-Until the first release is published, build from source:
+Or build from source:
 
 ```bash
 cargo install --path .                               # the fid command
