@@ -142,7 +142,11 @@ fidelity, time_to_floor, registry lookups, calibrate — all calling the
 Rust library. Checked: the same CEO data gives the same fit from the CLI
 and from Python. CI runs both test suites.
 
-Next: publish to crates.io and PyPI.
+Publishing: the package is `fidmeter` on both registries (`fid` is
+taken); the command, library and import stay `fid`. Pushing a tag vX.Y.Z
+runs .github/workflows/release.yml: crate to crates.io, wheels for
+Linux/macOS/Windows plus sdist to PyPI. Checked locally: `cargo publish
+--dry-run`, and the sdist installs into a clean venv and passes the tests.
 
 - A stable Rust API for scoring an envelope and computing TTL to a floor:
   `ttl = h × log2((source − b) / (floor − b))`.

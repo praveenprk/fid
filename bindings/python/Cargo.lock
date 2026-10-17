@@ -221,7 +221,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-name = "fid"
+name = "fid-python"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fidmeter",
+ "pyo3",
+ "serde_json",
+]
+
+[[package]]
+name = "fidmeter"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -231,16 +241,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha2",
-]
-
-[[package]]
-name = "fid-python"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "fid",
- "pyo3",
- "serde_json",
 ]
 
 [[package]]

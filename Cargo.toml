@@ -1,13 +1,26 @@
 [package]
-name = "fid"
+name = "fidmeter"
 version = "0.1.0"
 edition = "2021"
-description = "Information fidelity measurement for computing systems"
+rust-version = "1.80"
+description = "Information fidelity measurement: how much a stored fact can still be trusted, calibrated against real data"
 license = "Apache-2.0"
 repository = "https://github.com/praveenprk/fid"
+homepage = "https://praveenprk.github.io/fid/"
 readme = "README.md"
-keywords = ["fidelity", "information", "measurement", "signal", "unix"]
-categories = ["command-line-utilities"]
+keywords = ["fidelity", "staleness", "decay", "provenance", "data-quality"]
+categories = ["command-line-utilities", "science"]
+include = ["src/**", "tests/**", "examples/*.yaml", "README.md", "LICENSE", "Cargo.toml", "Cargo.lock"]
+
+# The package is fidmeter (the name fid is taken on crates.io);
+# the library and the command are both still `fid`.
+[lib]
+name = "fid"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fid"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

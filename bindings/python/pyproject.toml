@@ -3,7 +3,7 @@ requires = ["maturin>=1.5,<2"]
 build-backend = "maturin"
 
 [project]
-name = "fid"
+name = "fidmeter"
 version = "0.1.0"
 description = "Information fidelity measurement: how much a stored fact can still be trusted"
 readme = "README.md"

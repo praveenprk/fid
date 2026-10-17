@@ -125,8 +125,19 @@ operational:  0.40
 
 ## Install
 
+The package is `fidmeter` (the name `fid` is taken on crates.io and
+PyPI); the command, the Rust library and the Python import are all `fid`.
+
 ```bash
-cargo install fid
+cargo install fidmeter        # the fid command
+pip install fidmeter          # import fid
+```
+
+Until the first release is published, build from source:
+
+```bash
+cargo install --path .                               # the fid command
+cd bindings/python && pip install maturin && maturin develop --release
 ```
 
 ## What fid Is Not

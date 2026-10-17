@@ -11,7 +11,13 @@ fidelity = baseline + (source × ∏(1 − noise) − baseline) × 0.5^(age / ha
 See the [fid repository](https://github.com/praveenprk/fid) for the model
 and the [results](https://praveenprk.github.io/fid/) it was calibrated on.
 
-## Build
+## Install
+
+```bash
+pip install fidmeter          # then: import fid
+```
+
+## Build from source
 
 ```bash
 pip install maturin
