@@ -159,10 +159,10 @@ Linux/macOS/Windows plus sdist to PyPI. Checked locally: `cargo publish
 Designed in the ContextOS project. fid's side: the binding, the
 calibrate input format for ledger exports, and conformance test vectors.
 
-## 4. Write-up
+## 4. Write-up — done
 
-The five findings from calibration/ as a short paper or post, with the
-results site as the evidence.
+docs/FINDINGS.md: the five findings, method, limitations and how each
+finding changed fid. Every number traces to calibration/results/.
 
 ## Later
 

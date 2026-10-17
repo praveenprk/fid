@@ -203,7 +203,9 @@ tests the model against public data with known ground truth — Wikidata
 CEOs, airport weather, 7 million US flights, and cargo-ship AIS tracks. The short
 version: measured half-lives differ from the guesses by 6× to 80×,
 facts decay toward a baseline rather than to zero, and transform noise
-is not independent. See [calibration/README.md](calibration/README.md).
+is not independent. Write-up: [docs/FINDINGS.md](docs/FINDINGS.md);
+data and code: [calibration/](calibration/README.md); interactive results:
+https://praveenprk.github.io/fid/.
 
 ## Full Design Document
 
