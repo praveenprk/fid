@@ -196,6 +196,14 @@ It fits on half the entities and scores on the other half, keeps the
 baseline only when it helps there, and refuses to guess from too little
 data. On the Wikidata CEO data it reproduces the published study.
 
+Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
+
+## Porting the formula
+
+If you compute fidelity somewhere fid can't run (SQL, Cypher, another
+language), [conformance/](conformance/README.md) has the exact spec and
+test vectors; fid's own tests run against the same vectors.
+
 ## Calibration study
 
 The half-lives above are hand-picked. [`calibration/`](calibration/)

@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Conformance vectors match the spec
+        run: python3 conformance/generate.py && git diff --exit-code conformance/
       - run: cargo test
 
   python:

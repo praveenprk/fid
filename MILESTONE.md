@@ -162,6 +162,22 @@ Linux/macOS/Windows plus sdist to PyPI. Checked locally: `cargo publish
 Designed in the ContextOS project. fid's side: the binding, the
 calibrate input format for ledger exports, and conformance test vectors.
 
+- Binding — done (`pip install fidmeter`).
+- Ledger export format — done: docs/LEDGER.md (what each column must
+  mean, outcome → `correct`, sampling bias, how much data), and
+  conformance/ledger-example.csv, a synthetic export with known decay
+  (fid recovers 29.96d / 0.30 from a true 30d / 0.30).
+- Conformance vectors — done: conformance/ (spec, vectors.json, and
+  generate.py, an independent stdlib implementation that writes them).
+  Rust and Python suites run every vector; CI fails if the vectors drift
+  from generate.py.
+  - Found and fixed: serde_json's default float parsing is not correctly
+    rounded, so an unchanged artifact holding e.g. 1.2345678901234567e+20
+    failed `fid check` with an integrity mismatch. Now parsed with
+    `float_roundtrip`. Existing stamps stay valid.
+  - The integrity hash depends on JSON number formatting; the spec pins
+    fid's canonical form (Python's json differs on exponents).
+
 ## 4. Write-up — done
 
 docs/FINDINGS.md: the five findings, method, limitations and how each

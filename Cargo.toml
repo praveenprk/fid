@@ -10,7 +10,7 @@ homepage = "https://praveenprk.github.io/fid/"
 readme = "README.md"
 keywords = ["fidelity", "staleness", "decay", "provenance", "data-quality"]
 categories = ["command-line-utilities", "science"]
-include = ["src/**", "tests/**", "examples/*.yaml", "README.md", "LICENSE", "Cargo.toml", "Cargo.lock"]
+include = ["src/**", "tests/**", "conformance/vectors.json", "conformance/ledger-example.csv", "examples/*.yaml", "README.md", "LICENSE", "Cargo.toml", "Cargo.lock"]
 
 # The package is fidmeter (the name fid is taken on crates.io);
 # the library and the command are both still `fid`.
@@ -25,7 +25,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 serde_yaml = "0.9"
 sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }

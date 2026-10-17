@@ -58,6 +58,20 @@ fn check_fresh_artifact_is_signal() {
 }
 
 #[test]
+fn check_stamped_floats_keep_integrity() {
+    // Without correctly rounded float parsing, reading back 1.2345678901234567e+20
+    // gives a different float, and an unchanged artifact fails its integrity check.
+    let out = fid(
+        &["stamp", "--source", "s", "--source-class", "instrument"],
+        r#"{"v": 123456789012345680000.0, "w": [1e-7, 0.00001, 2.5e300]}"#,
+    );
+    assert!(out.status.success());
+    let path = temp_file("floats", &String::from_utf8(out.stdout).unwrap());
+    let out = check(&path, "0.50");
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+}
+
+#[test]
 fn check_below_floor_is_noise() {
     let path = temp_file("noise", &stamped(&["--source", "s", "--source-class", "llm_ungrounded"]));
     let out = check(&path, "0.70");
