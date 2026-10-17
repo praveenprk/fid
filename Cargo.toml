@@ -1,6 +1,6 @@
 [package]
 name = "fidmeter"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.80"
 description = "Information fidelity measurement: how much a stored fact can still be trusted, calibrated against real data"

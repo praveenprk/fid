@@ -142,7 +142,8 @@ fidelity, time_to_floor, registry lookups, calibrate — all calling the
 Rust library. Checked: the same CEO data gives the same fit from the CLI
 and from Python. CI runs both test suites.
 
-Released: fidmeter 0.1.0 on crates.io and PyPI (2026-10-18), wheels for
+Released: fidmeter 0.1.0 on crates.io and PyPI (2026-10-18); 0.1.1 the same
+day with the float round-trip fix. Wheels for
 Linux, macOS and Windows on x86_64 and arm64.
 
 Publishing: the package is `fidmeter` on both registries (`fid` is
