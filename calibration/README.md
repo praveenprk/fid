@@ -97,3 +97,21 @@ python3 weather_periodic.py  # same data; the echo test, every lag to 14 days (s
 python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation Statistics
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
 ```
+
+### AI transform noise
+
+`ai_noise.py` measures how much an LLM step loses: extraction, summary
+then extraction, rewrite then extraction, on documents whose true
+content is known (generated company records with real-world traps: a
+former CEO, an older headcount, revenue in billions, a competitor's
+figures). It writes the noise per step, field and trap as a
+`noise-model.yaml` block. Unlike the others it calls the Claude API, so
+it needs `pip install anthropic` and `ANTHROPIC_API_KEY`, and it costs
+money: 5 requests per document, 1,000 at the default 200 documents.
+Responses are cached, so reruns are free.
+
+```bash
+python3 ai_noise.py --dry-run          # the corpus and request count, no API calls
+python3 ai_noise.py --docs 200         # default model claude-opus-5-5; --model, --effort
+python3 -m unittest test_ai_noise      # the pipeline against a fake client, no API calls
+```
