@@ -166,9 +166,11 @@ July to December), with the pass rule fixed before the run
   echo matters: at 24h the decay model says 0.22, the data 0.43, and
   the echo 0.39.
 - The echo is not right yet. It under-predicts the first echo (0.39 vs
-  0.43 at 24h) and over-predicts the later ones (0.37 vs 0.32 at 72h).
-  The first day back carries the same air mass as well as the
-  sun, so it is stronger than the pure daily cycle that follows.
+  0.43 at 24h) and over-predicts the later ones (0.37 vs 0.32 at 72h):
+  the first echo is stronger than a single echo strength fading by
+  half-life h_r allows. Why is untested. One candidate, that the first
+  day back still shares the previous day's weather system, could be
+  checked by comparing days of large and small pressure change.
 - Echo strength depends on climate: r = 0.17 at Denver, 0.58 at Los
   Angeles. Coastal airports return to yesterday's temperature far more
   reliably. Like the half-life (Finding 3), it belongs per state.
