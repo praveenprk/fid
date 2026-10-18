@@ -293,13 +293,14 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
     let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
 
     // Registry values first, explicit flags override.
-    let (mut half_life, mut baseline, mut source_fidelity) = (None, None, None);
+    let (mut half_life, mut baseline, mut source_fidelity, mut echo) = (None, None, None, None);
     if let Some(path) = &args.half_lives {
         let info_type = args.info_type.as_deref().expect("clap enforces --type");
         let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
         half_life = Some(spec.half_life);
         baseline = spec.baseline;
         source_fidelity = spec.source_fidelity;
+        echo = spec.echo;
     }
     half_life = args.half_life.or(half_life);
     baseline = args.baseline.or(baseline);
@@ -336,6 +337,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         half_life,
         baseline,
         source_fidelity,
+        echo,
         info_type: args.info_type,
         state: args.state,
         condition: args.condition,
@@ -431,6 +433,9 @@ fn run_ttl(path: &str, floor: f64) -> Result<i32, String> {
                 format!("{} ago", fid::check::format_age(-remaining))
             };
             eprintln!("expires  {} ({}), floor {:.2}", at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), when, floor);
+            if let Some(e) = &stamped.fid.echo {
+                eprintln!("         first time below the floor; the fact comes back every {}, so check again later", e.period);
+            }
             println!("{}", at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         }
     }

@@ -139,6 +139,10 @@ def _now(now: Optional[datetime]) -> Optional[str]:
     return now.astimezone(timezone.utc).isoformat()
 
 
+def _echo(echo: Optional[Mapping[str, Any]]) -> Optional[str]:
+    return None if echo is None else json.dumps(dict(echo))
+
+
 def _json(stamped: Union[Mapping[str, Any], str]) -> str:
     return stamped if isinstance(stamped, str) else json.dumps(stamped)
 
@@ -163,10 +167,15 @@ def fidelity(
     *,
     noise: Sequence[float] = (),
     baseline: float = 0.0,
+    echo: Optional[Mapping[str, Any]] = None,
 ) -> float:
-    """Fidelity of a fact `age` after measurement. half_life None = no decay."""
+    """Fidelity of a fact `age` after measurement. half_life None = no decay.
+
+    `echo` is a periodic return, {"period", "strength", "width", "fade"},
+    as in a registry: e.g. {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}.
+    """
     h = _seconds(half_life)
-    return _fid.fidelity(source, _age(age), None if h is None or math.isinf(h) else h, list(noise), baseline)
+    return _fid.fidelity(source, _age(age), None if h is None or math.isinf(h) else h, list(noise), baseline, _echo(echo))
 
 
 def time_to_floor(
@@ -175,14 +184,16 @@ def time_to_floor(
     floor: float,
     *,
     baseline: float = 0.0,
+    echo: Optional[Mapping[str, Any]] = None,
 ) -> timedelta | None:
-    """Time after measurement until fidelity falls below floor; None if it never does.
+    """Time after measurement until fidelity first falls below floor; None if it never does.
 
     This is the TTL a store can enforce as a hard cutoff, derived from
-    measured decay: half_life × log2((fidelity − b) / (floor − b)).
+    measured decay: half_life × log2((fidelity − b) / (floor − b)). With an
+    echo the fact comes back later; this is still the first crossing.
     """
     h = _seconds(half_life)
-    seconds = _fid.time_to_floor(fidelity, None if h is None or math.isinf(h) else h, baseline, floor)
+    seconds = _fid.time_to_floor(fidelity, None if h is None or math.isinf(h) else h, baseline, floor, _echo(echo))
     return None if seconds is None else timedelta(seconds=seconds)
 
 
@@ -197,6 +208,7 @@ def stamp(
     half_life: Optional[Duration] = None,
     baseline: Optional[float] = None,
     source_fidelity: Optional[float] = None,
+    echo: Optional[Mapping[str, Any]] = None,
     type: Optional[str] = None,
     state: Optional[str] = None,
     condition: Optional[str] = None,
@@ -213,7 +225,7 @@ def stamp(
     """
     raw = content if isinstance(content, str) and _looks_stamped(content) else json.dumps(content)
     result, notes = _fid.stamp(
-        raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity,
+        raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity, _echo(echo),
         type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now),
     )
     for note in notes:
@@ -272,9 +284,9 @@ def half_life(registry_path: str, type: str, state: Optional[str] = None) -> tup
 
 def registry(registry_path: str, type: str, state: Optional[str] = None) -> dict:
     """Everything a half-life registry holds for a type and state, ready to pass to `stamp`:
-    {"half_life", "baseline", "source_fidelity"}; absent values are None."""
-    h, b, s = _fid.half_lives_lookup(registry_path, type, state)
-    return {"half_life": h, "baseline": b, "source_fidelity": s}
+    {"half_life", "baseline", "source_fidelity", "echo"}; absent values are None."""
+    h, b, s, e = _fid.half_lives_lookup(registry_path, type, state)
+    return {"half_life": h, "baseline": b, "source_fidelity": s, "echo": None if e is None else json.loads(e)}
 
 
 def noise(model_path: str, transform: str, condition: Optional[str] = None) -> float:

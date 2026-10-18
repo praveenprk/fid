@@ -77,6 +77,60 @@ def time_to_floor(f, half_life, baseline, floor):
     return half_life * math.log2((f - b) / (floor - b))
 
 
+def echo_seconds(echo):
+    """(period, strength, width, fade) in seconds, fade None for infinite; ValueError if invalid."""
+    period, width = parse_half_life(echo["period"]), parse_half_life(echo["width"])
+    fade = parse_half_life(echo["fade"])
+    strength = echo["strength"]
+    if period is None or width is None:
+        raise ValueError("period and width must be finite")
+    if not math.isfinite(strength) or strength < 0:
+        raise ValueError("strength")
+    if not width < period / 2:
+        raise ValueError("width")
+    return period, strength, width, fade
+
+
+def echo_temporal(age, half_life, echo):
+    """min(1, 0.5^(t/h) + r × Σₙ≥₁ 0.5^(nP/h_r) × 0.5^(|t − nP|/w)), returns within 30 widths of t."""
+    period, strength, width, fade = echo_seconds(echo)
+    t = max(age, 0.0)
+    total = 0.0
+    n = max(1, math.ceil((t - 30 * width) / period))
+    while n * period <= t + 30 * width:
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        n += 1
+    return min(1.0, 0.5 ** (t / half_life) + strength * total)
+
+
+def echo_fidelity(source, age, half_life, noise, baseline, echo):
+    f = fidelity(source, 0.0, None, noise, 0.0)
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    return b + (f - b) * echo_temporal(age, half_life, echo)
+
+
+def echo_time_to_floor(f, half_life, baseline, floor, echo):
+    """First time below floor: seconds, or None for never (not within 10,000 periods)."""
+    if f < floor:
+        return 0.0
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    if floor <= b:
+        return None
+    period, _, width, _ = echo_seconds(echo)
+    below = lambda t: echo_fidelity(f, t, half_life, [], baseline, echo) < floor
+    step = min(half_life, width) / 100.0
+    t = 0.0
+    while t <= 10_000 * period:
+        if below(t + step):
+            lo, hi = t, t + step
+            for _ in range(100):
+                mid = (lo + hi) / 2
+                lo, hi = (lo, mid) if below(mid) else (mid, hi)
+            return hi
+        t += step
+    return None
+
+
 def canonical_number(x):
     """Shortest round-trip digits (as repr), exponent unpadded, decimal down to 1e-5."""
     text = repr(x)
@@ -186,7 +240,9 @@ def envelope(content, source_class, half_life, baseline=None, transforms=(), mea
         "measured_at": measured.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "half_life": half_life,
         "transforms": steps,
-        "fid_at_stamp": None if source is None else fidelity(source, 0.0, hl, noise, baseline or 0.0),
+        "fid_at_stamp": None if source is None else (
+            echo_fidelity(source, 0.0, hl, noise, baseline or 0.0, extra["echo"]) if "echo" in extra
+            else fidelity(source, 0.0, hl, noise, baseline or 0.0)),
         "derived_from": None,
         "integrity": integrity(content),
     }
@@ -214,9 +270,15 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     noise = [t["noise"] for t in env["transforms"]]
     baseline = env.get("baseline") or 0.0
     source = envelope_source(env["source_class"], env.get("source_fidelity"))
+    echo = env.get("echo")
     ok = integrity(stamped["content"]) == env["integrity"]
 
-    f = None if source is None else fidelity(source, age, hl, noise, baseline)
+    if source is None:
+        f = None
+    elif echo is not None:
+        f = echo_fidelity(source, age, hl, noise, baseline, echo)
+    else:
+        f = fidelity(source, age, hl, noise, baseline)
     if not ok or f is None:
         status = "UNKNOWN"
     else:
@@ -226,7 +288,10 @@ def envelope_case(name, stamped, now, floor, tamper=None):
         expires = "unknown"
     else:
         at_measurement = fidelity(source, 0.0, None, noise, 0.0)
-        ttl = time_to_floor(at_measurement, hl, baseline, floor)
+        if echo is not None:
+            ttl = echo_time_to_floor(at_measurement, hl, baseline, floor, echo)
+        else:
+            ttl = time_to_floor(at_measurement, hl, baseline, floor)
         if ttl is None:
             expires = "never"
         else:
@@ -283,11 +348,54 @@ def envelope_cases():
             T0 + timedelta(days=30), 0.50,
         ),
         envelope_case(
+            "echo: a day-old temperature is back above the floor",
+            envelope({"station": "KLAX", "temp_f": 64}, "instrument", "2.42h", baseline=0.13, version="0.3", echo=TEMPERATURE),
+            T0 + timedelta(hours=24), 0.30,
+        ),
+        envelope_case(
+            "echo: half a day old it is not",
+            envelope({"station": "KLAX", "temp_f": 64}, "instrument", "2.42h", baseline=0.13, version="0.3", echo=TEMPERATURE),
+            T0 + timedelta(hours=12), 0.30,
+        ),
+        envelope_case(
             "measured source fidelity, unknown class stays unknown",
             envelope({"clause": 7}, "unknown", "30d", version="0.3", source_fidelity=0.95),
             T0, 0.50,
         ),
     ]
+
+
+# Airport temperature, rounded from calibration/results/weather_periodic.json
+TEMPERATURE = {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}
+
+ECHO = [
+    # name, source, age, half_life, noise, baseline, echo
+    ("fresh", 1.0, 0.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
+    ("half a day: trough", 1.0, 12 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
+    ("one day: first return", 1.0, 24 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
+    ("between returns", 1.0, 30 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
+    ("a week: faded returns", 1.0, 168 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
+    ("with source and noise", 0.97, 24 * 3600.0, 2.42 * 3600, [0.05], 0.13, TEMPERATURE),
+    ("never fades", 0.9, 240 * 3600.0, 3600.0, [], 0.0, {"period": "1d", "strength": 0.5, "width": "2h", "fade": "infinite"}),
+    ("strong echo is capped at 1", 1.0, 3600.0, 3600.0, [], 0.0, {"period": "2h", "strength": 5.0, "width": "0.5h", "fade": "infinite"}),
+    ("negative age counts as zero", 0.9, -3600.0, 3600.0, [], 0.0, TEMPERATURE),
+]
+
+ECHO_TTL = [
+    # name, fidelity, half_life, baseline, floor, echo
+    ("temperature to 0.5", 1.0, 2.42 * 3600, 0.13, 0.5, TEMPERATURE),
+    ("temperature to 0.3", 1.0, 2.42 * 3600, 0.13, 0.3, TEMPERATURE),
+    ("floor under the baseline", 1.0, 2.42 * 3600, 0.13, 0.1, TEMPERATURE),
+    ("already below", 0.4, 2.42 * 3600, 0.13, 0.5, TEMPERATURE),
+]
+
+ECHO_ERRORS = [
+    ({"period": "24h", "strength": 0.3, "width": "12h", "fade": "10d"}, "width not under half the period"),
+    ({"period": "24h", "strength": -0.1, "width": "3h", "fade": "10d"}, "negative strength"),
+    ({"period": "infinite", "strength": 0.3, "width": "3h", "fade": "10d"}, "infinite period"),
+    ({"period": "24h", "strength": 0.3, "width": "0h", "fade": "10d"}, "zero width"),
+    ({"period": "24h", "strength": 0.3, "width": "3h", "fade": "0h"}, "zero fade"),
+]
 
 
 def integrity_cases():
@@ -391,6 +499,17 @@ def main():
              "seconds": time_to_floor(f, h, b, fl)}
             for n, f, h, b, fl in TTL
         ],
+        "echo": [
+            {"name": n, "source": s, "age_seconds": a, "half_life_seconds": h, "noise": z, "baseline": b, "echo": e,
+             "fidelity": echo_fidelity(s, a, h, z, b, e)}
+            for n, s, a, h, z, b, e in ECHO
+        ],
+        "echo_time_to_floor": [
+            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl, "echo": e,
+             "seconds": echo_time_to_floor(f, h, b, fl, e)}
+            for n, f, h, b, fl, e in ECHO_TTL
+        ],
+        "echo_errors": [{"echo": e, "error": reason} for e, reason in ECHO_ERRORS],
         "integrity": integrity_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),

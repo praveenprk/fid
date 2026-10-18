@@ -14,6 +14,7 @@
 #   baseline  — chance the fact is right anyway once fully stale
 #   source_fidelity — measured fraction correct when fresh; replaces
 #               the source class value (fid calibrate writes it)
+#   echo      — for facts that come back: { period, strength, width, fade }
 #   states    — per-state overrides (look up with --state)
 #
 #   fid stamp --half-lives half-lives.yaml --type vessel_position --state underway ...
@@ -38,8 +39,11 @@ vessel_position:                  # NOAA AIS, 6,592 cargo ships + tankers, 6 day
     underway: { half_life: 1.9m, baseline: 0.02 }
     moored:   1.4d                # moored or at anchor; only 12h observed
 
-# airport_temperature is deliberately absent: it is periodic (a 24h-old
-# reading beats a 12h-old one), which no decay model expresses.
+airport_temperature:              # same data, ±2 °F; periodic: a 24h-old
+  half_life:  2.42h               # reading beats a 12h-old one
+  baseline:   0.13
+  echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h }
+                                  # passed held-out in both splits (docs/FINDINGS.md, Finding 5)
 
 # ── Hand-picked, not yet measured ───────────────────────────────
 # employee_role was guessed at 1y; CEOs measured 5.8y (above).

@@ -15,8 +15,17 @@
 //! Measured against public data, most facts decay toward a baseline
 //! (see calibration/README.md). b = 0 recovers the original model.
 //!
-//! It never spontaneously increases.
-//! New measurement is the only restoration mechanism.
+//! Without an echo, it never spontaneously increases: new measurement is
+//! the only restoration mechanism. A periodic fact (temperature, traffic,
+//! load) comes back once per period instead, and its echo adds
+//!
+//!   r × Σₙ≥₁ 0.5^(nP / h_r) × 0.5^(|age − nP| / w)
+//!
+//! to the temporal factor: strength r, period P, width w, fading with
+//! half-life h_r over periods. The temporal factor stays at most 1.
+//! Measured on airport temperature, see docs/FINDINGS.md, Finding 5.
+
+use serde::{Deserialize, Serialize};
 
 /// Parse a half-life string (e.g. "30s", "6h", "7d", "3mo", "3y") into seconds.
 ///
@@ -84,6 +93,87 @@ pub fn temporal_decay(age_seconds: f64, half_life_seconds: Option<f64>) -> f64 {
     }
 }
 
+/// A periodic fact's echo, as written in registries and envelopes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Echo {
+    /// Time between returns, e.g. "24h"
+    pub period: String,
+    /// Height of the first return, before fading (r)
+    pub strength: f64,
+    /// Half-width of each return, e.g. "3.75h"; less than half the period
+    pub width: String,
+    /// Half-life of the returns over periods, e.g. "345h", or "infinite"
+    pub fade: String,
+}
+
+/// An echo in seconds, validated.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EchoParams {
+    pub period: f64,
+    pub strength: f64,
+    pub width: f64,
+    /// None: the returns never fade
+    pub fade: Option<f64>,
+}
+
+impl Echo {
+    pub fn params(&self) -> Result<EchoParams, String> {
+        let duration = |name: &str, text: &str| {
+            parse_half_life(text)?.ok_or_else(|| format!("echo {} cannot be infinite", name))
+        };
+        let period = duration("period", &self.period)?;
+        let width = duration("width", &self.width)?;
+        let fade = parse_half_life(&self.fade)?;
+        if !self.strength.is_finite() || self.strength < 0.0 {
+            return Err(format!("invalid echo strength {} (must be zero or more)", self.strength));
+        }
+        if width >= period / 2.0 {
+            return Err(format!("echo width {} must be less than half the period {}", self.width, self.period));
+        }
+        Ok(EchoParams { period, strength: self.strength, width, fade })
+    }
+}
+
+/// Parse an envelope's or registry's decay: half-life in seconds, and the
+/// echo if any. An echo needs a finite half-life.
+pub fn decay_curve(half_life: Option<&str>, echo: Option<&Echo>) -> Result<(Option<f64>, Option<EchoParams>), String> {
+    let h = match half_life {
+        Some(hl) => parse_half_life(hl)?,
+        None => None,
+    };
+    let e = echo.map(Echo::params).transpose()?;
+    if e.is_some() && h.is_none() {
+        return Err("an echo needs a finite half-life".to_string());
+    }
+    Ok((h, e))
+}
+
+/// Σₙ≥₁ 0.5^(nP / h_r) × 0.5^(|age − nP| / w), over returns within 30
+/// widths of `age`; a farther one adds under 0.5^30 of its peak.
+pub fn echo_sum(age_seconds: f64, e: &EchoParams) -> f64 {
+    let t = age_seconds.max(0.0);
+    let reach = 30.0 * e.width;
+    let first = ((t - reach) / e.period).ceil().max(1.0) as u64;
+    let last = ((t + reach) / e.period).floor().max(0.0) as u64;
+    (first..=last)
+        .map(|n| {
+            let at = n as f64 * e.period;
+            let fade = e.fade.map_or(1.0, |hr| 0.5_f64.powf(at / hr));
+            fade * 0.5_f64.powf((t - at).abs() / e.width)
+        })
+        .sum()
+}
+
+/// The temporal factor with an optional echo, at most 1.
+pub fn temporal_factor(age_seconds: f64, half_life_seconds: Option<f64>, echo: Option<&EchoParams>) -> f64 {
+    let base = temporal_decay(age_seconds, half_life_seconds);
+    match echo {
+        None => base,
+        Some(e) => (base + e.strength * echo_sum(age_seconds, e)).min(1.0),
+    }
+}
+
 /// Compute transformation noise factor.
 ///
 /// f_transform = ∏(1 - noise_i) for each transform step.
@@ -144,6 +234,42 @@ pub fn time_to_floor(fidelity: f64, half_life_seconds: Option<f64>, baseline: f6
         Some(h) if h <= 0.0 => TimeToFloor::After(0.0),
         Some(h) => TimeToFloor::After(h * ((fidelity - b) / (floor - b)).log2()),
     }
+}
+
+/// First time fidelity falls below `floor`, with an echo.
+///
+/// The curve without the echo is never above the curve with it, so the
+/// closed-form crossing without the echo is a lower bound; from there the
+/// curve is scanned in steps of a fiftieth of the shorter of half-life
+/// and echo width, and the crossing refined by bisection. Never, when it
+/// stays at or above the floor for 10,000 periods.
+pub fn time_to_floor_echo(fidelity: f64, half_life_seconds: f64, baseline: f64, floor: f64, echo: &EchoParams) -> TimeToFloor {
+    let start = match time_to_floor(fidelity, Some(half_life_seconds), baseline, floor) {
+        TimeToFloor::Never => return TimeToFloor::Never,
+        TimeToFloor::After(t) if t == 0.0 && fidelity < floor => return TimeToFloor::After(0.0),
+        TimeToFloor::After(t) => t,
+    };
+    let at = |t: f64| apply_decay(fidelity, temporal_factor(t, Some(half_life_seconds), Some(echo)), baseline);
+    let step = half_life_seconds.min(echo.width) / 50.0;
+    let end = start + 10_000.0 * echo.period;
+    let (mut lo, mut t) = (start, start);
+    while t <= end {
+        if at(t) < floor {
+            let mut hi = t;
+            for _ in 0..100 {
+                let mid = 0.5 * (lo + hi);
+                if at(mid) < floor {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            return TimeToFloor::After(hi);
+        }
+        lo = t;
+        t += step;
+    }
+    TimeToFloor::Never
 }
 
 /// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
@@ -334,6 +460,69 @@ mod tests {
     #[test]
     fn test_time_to_floor_already_below() {
         assert_eq!(time_to_floor(0.5, Some(3600.0), 0.0, 0.7), TimeToFloor::After(0.0));
+    }
+
+    const HOUR: f64 = 3600.0;
+
+    /// Airport temperature, fitted on all of 2024 (calibration/results/weather_periodic.json)
+    fn temperature() -> EchoParams {
+        Echo { period: "24h".into(), strength: 0.31126325754867784, width: "3.748493227942606h".into(), fade: "345.03278429702254h".into() }
+            .params()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_echo_matches_the_study() {
+        // calibration/weather_periodic.py echo(t, 1.0, b, h, r, h_r, w) at these lags, in hours.
+        // Up to 200h: past that the study leaves out returns beyond its 14 days of data
+        let (b, h) = (0.12814426110884522, 2.415993491191711 * HOUR);
+        let expected = [(0.0, 1.0), (1.0, 0.7862675984996086), (12.0, 0.1844581420002805), (24.0, 0.3905845824018509), (25.5, 0.3285742065170436), (48.0, 0.38043965521372036), (72.0, 0.3685992505822545), (100.0, 0.2416312385915916), (200.0, 0.17993489411394706)];
+        for (t, want) in expected {
+            let got = apply_decay(1.0, temporal_factor(t * HOUR, Some(h), Some(&temperature())), b);
+            assert!((got - want).abs() < 1e-12, "{}h: {} vs {}", t, got, want);
+        }
+    }
+
+    #[test]
+    fn test_echo_comes_back() {
+        let h = 2.4 * HOUR;
+        let at = |t: f64| temporal_factor(t * HOUR, Some(h), Some(&temperature()));
+        assert!(at(24.0) > at(12.0) * 2.0);
+        assert!(at(24.0) > at(20.0) && at(24.0) > at(28.0));
+        assert!(at(0.0) <= 1.0);
+        assert!(at(48.0) < at(24.0)); // fades
+    }
+
+    #[test]
+    fn test_echo_validation() {
+        let e = |period: &str, strength: f64, width: &str, fade: &str| {
+            Echo { period: period.into(), strength, width: width.into(), fade: fade.into() }.params()
+        };
+        assert!(e("24h", 0.3, "3h", "infinite").unwrap().fade.is_none());
+        assert!(e("24h", 0.3, "12h", "10d").unwrap_err().contains("half the period"));
+        assert!(e("24h", -0.1, "3h", "10d").is_err());
+        assert!(e("infinite", 0.3, "3h", "10d").is_err());
+        assert!(e("24h", 0.3, "0h", "10d").is_err());
+        let echo = Echo { period: "24h".into(), strength: 0.3, width: "3h".into(), fade: "10d".into() };
+        assert!(decay_curve(None, Some(&echo)).unwrap_err().contains("finite half-life"));
+        assert!(decay_curve(Some("2h"), Some(&echo)).is_ok());
+    }
+
+    #[test]
+    fn test_time_to_floor_echo() {
+        let h = 2.415993491191711 * HOUR;
+        let b = 0.12814426110884522;
+        let e = temperature();
+        let TimeToFloor::After(t) = time_to_floor_echo(1.0, h, b, 0.5, &e) else { panic!() };
+        // Without the echo the crossing is closed-form and earlier
+        let TimeToFloor::After(plain) = time_to_floor(1.0, Some(h), b, 0.5) else { panic!() };
+        assert!(t > plain, "{} vs {}", t, plain);
+        let at = |t: f64| apply_decay(1.0, temporal_factor(t, Some(h), Some(&e)), b);
+        assert!((at(t) - 0.5).abs() < 1e-9);
+        // and it is the first crossing
+        assert!((0..1000).all(|i| at(t * i as f64 / 1000.0) >= 0.5));
+        assert_eq!(time_to_floor_echo(1.0, h, b, 0.1, &e), TimeToFloor::Never);
+        assert_eq!(time_to_floor_echo(0.4, h, b, 0.5, &e), TimeToFloor::After(0.0));
     }
 
     #[test]

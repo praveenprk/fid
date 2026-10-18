@@ -27,6 +27,8 @@ pub struct StampOptions {
     pub baseline: Option<f64>,
     /// Measured fidelity when fresh; only meaningful on a root stamp
     pub source_fidelity: Option<f64>,
+    /// Periodic return; overrides any inherited echo
+    pub echo: Option<crate::compute::Echo>,
     /// Information type (e.g. "vessel_position"); overrides any inherited type
     pub info_type: Option<String>,
     /// State of the observed thing (e.g. "underway"); overrides any inherited state
@@ -77,6 +79,9 @@ pub fn stamp(
     if let Some(hl) = &opts.half_life {
         parse_half_life(hl)?;
     }
+    if let Some(e) = &opts.echo {
+        e.params()?;
+    }
     if let Some(b) = opts.baseline {
         check_unit(b, "baseline")?;
     }
@@ -118,6 +123,9 @@ pub fn stamp(
             if opts.baseline.is_some() {
                 upstream.baseline = opts.baseline;
             }
+            if opts.echo.is_some() {
+                upstream.echo = opts.echo.clone();
+            }
             if opts.info_type.is_some() {
                 upstream.info_type = opts.info_type.clone();
             }
@@ -141,6 +149,7 @@ pub fn stamp(
                 half_life: opts.half_life.clone(),
                 baseline: opts.baseline,
                 source_fidelity: opts.source_fidelity,
+                echo: opts.echo.clone(),
                 info_type: opts.info_type.clone(),
                 state: opts.state.clone(),
                 // A lossless root has no transform step, unless it records a condition
@@ -179,6 +188,7 @@ mod tests {
             half_life: None,
             baseline: None,
             source_fidelity: None,
+            echo: None,
             info_type: None,
             state: None,
             condition: None,

@@ -94,8 +94,19 @@ week-old "the airport is VFR" is still right 73% of the time, because
 VFR is the usual weather. With no baseline this is
 `source × temporal_decay(t) × transform_noise`.
 
-It never spontaneously increases. New measurement is the only
-restoration mechanism.
+It never spontaneously increases, except for facts that come back. A
+day-old temperature reading is right more often than a 12-hour-old one,
+because the daily cycle returns it. A registry entry with an `echo`
+adds that return to the temporal factor:
+
+```yaml
+airport_temperature:
+  half_life: 2.42h
+  baseline:  0.13
+  echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h }
+```
+
+Otherwise new measurement is the only restoration mechanism.
 
 ## Configuration
 

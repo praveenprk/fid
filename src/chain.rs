@@ -149,6 +149,7 @@ mod tests {
                 half_life: half_life.map(str::to_string),
                 baseline: None,
                 source_fidelity: None,
+                echo: None,
                 info_type: None,
                 state: None,
                 transforms: steps

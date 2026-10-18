@@ -123,6 +123,10 @@ pub struct FidEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_fidelity: Option<f64>,
 
+    /// Periodic return of a fact that comes back (e.g. daily temperature)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub echo: Option<crate::compute::Echo>,
+
     /// Information type, as named in a half-life registry (e.g. "vessel_position")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info_type: Option<String>,
@@ -156,35 +160,38 @@ impl FidEnvelope {
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn fidelity_at(&self, now: DateTime<Utc>) -> Result<Option<f64>, String> {
-        let half_life = match &self.half_life {
-            Some(hl) => crate::compute::parse_half_life(hl)?,
-            None => None,
-        };
+        let (half_life, echo) = self.decay_curve()?;
         let age_seconds = (now - self.measured_at).num_milliseconds() as f64 / 1000.0;
         let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
-        Ok(crate::compute::total_fidelity(
-            self.source_fidelity(),
-            age_seconds,
-            half_life,
-            &noise,
-            self.baseline.unwrap_or(0.0),
-        ))
+        Ok(self.source_fidelity().map(|source| {
+            crate::compute::apply_decay(
+                source * crate::compute::transform_factor(&noise),
+                crate::compute::temporal_factor(age_seconds, half_life, echo.as_ref()),
+                self.baseline.unwrap_or(0.0),
+            )
+        }))
+    }
+
+    /// Half-life in seconds (None: no decay) and echo, validated.
+    pub fn decay_curve(&self) -> Result<(Option<f64>, Option<crate::compute::EchoParams>), String> {
+        crate::compute::decay_curve(self.half_life.as_deref(), self.echo.as_ref())
     }
 
     /// When fidelity falls below `floor`: the TTL implied by measured decay.
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn expires_at(&self, floor: f64) -> Result<Option<Expiry>, String> {
-        let half_life = match &self.half_life {
-            Some(hl) => crate::compute::parse_half_life(hl)?,
-            None => None,
-        };
+        let (half_life, echo) = self.decay_curve()?;
         let Some(source) = self.source_fidelity() else {
             return Ok(None);
         };
         let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
         let at_measurement = source * crate::compute::transform_factor(&noise);
-        let ttl = crate::compute::time_to_floor(at_measurement, half_life, self.baseline.unwrap_or(0.0), floor);
+        let baseline = self.baseline.unwrap_or(0.0);
+        let ttl = match (half_life, echo) {
+            (Some(h), Some(e)) => crate::compute::time_to_floor_echo(at_measurement, h, baseline, floor, &e),
+            _ => crate::compute::time_to_floor(at_measurement, half_life, baseline, floor),
+        };
         Ok(Some(match ttl {
             crate::compute::TimeToFloor::Never => Expiry::Never,
             crate::compute::TimeToFloor::After(seconds) => {
@@ -281,6 +288,7 @@ mod tests {
             half_life: Some("30d".to_string()),
             baseline: None,
             source_fidelity: None,
+            echo: None,
             info_type: None,
             state: None,
             transforms: vec![TransformStep {

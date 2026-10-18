@@ -67,6 +67,23 @@ class Conformance(unittest.TestCase):
                     # timedelta resolution is one microsecond
                     self.assertAlmostEqual(got.total_seconds(), c["seconds"], delta=1e-5)
 
+    def test_echo(self):
+        for c in V["echo"]:
+            with self.subTest(c["name"]):
+                got = _fid.fidelity(c["source"], c["age_seconds"], c["half_life_seconds"], c["noise"], c["baseline"], json.dumps(c["echo"]))
+                self.assertAlmostEqual(got, c["fidelity"], delta=TOL)
+        for c in V["echo_time_to_floor"]:
+            with self.subTest(c["name"]):
+                got = fid.time_to_floor(c["fidelity"], c["half_life_seconds"], c["floor"], baseline=c["baseline"], echo=c["echo"])
+                if c["seconds"] is None:
+                    self.assertIsNone(got)
+                else:
+                    self.assertAlmostEqual(got.total_seconds(), c["seconds"], delta=1e-5)
+        for c in V["echo_errors"]:
+            with self.subTest(c["error"]):
+                with self.assertRaises(ValueError):
+                    fid.fidelity(0.9, 3600, 3600, echo=c["echo"])
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):

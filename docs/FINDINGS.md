@@ -193,7 +193,7 @@ Each finding became a feature:
 | 2 | envelopes carry a `baseline`; `fid ttl` returns "never" when the baseline is above the floor |
 | 3 | registries hold per-state half-lives: `--type vessel_position --state underway` |
 | 4 | noise models hold per-condition noise: `--transform flight_leg --condition previous_leg_late` |
-| 5 | the echo model passes on held-out data (temperature); not yet in fid |
+| 5 | registries hold an `echo` (period, strength, width, fade); `check`, `chain` and `ttl` use it, matching the study's model to 1e-12 |
 
 ## Limitations
 

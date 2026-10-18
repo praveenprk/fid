@@ -109,6 +109,29 @@ half up to the millisecond, written `YYYY-MM-DDTHH:MM:SS.mmmZ`; or
 `never`; or `unknown` for an unknown source. It does not depend on `now`
 or on integrity.
 
+## Echo
+
+A fact that comes back once per period (`fid_version` 0.3 envelopes
+and registries) carries `echo: {period, strength, width, fade}`:
+durations as in Durations, `fade` may be `infinite`. Invalid: an
+infinite period or width, zero or negative durations, a negative
+strength, a width not under half the period, or an echo without a
+finite half-life.
+
+```
+echoes   = Σ over n ≥ 1 with |age − n × period| ≤ 30 × width of
+           0.5^(n × period / fade) × 0.5^(|age − n × period| / width)
+           (0.5^(…/fade) is 1 when fade is infinite; age below 0 counts as 0)
+temporal = min(1, 0.5^(max(age, 0) / half_life) + strength × echoes)
+fidelity = b + (f − b) × temporal                 (b clamped as above)
+```
+
+Time to floor with an echo is the first time fidelity falls below the
+floor (`never` if not within 10,000 periods, or floor ≤ b). It has no
+closed form; any search is fine that finds the first crossing within
+1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
+after `expires_at`.
+
 ## Integrity
 
 `"sha256:" + hex(sha256(canonical JSON of content))`, where canonical is:

@@ -419,6 +419,250 @@
    "seconds": 155212333.63413122
   }
  ],
+ "echo": [
+  {
+   "name": "fresh",
+   "source": 1.0,
+   "age_seconds": 0.0,
+   "half_life_seconds": 8712.0,
+   "noise": [],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 1.0
+  },
+  {
+   "name": "half a day: trough",
+   "source": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "noise": [],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.18626352061295315
+  },
+  {
+   "name": "one day: first return",
+   "source": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "noise": [],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.39083676442446563
+  },
+  {
+   "name": "between returns",
+   "source": 1.0,
+   "age_seconds": 108000.0,
+   "half_life_seconds": 8712.0,
+   "noise": [],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.22383267623170994
+  },
+  {
+   "name": "a week: faded returns",
+   "source": 1.0,
+   "age_seconds": 604800.0,
+   "half_life_seconds": 8712.0,
+   "noise": [],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.3270564173069617
+  },
+  {
+   "name": "with source and noise",
+   "source": 0.97,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "noise": [
+    0.05
+   ],
+   "baseline": 0.13,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.36730149315168337
+  },
+  {
+   "name": "never fades",
+   "source": 0.9,
+   "age_seconds": 864000.0,
+   "half_life_seconds": 3600.0,
+   "noise": [],
+   "baseline": 0.0,
+   "echo": {
+    "period": "1d",
+    "strength": 0.5,
+    "width": "2h",
+    "fade": "infinite"
+   },
+   "fidelity": 0.4502197802066803
+  },
+  {
+   "name": "strong echo is capped at 1",
+   "source": 1.0,
+   "age_seconds": 3600.0,
+   "half_life_seconds": 3600.0,
+   "noise": [],
+   "baseline": 0.0,
+   "echo": {
+    "period": "2h",
+    "strength": 5.0,
+    "width": "0.5h",
+    "fade": "infinite"
+   },
+   "fidelity": 1.0
+  },
+  {
+   "name": "negative age counts as zero",
+   "source": 0.9,
+   "age_seconds": -3600.0,
+   "half_life_seconds": 3600.0,
+   "noise": [],
+   "baseline": 0.0,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.9
+  }
+ ],
+ "echo_time_to_floor": [
+  {
+   "name": "temperature to 0.5",
+   "fidelity": 1.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "floor": 0.5,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": 10930.792164843422
+  },
+  {
+   "name": "temperature to 0.3",
+   "fidelity": 1.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "floor": 0.3,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": 21216.23979019633
+  },
+  {
+   "name": "floor under the baseline",
+   "fidelity": 1.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "floor": 0.1,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": null
+  },
+  {
+   "name": "already below",
+   "fidelity": 0.4,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "floor": 0.5,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": 0.0
+  }
+ ],
+ "echo_errors": [
+  {
+   "echo": {
+    "period": "24h",
+    "strength": 0.3,
+    "width": "12h",
+    "fade": "10d"
+   },
+   "error": "width not under half the period"
+  },
+  {
+   "echo": {
+    "period": "24h",
+    "strength": -0.1,
+    "width": "3h",
+    "fade": "10d"
+   },
+   "error": "negative strength"
+  },
+  {
+   "echo": {
+    "period": "infinite",
+    "strength": 0.3,
+    "width": "3h",
+    "fade": "10d"
+   },
+   "error": "infinite period"
+  },
+  {
+   "echo": {
+    "period": "24h",
+    "strength": 0.3,
+    "width": "0h",
+    "fade": "10d"
+   },
+   "error": "zero width"
+  },
+  {
+   "echo": {
+    "period": "24h",
+    "strength": 0.3,
+    "width": "3h",
+    "fade": "0h"
+   },
+   "error": "zero fade"
+  }
+ ],
  "integrity": [
   {
    "content": {
@@ -916,6 +1160,72 @@
    "fidelity": 0.45999999999999996,
    "integrity_ok": true,
    "expires_at": "2026-01-21T08:12:42.378Z"
+  },
+  {
+   "name": "echo: a day-old temperature is back above the floor",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.3",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "2.42h",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:8b4102c6d58d3f766842bec2353d30d3f4d187eefd367d031f1385f116d13e83",
+     "baseline": 0.13,
+     "echo": {
+      "period": "24h",
+      "strength": 0.31,
+      "width": "3.75h",
+      "fade": "345h"
+     }
+    },
+    "content": {
+     "station": "KLAX",
+     "temp_f": 64
+    }
+   },
+   "now": "2026-01-02T00:00:00Z",
+   "floor": 0.3,
+   "status": "SIGNAL",
+   "fidelity": 0.3818423932374151,
+   "integrity_ok": true,
+   "expires_at": "2026-01-01T05:45:33.712Z"
+  },
+  {
+   "name": "echo: half a day old it is not",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.3",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "2.42h",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:8b4102c6d58d3f766842bec2353d30d3f4d187eefd367d031f1385f116d13e83",
+     "baseline": 0.13,
+     "echo": {
+      "period": "24h",
+      "strength": 0.31,
+      "width": "3.75h",
+      "fade": "345h"
+     }
+    },
+    "content": {
+     "station": "KLAX",
+     "temp_f": 64
+    }
+   },
+   "now": "2026-01-01T12:00:00Z",
+   "floor": 0.3,
+   "status": "NOISE",
+   "fidelity": 0.18432339921250648,
+   "integrity_ok": true,
+   "expires_at": "2026-01-01T05:45:33.712Z"
   },
   {
    "name": "measured source fidelity, unknown class stays unknown",
