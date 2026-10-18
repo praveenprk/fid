@@ -102,3 +102,34 @@ fn calibrate_errors_exit_3() {
         assert!(out.stdout.is_empty());
     }
 }
+
+#[test]
+fn drift_against_a_calibrated_registry() {
+    let dir = std::env::temp_dir().join(format!("fid-drift-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let registry = dir.join("half-lives.yaml");
+    std::fs::write(&registry, fid(&["calibrate", "-", "--type", "policy_claim"], &ledger()).stdout).unwrap();
+    let reg = registry.to_str().unwrap();
+
+    // The same checks again: current
+    let same = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &ledger());
+    assert_eq!(same.status.code(), Some(0), "{}", String::from_utf8_lossy(&same.stderr));
+    assert_eq!(String::from_utf8_lossy(&same.stdout).trim(), "current");
+
+    // Facts now go stale twice as fast: drifted
+    let mut faster = String::from("entity,age,correct\n");
+    for (day, n_correct) in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)] {
+        for i in 0..100 {
+            faster.push_str(&format!("new-{}-{},{}d,{}\n", day, i, day, i < n_correct));
+        }
+    }
+    let drifted = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &faster);
+    assert_eq!(drifted.status.code(), Some(1), "{}", String::from_utf8_lossy(&drifted.stderr));
+    assert_eq!(String::from_utf8_lossy(&drifted.stdout).trim(), "drifted");
+    assert!(String::from_utf8_lossy(&drifted.stderr).contains("recalibrate"));
+
+    let missing = fid(&["drift", "-", "--type", "other", "--half-lives", reg], &ledger());
+    assert_eq!(missing.status.code(), Some(3));
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}

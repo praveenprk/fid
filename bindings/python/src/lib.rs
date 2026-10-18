@@ -160,17 +160,12 @@ fn noise_lookup(path: &str, transform: &str, condition: Option<&str>) -> PyResul
     NoiseModel::load(path).map_err(err)?.lookup(transform, condition).map_err(err)
 }
 
-/// Fit decay. Returns (registry YAML, report, fits JSON).
-#[pyfunction]
-#[pyo3(signature = (entities, ages, correct, states, info_type, max_spread))]
-fn calibrate(
+fn observations(
     entities: Vec<String>,
     ages: Vec<f64>,
     correct: Vec<bool>,
     states: Vec<Option<String>>,
-    info_type: &str,
-    max_spread: f64,
-) -> PyResult<(String, String, String)> {
+) -> PyResult<Vec<Observation>> {
     let n = entities.len();
     if ages.len() != n || correct.len() != n || states.len() != n {
         return Err(err("entities, ages, correct and states must have the same length"));
@@ -182,6 +177,21 @@ fn calibrate(
         }
         obs.push(Observation { entity: entities[i].clone(), age: ages[i], correct: correct[i], state: states[i].clone() });
     }
+    Ok(obs)
+}
+
+/// Fit decay. Returns (registry YAML, report, fits JSON).
+#[pyfunction]
+#[pyo3(signature = (entities, ages, correct, states, info_type, max_spread))]
+fn calibrate(
+    entities: Vec<String>,
+    ages: Vec<f64>,
+    correct: Vec<bool>,
+    states: Vec<Option<String>>,
+    info_type: &str,
+    max_spread: f64,
+) -> PyResult<(String, String, String)> {
+    let obs = observations(entities, ages, correct, states)?;
     let fits = cal::calibrate_with(&obs, max_spread).map_err(err)?;
     let rows: Vec<_> = fits
         .iter()
@@ -216,6 +226,49 @@ fn calibrate(
     ))
 }
 
+/// Test a registry against recent re-checks. Returns (verdict, report, states JSON).
+#[pyfunction]
+#[pyo3(signature = (entities, ages, correct, states, info_type, registry_path, max_spread))]
+#[allow(clippy::too_many_arguments)]
+fn drift(
+    entities: Vec<String>,
+    ages: Vec<f64>,
+    correct: Vec<bool>,
+    states: Vec<Option<String>>,
+    info_type: &str,
+    registry_path: &str,
+    max_spread: f64,
+) -> PyResult<(String, String, String)> {
+    let obs = observations(entities, ages, correct, states)?;
+    let registry = HalfLives::load(registry_path).map_err(err)?;
+    let drifts = fid::drift::drift(&obs, &registry, info_type, max_spread).map_err(err)?;
+    let rows: Vec<_> = drifts
+        .iter()
+        .map(|d| {
+            json!({
+                "state": d.recent.state,
+                "verdict": format!("{:?}", d.verdict).to_uppercase(),
+                "p_value": d.p_value,
+                "chi2": d.chi2,
+                "df": d.df,
+                "design_effect": d.dispersion,
+                "registry_half_life_seconds": finite(d.registered.half_life),
+                "recent_half_life_seconds": finite(d.recent.model.half_life),
+                "recent_half_life_range_seconds": [finite(d.recent.uncertainty.half_life.lo), finite(d.recent.uncertainty.half_life.hi)],
+                "registry_baseline": d.registered.baseline,
+                "recent_baseline": d.recent.model.baseline,
+                "registry_gap": d.registry_gap,
+                "refit_gap": d.refit_gap,
+            })
+        })
+        .collect();
+    Ok((
+        format!("{:?}", fid::drift::overall(&drifts)).to_uppercase(),
+        fid::drift::report(info_type, &drifts, max_spread),
+        serde_json::Value::from(rows).to_string(),
+    ))
+}
+
 #[pymodule]
 fn _fid(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_half_life, m)?)?;
@@ -230,6 +283,7 @@ fn _fid(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(half_lives_lookup, m)?)?;
     m.add_function(wrap_pyfunction!(noise_lookup, m)?)?;
     m.add_function(wrap_pyfunction!(calibrate, m)?)?;
+    m.add_function(wrap_pyfunction!(drift, m)?)?;
     m.add("FID_VERSION", fid::envelope::FID_VERSION)?;
     m.add("MAX_SPREAD", fid::calibrate::MAX_SPREAD)?;
     Ok(())

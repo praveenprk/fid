@@ -217,6 +217,30 @@ number the data cannot support.
 
 Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
 
+## Is the calibration still right?
+
+Decay rates change. `fid drift` tests the registry in force against
+recent re-checks and answers through its exit code:
+
+```bash
+$ fid drift recent.csv --type policy_clause --half-lives half-lives.yaml
+DRIFTED  policy_clause — 500 recent checks, 500 entities
+  registry curve vs recent refit: χ² 41.3 on 2 df (design effect 1.00), p = 0.0000  → recalibrate
+  ...
+```
+
+| Exit | Means |
+|---|---|
+| 0 `current` | the recent checks fit the registry's curve, and pin the half-life |
+| 1 `drifted` | they do not (likelihood ratio, p < 0.05): recalibrate |
+| 2 `unknown` | not rejected, but too few recent checks to tell |
+
+On 200 synthetic ledgers drawn from the registry's own curve it raised
+3.5% false alarms (7 of 200), and 1% when each entity was checked five
+times with a shared fate. It caught a half-life halved from 10 to 5
+days in 29 of 30 ledgers of 1,500 checks, and a baseline moved from
+0.3 to 0.5 in 30 of 30.
+
 ## Porting the formula
 
 If you compute fidelity somewhere fid can't run (SQL, Cypher, another

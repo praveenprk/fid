@@ -163,6 +163,27 @@ enum Commands {
         max_spread: f64,
     },
 
+    /// Test a registry against recent re-checks; exit 0 current, 1 drifted, 2 unknown
+    ///
+    /// Prints "current", "drifted" or "unknown" to stdout, the report to stderr.
+    Drift {
+        /// Recent re-checks, CSV as `calibrate` reads ("-" for stdin)
+        path: String,
+
+        /// Information type in the registry (e.g. "company_ceo")
+        #[arg(long = "type")]
+        info_type: String,
+
+        /// Half-life registry (YAML) in force
+        #[arg(long)]
+        half_lives: String,
+
+        /// Say unknown, not current, when the recent half-life's 95% range
+        /// spans more than this factor
+        #[arg(long, default_value_t = fid::calibrate::MAX_SPREAD)]
+        max_spread: f64,
+    },
+
     /// Filter stdin (jsonl) to records above the noise floor
     Filter {
         /// Fidelity floor threshold
@@ -235,6 +256,15 @@ fn main() {
             if let Err(e) = run_calibrate(&path, &info_type, max_spread) {
                 eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
+            }
+        }
+        Some(Commands::Drift { path, info_type, half_lives, max_spread }) => {
+            match run_drift(&path, &info_type, &half_lives, max_spread) {
+                Ok(code) => std::process::exit(code),
+                Err(e) => {
+                    eprintln!("fid drift: {}", e);
+                    std::process::exit(EXIT_ERROR);
+                }
             }
         }
         Some(Commands::Filter { .. }) => {
@@ -353,16 +383,29 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
 fn run_calibrate(path: &str, info_type: &str, max_spread: f64) -> Result<(), String> {
-    let observations = if path == "-" {
-        fid::calibrate::read_csv(std::io::stdin())?
-    } else {
-        let file = std::fs::File::open(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
-        fid::calibrate::read_csv(file)?
-    };
-    let fits = fid::calibrate::calibrate_with(&observations, max_spread)?;
+    let fits = fid::calibrate::calibrate_with(&read_ledger(path)?, max_spread)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
+}
+
+fn read_ledger(path: &str) -> Result<Vec<fid::calibrate::Observation>, String> {
+    if path == "-" {
+        fid::calibrate::read_csv(std::io::stdin())
+    } else {
+        let file = std::fs::File::open(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
+        fid::calibrate::read_csv(file)
+    }
+}
+
+/// Test the registry against recent re-checks; the exit code is the verdict.
+fn run_drift(path: &str, info_type: &str, half_lives: &str, max_spread: f64) -> Result<i32, String> {
+    let registry = HalfLives::load(half_lives)?;
+    let drifts = fid::drift::drift(&read_ledger(path)?, &registry, info_type, max_spread)?;
+    eprint!("{}", fid::drift::report(info_type, &drifts, max_spread));
+    let verdict = fid::drift::overall(&drifts);
+    println!("{}", format!("{:?}", verdict).to_lowercase());
+    Ok(verdict.exit_code())
 }
 
 /// Print when a stamped fact falls below the floor; exit code as `check`.

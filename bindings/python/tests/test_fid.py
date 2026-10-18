@@ -149,6 +149,19 @@ class Calibration(unittest.TestCase):
         with self.assertRaises(ValueError):
             fid.calibrate(self.ledger(), "policy_claim", max_spread=1.0)
 
+    def test_drift(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        faster = [(f"n-{d}-{i}", f"{d}d", i < k) for d, k in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)] for i in range(100)]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "half-lives.yaml")
+            with open(path, "w") as f:
+                f.write(cal.yaml)
+            self.assertEqual(fid.drift(self.ledger(), "policy_claim", path).verdict, "CURRENT")
+            result = fid.drift(faster, "policy_claim", path)
+        self.assertEqual(result.verdict, "DRIFTED")
+        self.assertLess(result.states[0]["p_value"], 0.05)
+        self.assertIn("recalibrate", result.report)
+
     def test_calibrate_states_and_mappings(self):
         rows = [{"entity": e, "age": a, "correct": c, "state": "draft"} for e, a, c in self.ledger()]
         cal = fid.calibrate(rows, "policy_claim")

@@ -308,10 +308,10 @@ pub fn fresh_age(model: &Model) -> f64 {
 }
 
 /// splitmix64: a small, fixed pseudo-random sequence, so ranges are reproducible.
-struct Rng(u64);
+pub(crate) struct Rng(pub(crate) u64);
 
 impl Rng {
-    fn next(&mut self) -> u64 {
+    pub(crate) fn next(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
@@ -322,6 +322,25 @@ impl Rng {
     fn below(&mut self, n: usize) -> usize {
         (self.next() % n as u64) as usize
     }
+
+    /// Uniform in [0, 1).
+    #[cfg(test)]
+    pub(crate) fn unit(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+/// Random re-checks of `entities` entities at uniform ages up to `max_age`,
+/// each correct with the model's probability. For tests.
+#[cfg(test)]
+pub(crate) fn random_ledger(truth: Model, entities: usize, max_age: f64, rng: &mut Rng) -> Vec<Observation> {
+    (0..entities)
+        .map(|i| {
+            let age = rng.unit() * max_age;
+            let correct = rng.unit() < truth.predict(age);
+            Observation { entity: format!("r{}", i), age, correct, state: None }
+        })
+        .collect()
 }
 
 /// Bin index of each observation, as `bins` would group the whole group.
@@ -391,11 +410,16 @@ pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
     Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
 }
 
+/// Is a half-life too long to tell from no decay, given checks up to `max_age`?
+pub fn beyond_data(half_life: f64, max_age: f64) -> bool {
+    half_life > BEYOND_DATA * max_age
+}
+
 /// High end ÷ low end of a half-life range. Half-lives beyond
 /// `BEYOND_DATA` × the oldest age count as no decay: both ends there is
 /// a spread of 1, one end there is infinite.
 pub fn spread(range: &Range, max_age: f64) -> f64 {
-    let beyond = |h: f64| h > BEYOND_DATA * max_age;
+    let beyond = |h: f64| beyond_data(h, max_age);
     match (beyond(range.lo), beyond(range.hi)) {
         (true, true) => 1.0,
         (false, true) => f64::INFINITY,
@@ -886,17 +910,6 @@ mod tests {
         assert_eq!(fits[0].source_fidelity, None);
         assert!(!registry_yaml("x", &fits).contains("source_fidelity"));
         assert!(report("x", &fits).contains("source fidelity not measured"));
-    }
-
-    /// Random re-checks of `entities` entities at uniform ages up to `max_age`.
-    fn random_ledger(truth: Model, entities: usize, max_age: f64, rng: &mut Rng) -> Vec<Observation> {
-        (0..entities)
-            .map(|i| {
-                let age = (rng.next() >> 11) as f64 / (1u64 << 53) as f64 * max_age;
-                let u = (rng.next() >> 11) as f64 / (1u64 << 53) as f64;
-                Observation { entity: format!("r{}", i), age, correct: u < truth.predict(age), state: None }
-            })
-            .collect()
     }
 
     #[test]

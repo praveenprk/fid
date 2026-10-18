@@ -78,6 +78,13 @@ youngest bin averages days and the fit cannot see the decay. The range
 shows it (a 3-hour half-life checked uniformly over 40 days: range 6.6h
 to 17h, refused), and the source fidelity is then not written.
 
+## Re-check the calibration
+
+Run `fid drift` on each new batch of random re-checks against the
+registry in force. Exit 1 means the facts no longer decay the way the
+registry says: recalibrate from recent checks. Exit 2 means the batch
+is too small to tell either way.
+
 ## Review the fit before committing it
 
 `fid calibrate` prints the curve, the fitted model beside it, and

@@ -30,11 +30,13 @@ __all__ = [
     "FID_VERSION",
     "Assessment",
     "Calibration",
+    "Drift",
     "IndeterminateError",
     "Status",
     "calibrate",
     "chain",
     "check",
+    "drift",
     "expires_at",
     "fidelity",
     "half_life",
@@ -84,6 +86,16 @@ class Calibration:
     """The human-readable report `fid calibrate` prints."""
     fits: list
     """One dict per state: half_life_seconds, baseline, Brier scores, …"""
+
+
+@dataclass(frozen=True)
+class Drift:
+    verdict: str
+    """CURRENT, DRIFTED or UNKNOWN."""
+    report: str
+    """The human-readable report `fid drift` prints."""
+    states: list
+    """One dict per state: verdict, p_value, registry and recent values, …"""
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -272,14 +284,7 @@ def noise(model_path: str, transform: str, condition: Optional[str] = None) -> f
 
 # ── calibration ──────────────────────────────────────────────────────────
 
-def calibrate(rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD) -> Calibration:
-    """Fit half-life and baseline from facts that were checked again later.
-
-    Each row is a mapping or tuple: (entity, age, correct[, state]).
-    `age` is seconds, a duration string ("30d"), or a timedelta.
-    Raises ValueError when the half-life's 95% range spans more than
-    `max_spread` (high end ÷ low end); pass math.inf to accept any range.
-    """
+def _rows(rows: Iterable[Any]) -> tuple:
     entities, ages, correct, states = [], [], [], []
     for row in rows:
         if isinstance(row, Mapping):
@@ -291,5 +296,26 @@ def calibrate(rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SP
         ages.append(_age(age))
         correct.append(bool(ok))
         states.append(None if state in (None, "") else str(state))
-    yaml, report, fits = _fid.calibrate(entities, ages, correct, states, type, float(max_spread))
+    return entities, ages, correct, states
+
+
+def calibrate(rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD) -> Calibration:
+    """Fit half-life and baseline from facts that were checked again later.
+
+    Each row is a mapping or tuple: (entity, age, correct[, state]).
+    `age` is seconds, a duration string ("30d"), or a timedelta.
+    Raises ValueError when the half-life's 95% range spans more than
+    `max_spread` (high end ÷ low end); pass math.inf to accept any range.
+    """
+    yaml, report, fits = _fid.calibrate(*_rows(rows), type, float(max_spread))
     return Calibration(yaml=yaml, report=report, fits=json.loads(fits))
+
+
+def drift(rows: Iterable[Any], type: str, registry_path: str, *, max_spread: float = _fid.MAX_SPREAD) -> Drift:
+    """Test a half-life registry against recent re-checks (rows as for `calibrate`).
+
+    `verdict` is CURRENT, DRIFTED (recalibrate) or UNKNOWN (too few recent
+    checks to tell); the CLI's exit codes 0 / 1 / 2.
+    """
+    verdict, report, states = _fid.drift(*_rows(rows), type, registry_path, float(max_spread))
+    return Drift(verdict=verdict, report=report, states=json.loads(states))
