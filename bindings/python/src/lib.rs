@@ -218,7 +218,7 @@ fn observations(
 
 /// Fit decay. Returns (registry YAML, report, fits JSON).
 #[pyfunction]
-#[pyo3(signature = (entities, ages, correct, states, info_type, max_spread))]
+#[pyo3(signature = (entities, ages, correct, states, info_type, max_spread, period_seconds=None))]
 fn calibrate(
     entities: Vec<String>,
     ages: Vec<f64>,
@@ -226,9 +226,10 @@ fn calibrate(
     states: Vec<Option<String>>,
     info_type: &str,
     max_spread: f64,
+    period_seconds: Option<f64>,
 ) -> PyResult<(String, String, String)> {
     let obs = observations(entities, ages, correct, states)?;
-    let fits = cal::calibrate_with(&obs, max_spread).map_err(err)?;
+    let fits = cal::calibrate_periodic(&obs, max_spread, period_seconds).map_err(err)?;
     let rows: Vec<_> = fits
         .iter()
         .map(|f| {
@@ -247,6 +248,17 @@ fn calibrate(
                 "baseline_range": [f.uncertainty.baseline.lo, f.uncertainty.baseline.hi],
                 "correct_when_fresh_range": [f.uncertainty.s0.lo, f.uncertainty.s0.hi],
                 "half_life_spread": finite(f.spread),
+                "echo": f.echo.as_ref().map(|e| json!({
+                    "kept": e.kept,
+                    "period_seconds": e.model.echo.period,
+                    "strength": e.model.echo.strength,
+                    "width_seconds": e.model.echo.width,
+                    "fade_seconds": e.model.echo.fade,
+                    "half_life_seconds": e.model.half_life,
+                    "baseline": e.model.baseline,
+                    "brier_echo": e.brier_echo,
+                    "brier_decay": e.brier_decay,
+                })),
                 "shape_error": f.shape_error,
                 "empirical_half_life_seconds": f.empirical_half_life,
                 "brier_baseline": f.brier_baseline,

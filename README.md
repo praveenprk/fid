@@ -226,6 +226,13 @@ a comment in the registry. If the half-life's range spans more than a
 factor of 2.5 (`--max-spread`), `calibrate` refuses rather than write a
 number the data cannot support.
 
+For facts that come back, `--period 24h` also fits an echo, and writes
+it only if it beats plain decay on the held-out half (Brier at least
+0.1% better, smaller largest gap). On synthetic ledgers it kept no echo
+in 40 without one, found a real one in 20 of 20 at 100 checks per
+hourly lag (18 of 20 at 30), and recovered the temperature echo's
+strength as 0.34 (true 0.31) and width 3.6h (3.75h).
+
 Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
 
 ## Is the calibration still right?

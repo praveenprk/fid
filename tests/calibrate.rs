@@ -136,3 +136,23 @@ fn drift_against_a_calibrated_registry() {
 
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn calibrate_period_writes_an_echo() {
+    // A daily fact: right when fresh, back at every multiple of 24h, wrong in between
+    let mut csv = String::from("entity,age,correct\n");
+    for lag in 0..=168 {
+        let returns = lag % 24 == 0 || lag % 24 == 1 || lag % 24 == 23;
+        let p = if lag < 3 { 0.95 } else if returns { 0.6 } else { 0.15 };
+        for i in 0..40 {
+            csv.push_str(&format!("e{}-{},{}h,{}\n", lag, i, lag, (i as f64) < p * 40.0));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "load", "--period", "24h", "--max-spread", "inf"], &csv);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let yaml = String::from_utf8(out.stdout).unwrap();
+    assert!(yaml.contains("echo: { period: 1d"), "{}", yaml);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("→ echo kept"));
+    let spec = fid::registry::HalfLives::from_yaml(&yaml).unwrap().lookup("load", None).unwrap();
+    assert!(spec.echo.unwrap().strength > 0.2);
+}

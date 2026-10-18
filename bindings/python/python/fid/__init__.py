@@ -311,15 +311,19 @@ def _rows(rows: Iterable[Any]) -> tuple:
     return entities, ages, correct, states
 
 
-def calibrate(rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD) -> Calibration:
+def calibrate(
+    rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD, period: Optional[Duration] = None
+) -> Calibration:
     """Fit half-life and baseline from facts that were checked again later.
 
     Each row is a mapping or tuple: (entity, age, correct[, state]).
     `age` is seconds, a duration string ("30d"), or a timedelta.
     Raises ValueError when the half-life's 95% range spans more than
     `max_spread` (high end ÷ low end); pass math.inf to accept any range.
+    `period` ("24h") also tests for a fact that comes back every period;
+    the echo is written only if it beats plain decay on held-out data.
     """
-    yaml, report, fits = _fid.calibrate(*_rows(rows), type, float(max_spread))
+    yaml, report, fits = _fid.calibrate(*_rows(rows), type, float(max_spread), _seconds(period))
     return Calibration(yaml=yaml, report=report, fits=json.loads(fits))
 
 

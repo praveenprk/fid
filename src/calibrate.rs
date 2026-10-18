@@ -147,6 +147,15 @@ pub struct StateFit {
     pub brier_baseline: f64,
     pub brier_zero: f64,
     pub brier_constant: f64,
+    /// The echo test, when a period was given
+    pub echo: Option<crate::echo::EchoFit>,
+}
+
+impl StateFit {
+    /// The echo, if one was tested and kept.
+    pub fn kept_echo(&self) -> Option<&crate::echo::EchoFit> {
+        self.echo.as_ref().filter(|e| e.kept)
+    }
 }
 
 /// Deterministic 50/50 split by entity — the same as calibration/fidcal.py.
@@ -435,6 +444,17 @@ pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, String> {
 /// Fit every state. Either every observation has a state or none does.
 /// A state whose half-life range spans more than `max_spread` is an error.
 pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, String> {
+    calibrate_periodic(obs, max_spread, None)
+}
+
+/// As `calibrate_with`, and with a period, test an echo at that period
+/// on the held-out half (see `crate::echo`).
+pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f64>) -> Result<Vec<StateFit>, String> {
+    if let Some(p) = period {
+        if !(p.is_finite() && p > 0.0) {
+            return Err(format!("invalid period {} (must be a positive duration)", p));
+        }
+    }
     if max_spread.is_nan() || max_spread < 1.0 {
         return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
     }
@@ -455,10 +475,10 @@ pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateF
         groups.entry(o.state.clone()).or_default().push(o);
     }
 
-    groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread)).collect()
+    groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread, period)).collect()
 }
 
-fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64) -> Result<StateFit, String> {
+fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>) -> Result<StateFit, String> {
     let name = state.as_deref().map(|s| format!("state '{}'", s)).unwrap_or_else(|| "data".to_string());
     let train: Vec<&Observation> = group.iter().copied().filter(|o| is_train(&o.entity)).collect();
     let test: Vec<&Observation> = group.iter().copied().filter(|o| !is_train(&o.entity)).collect();
@@ -522,6 +542,7 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64) -> 
         brier_baseline,
         brier_zero,
         brier_constant,
+        echo: period.map(|p| crate::echo::test_echo(group, &train, &test, p)),
     })
 }
 
@@ -632,6 +653,31 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
         observations, info_type
     );
     let entry = |f: &StateFit, indent: &str| {
+        if let Some(e) = f.kept_echo() {
+            let m = &e.model;
+            let mut s = format!(
+                "{}# echo kept: held-out Brier {:.4} vs decay {:.4}\n{}half_life: {}\n{}baseline: {}\n",
+                indent,
+                e.brier_echo,
+                e.brier_decay,
+                indent,
+                format_half_life(m.half_life),
+                indent,
+                trim(m.baseline)
+            );
+            if e.source_fidelity.is_some() {
+                s.push_str(&format!("{}source_fidelity: {}\n", indent, trim3(m.s0)));
+            }
+            s.push_str(&format!(
+                "{}echo: {{ period: {}, strength: {}, width: {}, fade: {} }}\n",
+                indent,
+                format_half_life(m.echo.period),
+                trim(m.echo.strength),
+                format_half_life(m.echo.width),
+                m.echo.fade.map_or("infinite".to_string(), format_half_life)
+            ));
+            return s;
+        }
         let u = &f.uncertainty;
         let mut s = format!(
             "{}half_life: {}  # 95% range {} to {}\n",
@@ -741,6 +787,30 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             "  held-out Brier (lower is better): with baseline {:.4} · decay to 0 {:.4} · constant {:.4}",
             f.brier_baseline, f.brier_zero, f.brier_constant
         ));
+        if let Some(e) = &f.echo {
+            let m = &e.model;
+            lines.push(format!(
+                "  echo every {}: strength {:.2}, width {}, fade {}; half-life {}, baseline {:.2}",
+                format_half_life(m.echo.period),
+                m.echo.strength,
+                format_half_life(m.echo.width),
+                m.echo.fade.map_or("infinite".to_string(), format_half_life),
+                format_half_life(m.half_life),
+                m.baseline
+            ));
+            lines.push(format!(
+                "  echo vs decay: held-out Brier {:.4} vs {:.4}, largest gap {:.3} vs {:.3}  {}",
+                e.brier_echo,
+                e.brier_decay,
+                e.gap_echo,
+                e.gap_decay,
+                if e.kept {
+                    "→ echo kept"
+                } else {
+                    "→ echo not kept (needs a 0.1% better Brier and a smaller gap); registry gets plain decay"
+                }
+            ));
+        }
         lines.push(format!("  {:<10} {:>8} {:>8} {:>9}", "age", "correct", "model", "n"));
         for b in &f.bins {
             lines.push(format!(

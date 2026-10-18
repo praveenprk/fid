@@ -161,6 +161,11 @@ enum Commands {
         /// (high end ÷ low end)
         #[arg(long, default_value_t = fid::calibrate::MAX_SPREAD)]
         max_spread: f64,
+
+        /// Test for a fact that comes back every period (e.g. "24h"); the
+        /// echo is written only if it beats plain decay on held-out data
+        #[arg(long)]
+        period: Option<String>,
     },
 
     /// Test a registry against recent re-checks; exit 0 current, 1 drifted, 2 unknown
@@ -252,8 +257,8 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Calibrate { path, info_type, max_spread }) => {
-            if let Err(e) = run_calibrate(&path, &info_type, max_spread) {
+        Some(Commands::Calibrate { path, info_type, max_spread, period }) => {
+            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref()) {
                 eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
@@ -384,8 +389,11 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
 }
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
-fn run_calibrate(path: &str, info_type: &str, max_spread: f64) -> Result<(), String> {
-    let fits = fid::calibrate::calibrate_with(&read_ledger(path)?, max_spread)?;
+fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>) -> Result<(), String> {
+    let period = period
+        .map(|p| fid::compute::parse_half_life(p)?.ok_or_else(|| "--period cannot be infinite".to_string()))
+        .transpose()?;
+    let fits = fid::calibrate::calibrate_periodic(&read_ledger(path)?, max_spread, period)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
