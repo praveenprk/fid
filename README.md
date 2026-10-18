@@ -210,6 +210,11 @@ otherwise it is an extrapolation and the source class value stays.
 It is only meaningful when checks compare against independent truth: a
 log that re-reads the same source is right at age zero by construction.
 
+Every value comes with a 95% range from resampling entities, written as
+a comment in the registry. If the half-life's range spans more than a
+factor of 2.5 (`--max-spread`), `calibrate` refuses rather than write a
+number the data cannot support.
+
 Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
 
 ## Porting the formula

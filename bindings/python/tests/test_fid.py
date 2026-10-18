@@ -140,6 +140,15 @@ class Calibration(unittest.TestCase):
         self.assertEqual(stamped["fid"]["source_fidelity"], 1.0)
         self.assertEqual(fid.check(stamped, 0.95).source, 1.0)
 
+    def test_calibrate_ranges(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        lo, hi = cal.fits[0]["half_life_range_seconds"]
+        self.assertLessEqual(lo, cal.fits[0]["half_life_seconds"])
+        self.assertGreaterEqual(hi, cal.fits[0]["half_life_seconds"])
+        self.assertIn("# 95% range", cal.yaml)
+        with self.assertRaises(ValueError):
+            fid.calibrate(self.ledger(), "policy_claim", max_spread=1.0)
+
     def test_calibrate_states_and_mappings(self):
         rows = [{"entity": e, "age": a, "correct": c, "state": "draft"} for e, a, c in self.ledger()]
         cal = fid.calibrate(rows, "policy_claim")

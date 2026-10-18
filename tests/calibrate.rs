@@ -71,6 +71,24 @@ fn calibrated_registry_feeds_stamp() {
 }
 
 #[test]
+fn calibrate_refuses_an_uncertain_half_life() {
+    // 60 re-checks, a few at each age: the half-life cannot be pinned down
+    let mut csv = String::from("entity,age,correct\n");
+    for (i, (day, ok)) in [(0, 5), (2, 4), (4, 4), (6, 3), (8, 2), (10, 2)].iter().enumerate() {
+        for j in 0..10 {
+            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok * 2));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "t"], &csv);
+    assert_eq!(out.status.code(), Some(3));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("too uncertain"), "{}", err);
+    let relaxed = fid(&["calibrate", "-", "--type", "t", "--max-spread", "inf"], &csv);
+    assert_eq!(relaxed.status.code(), Some(0), "{}", String::from_utf8_lossy(&relaxed.stderr));
+    assert!(String::from_utf8_lossy(&relaxed.stdout).contains("# 95% range"));
+}
+
+#[test]
 fn calibrate_errors_exit_3() {
     let cases: &[(&[&str], &str)] = &[
         (&["calibrate", "-", "--type", "t"], "entity,correct\nx,true\n"),

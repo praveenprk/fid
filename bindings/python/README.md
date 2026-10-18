@@ -65,7 +65,8 @@ print(cal.report)
 | `fidelity(source, age, half_life, *, noise, baseline)` | float |
 | `time_to_floor(fidelity, half_life, floor, *, baseline)` | `timedelta`, or `None` for never |
 | `half_life(path, type, state)` / `noise(path, transform, condition)` | registry lookups |
-| `calibrate(rows, type)` | `Calibration` with `yaml`, `report`, `fits` |
+| `registry(path, type, state)` | `{half_life, baseline, source_fidelity}`, ready for `stamp(**…)` |
+| `calibrate(rows, type, max_spread=2.5)` | `Calibration` with `yaml`, `report`, `fits` (each fit has 95% ranges) |
 
 Durations are strings (`"30d"`, `"6h"`), seconds, or `timedelta`. Times
 must be timezone-aware. Errors raise `ValueError`.

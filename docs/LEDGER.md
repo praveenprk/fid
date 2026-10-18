@@ -65,6 +65,19 @@ says so instead of guessing. In practice the fit is useful when ages
 span past one half-life — if almost every check happens within a week,
 a 6-year half-life cannot be measured, only bounded.
 
+Enough rows is not enough data. `fid calibrate` resamples entities 200
+times and refits; the middle 95% of the refitted half-lives is its
+range. If the high end is more than 2.5× the low end (`--max-spread`),
+it refuses: the data cannot tell, say, 3 days from 9. On synthetic
+ledgers with a known half-life the range contains the true value in 38
+of 40 trials. Ranges are written as comments in the registry.
+
+Check ages also have to reach the decay. Bins hold equal numbers of
+checks, so if a fact decays in hours but most checks are weeks old, the
+youngest bin averages days and the fit cannot see the decay. The range
+shows it (a 3-hour half-life checked uniformly over 40 days: range 6.6h
+to 17h, refused), and the source fidelity is then not written.
+
 ## Review the fit before committing it
 
 `fid calibrate` prints the curve, the fitted model beside it, and

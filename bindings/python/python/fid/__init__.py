@@ -272,11 +272,13 @@ def noise(model_path: str, transform: str, condition: Optional[str] = None) -> f
 
 # ── calibration ──────────────────────────────────────────────────────────
 
-def calibrate(rows: Iterable[Any], type: str) -> Calibration:
+def calibrate(rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD) -> Calibration:
     """Fit half-life and baseline from facts that were checked again later.
 
     Each row is a mapping or tuple: (entity, age, correct[, state]).
     `age` is seconds, a duration string ("30d"), or a timedelta.
+    Raises ValueError when the half-life's 95% range spans more than
+    `max_spread` (high end ÷ low end); pass math.inf to accept any range.
     """
     entities, ages, correct, states = [], [], [], []
     for row in rows:
@@ -289,5 +291,5 @@ def calibrate(rows: Iterable[Any], type: str) -> Calibration:
         ages.append(_age(age))
         correct.append(bool(ok))
         states.append(None if state in (None, "") else str(state))
-    yaml, report, fits = _fid.calibrate(entities, ages, correct, states, type)
+    yaml, report, fits = _fid.calibrate(entities, ages, correct, states, type, float(max_spread))
     return Calibration(yaml=yaml, report=report, fits=json.loads(fits))

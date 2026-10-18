@@ -162,13 +162,14 @@ fn noise_lookup(path: &str, transform: &str, condition: Option<&str>) -> PyResul
 
 /// Fit decay. Returns (registry YAML, report, fits JSON).
 #[pyfunction]
-#[pyo3(signature = (entities, ages, correct, states, info_type))]
+#[pyo3(signature = (entities, ages, correct, states, info_type, max_spread))]
 fn calibrate(
     entities: Vec<String>,
     ages: Vec<f64>,
     correct: Vec<bool>,
     states: Vec<Option<String>>,
     info_type: &str,
+    max_spread: f64,
 ) -> PyResult<(String, String, String)> {
     let n = entities.len();
     if ages.len() != n || correct.len() != n || states.len() != n {
@@ -181,7 +182,7 @@ fn calibrate(
         }
         obs.push(Observation { entity: entities[i].clone(), age: ages[i], correct: correct[i], state: states[i].clone() });
     }
-    let fits = cal::calibrate(&obs).map_err(err)?;
+    let fits = cal::calibrate_with(&obs, max_spread).map_err(err)?;
     let rows: Vec<_> = fits
         .iter()
         .map(|f| {
@@ -196,6 +197,10 @@ fn calibrate(
                 "correct_when_fresh": f.model.s0,
                 "fresh_checks": f.fresh_checks,
                 "source_fidelity": f.source_fidelity,
+                "half_life_range_seconds": [finite(f.uncertainty.half_life.lo), finite(f.uncertainty.half_life.hi)],
+                "baseline_range": [f.uncertainty.baseline.lo, f.uncertainty.baseline.hi],
+                "correct_when_fresh_range": [f.uncertainty.s0.lo, f.uncertainty.s0.hi],
+                "half_life_spread": finite(f.spread),
                 "shape_error": f.shape_error,
                 "empirical_half_life_seconds": f.empirical_half_life,
                 "brier_baseline": f.brier_baseline,
@@ -226,5 +231,6 @@ fn _fid(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(noise_lookup, m)?)?;
     m.add_function(wrap_pyfunction!(calibrate, m)?)?;
     m.add("FID_VERSION", fid::envelope::FID_VERSION)?;
+    m.add("MAX_SPREAD", fid::calibrate::MAX_SPREAD)?;
     Ok(())
 }

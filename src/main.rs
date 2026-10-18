@@ -156,6 +156,11 @@ enum Commands {
         /// Information type to name in the registry (e.g. "company_ceo")
         #[arg(long = "type")]
         info_type: String,
+
+        /// Refuse when the half-life's 95% range spans more than this factor
+        /// (high end ÷ low end)
+        #[arg(long, default_value_t = fid::calibrate::MAX_SPREAD)]
+        max_spread: f64,
     },
 
     /// Filter stdin (jsonl) to records above the noise floor
@@ -226,8 +231,8 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Calibrate { path, info_type }) => {
-            if let Err(e) = run_calibrate(&path, &info_type) {
+        Some(Commands::Calibrate { path, info_type, max_spread }) => {
+            if let Err(e) = run_calibrate(&path, &info_type, max_spread) {
                 eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
@@ -347,14 +352,14 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
 }
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
-fn run_calibrate(path: &str, info_type: &str) -> Result<(), String> {
+fn run_calibrate(path: &str, info_type: &str, max_spread: f64) -> Result<(), String> {
     let observations = if path == "-" {
         fid::calibrate::read_csv(std::io::stdin())?
     } else {
         let file = std::fs::File::open(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
         fid::calibrate::read_csv(file)?
     };
-    let fits = fid::calibrate::calibrate(&observations)?;
+    let fits = fid::calibrate::calibrate_with(&observations, max_spread)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
