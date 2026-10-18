@@ -12,12 +12,16 @@
 # An entry is a half-life, or a map with:
 #   half_life — time for fidelity to fall halfway to the baseline
 #   baseline  — chance the fact is right anyway once fully stale
+#   source_fidelity — measured fraction correct when fresh; replaces
+#               the source class value (fid calibrate writes it)
 #   states    — per-state overrides (look up with --state)
 #
 #   fid stamp --half-lives half-lives.yaml --type vessel_position --state underway ...
 
 # ── Measured ────────────────────────────────────────────────────
 # Fitted to public ground-truth data; see calibration/README.md.
+# No source_fidelity here: these studies check a source against its own
+# later reading, so every fact is right when fresh by construction.
 
 company_ceo:        5.8y          # Wikidata CEO tenures, 2004–2026
 

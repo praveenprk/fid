@@ -40,6 +40,7 @@ __all__ = [
     "half_life",
     "noise",
     "parse_half_life",
+    "registry",
     "source_fidelity",
     "stamp",
     "time_to_floor",
@@ -183,6 +184,7 @@ def stamp(
     noise: float = 0.0,
     half_life: Optional[Duration] = None,
     baseline: Optional[float] = None,
+    source_fidelity: Optional[float] = None,
     type: Optional[str] = None,
     state: Optional[str] = None,
     condition: Optional[str] = None,
@@ -194,11 +196,12 @@ def stamp(
 
     Stamping an already-stamped artifact appends a transform step to its
     chain, as in a pipeline. `upstream` is a stamped artifact this one was
-    derived from.
+    derived from. `source_fidelity` is a measured fraction correct when
+    fresh (see `registry`); it replaces the source class constant.
     """
     raw = content if isinstance(content, str) and _looks_stamped(content) else json.dumps(content)
     result, notes = _fid.stamp(
-        raw, source, source_class, float(noise), _half_life_str(half_life), baseline,
+        raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity,
         type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now),
     )
     for note in notes:
@@ -252,7 +255,14 @@ def chain(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Op
 
 def half_life(registry_path: str, type: str, state: Optional[str] = None) -> tuple[str, Optional[float]]:
     """(half_life, baseline) for a type and state from a half-life registry file."""
-    return _fid.half_lives_lookup(registry_path, type, state)
+    return _fid.half_lives_lookup(registry_path, type, state)[:2]
+
+
+def registry(registry_path: str, type: str, state: Optional[str] = None) -> dict:
+    """Everything a half-life registry holds for a type and state, ready to pass to `stamp`:
+    {"half_life", "baseline", "source_fidelity"}; absent values are None."""
+    h, b, s = _fid.half_lives_lookup(registry_path, type, state)
+    return {"half_life": h, "baseline": b, "source_fidelity": s}
 
 
 def noise(model_path: str, transform: str, condition: Optional[str] = None) -> float:

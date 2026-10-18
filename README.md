@@ -80,7 +80,10 @@ floor even with zero temporal decay.
 
 **Source reliability.** A calibrated sensor starts at high fidelity.
 An ungrounded LLM inference starts low. The source sets the ceiling.
-Everything after can only decrease it.
+Everything after can only decrease it. The per-class values (instrument
+0.97, database 0.90, …) are defaults; a calibrated registry's
+`source_fidelity` replaces them with the measured fraction correct when
+fresh.
 
 ```
 fidelity = baseline + (source × transform_noise − baseline) × temporal_decay(t)
@@ -104,6 +107,10 @@ company_ceo:      5.8y               # measured
 airport_flight_category:             # measured; decays toward a baseline
   half_life: 2.9h
   baseline:  0.73
+policy_clause:                       # from fid calibrate on your re-check log
+  half_life: 30d
+  baseline:  0.3
+  source_fidelity: 0.95              # measured; replaces the source class value
 vessel_position:                     # measured; depends on state
   states:
     underway: { half_life: 1.9m, baseline: 0.02 }
@@ -195,6 +202,13 @@ company_ceo — 91799 observations, 283 entities
 It fits on half the entities and scores on the other half, keeps the
 baseline only when it helps there, and refuses to guess from too little
 data. On the Wikidata CEO data it reproduces the published study.
+
+The fraction correct when fresh is the source's measured fidelity.
+`calibrate` writes it as `source_fidelity` only when at least 20 checks
+are fresh (decayed less than a tenth of the way to the baseline);
+otherwise it is an extrapolation and the source class value stays.
+It is only meaningful when checks compare against independent truth: a
+log that re-reads the same source is right at age zero by construction.
 
 Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
 

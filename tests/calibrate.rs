@@ -63,6 +63,9 @@ fn calibrated_registry_feeds_stamp() {
     assert!(half_life.ends_with('d'), "{}", half_life);
     let days: f64 = half_life.trim_end_matches('d').parse().unwrap();
     assert!((days - 10.0).abs() < 1.0, "{}", half_life);
+    // 100 checks at age 0, all correct: the measured source fidelity replaces database's 0.90
+    assert_eq!(v["fid"]["source_fidelity"].as_f64(), Some(1.0));
+    assert_eq!(v["fid"]["fid_at_stamp"].as_f64(), Some(1.0));
 
     std::fs::remove_dir_all(&dir).unwrap();
 }

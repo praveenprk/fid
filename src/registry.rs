@@ -10,6 +10,9 @@
 //! airport_flight_category:              # decays toward a baseline
 //!   half_life: 2.9h
 //!   baseline: 0.73
+//! policy_clause:                        # measured fidelity when fresh
+//!   half_life: 90d
+//!   source_fidelity: 0.94
 //! vessel_position:                      # depends on state
 //!   states:
 //!     underway: 2.3m
@@ -41,7 +44,7 @@ use crate::compute::parse_half_life;
 pub enum HalfLifeEntry {
     /// `type: 3y`
     Simple(String),
-    /// `type: { half_life, baseline, states }`
+    /// `type: { half_life, baseline, source_fidelity, states }`
     Spec(HalfLifeSpec),
 }
 
@@ -50,6 +53,8 @@ pub enum HalfLifeEntry {
 pub struct HalfLifeSpec {
     pub half_life: Option<String>,
     pub baseline: Option<f64>,
+    /// Measured fraction correct when fresh; replaces the source class constant
+    pub source_fidelity: Option<f64>,
     #[serde(default)]
     pub states: BTreeMap<String, HalfLifeEntry>,
 }
@@ -68,6 +73,7 @@ impl HalfLifeEntry {
 pub struct DecaySpec {
     pub half_life: String,
     pub baseline: Option<f64>,
+    pub source_fidelity: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +118,7 @@ impl HalfLives {
             }
             spec.half_life = child.half_life.or(spec.half_life);
             spec.baseline = child.baseline.or(spec.baseline);
+            spec.source_fidelity = child.source_fidelity.or(spec.source_fidelity);
         }
 
         let half_life = spec.half_life.ok_or_else(|| {
@@ -121,7 +128,10 @@ impl HalfLives {
         if let Some(b) = spec.baseline {
             check_unit(b, "baseline").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
-        Ok(DecaySpec { half_life, baseline: spec.baseline })
+        if let Some(s) = spec.source_fidelity {
+            check_unit(s, "source fidelity").map_err(|e| format!("'{}': {}", info_type, e))?;
+        }
+        Ok(DecaySpec { half_life, baseline: spec.baseline, source_fidelity: spec.source_fidelity })
     }
 }
 
@@ -219,8 +229,10 @@ vessel_position:
 with_default:
   half_life: 1d
   baseline: 0.2
+  source_fidelity: 0.9
   states:
     fast: 1h
+    checked: { half_life: 2h, source_fidelity: 0.75 }
 ";
 
     const NOISE: &str = "
@@ -245,7 +257,7 @@ conditional_only:
     #[test]
     fn test_simple_half_life() {
         let spec = half_lives().lookup("employee_role", None).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None });
+        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None });
     }
 
     #[test]
@@ -267,8 +279,21 @@ conditional_only:
     #[test]
     fn test_state_inherits_type_baseline() {
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2) });
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9) });
         assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
+    }
+
+    #[test]
+    fn test_state_overrides_source_fidelity() {
+        let spec = half_lives().lookup("with_default", Some("checked")).unwrap();
+        assert_eq!(spec.source_fidelity, Some(0.75));
+        assert_eq!(spec.baseline, Some(0.2));
+    }
+
+    #[test]
+    fn test_bad_source_fidelity_is_error() {
+        let h = HalfLives::from_yaml("x: { half_life: 1d, source_fidelity: 1.2 }").unwrap();
+        assert!(h.lookup("x", None).unwrap_err().contains("source fidelity"));
     }
 
     #[test]

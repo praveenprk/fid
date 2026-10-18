@@ -889,6 +889,59 @@
    "fidelity": 0.1208118590814183,
    "integrity_ok": true,
    "expires_at": "2026-03-11T21:48:25.894Z"
+  },
+  {
+   "name": "measured source fidelity replaces the class constant",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.3",
+     "source_class": "database",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "30d",
+     "transforms": [],
+     "fid_at_stamp": 0.62,
+     "derived_from": null,
+     "integrity": "sha256:9f45ba2c14566a0c1e615387b657d661d260b2cd4ba31191f696075ebc1bc429",
+     "baseline": 0.3,
+     "source_fidelity": 0.62
+    },
+    "content": {
+     "clause": 7
+    }
+   },
+   "now": "2026-01-31T00:00:00Z",
+   "floor": 0.5,
+   "status": "NOISE",
+   "fidelity": 0.45999999999999996,
+   "integrity_ok": true,
+   "expires_at": "2026-01-21T08:12:42.378Z"
+  },
+  {
+   "name": "measured source fidelity, unknown class stays unknown",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.3",
+     "source_class": "unknown",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "30d",
+     "transforms": [],
+     "fid_at_stamp": null,
+     "derived_from": null,
+     "integrity": "sha256:9f45ba2c14566a0c1e615387b657d661d260b2cd4ba31191f696075ebc1bc429",
+     "source_fidelity": 0.95
+    },
+    "content": {
+     "clause": 7
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.5,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": true,
+   "expires_at": "unknown"
   }
  ],
  "ledger_csv": [

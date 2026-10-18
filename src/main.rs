@@ -54,6 +54,11 @@ struct StampArgs {
     #[arg(long)]
     baseline: Option<f64>,
 
+    /// Measured fidelity when fresh (0.0 to 1.0), replacing the source class
+    /// constant; overrides --half-lives. Root stamps only
+    #[arg(long)]
+    source_fidelity: Option<f64>,
+
     /// Half-life registry (YAML) to look up --type and --state in
     #[arg(long, requires = "info_type")]
     half_lives: Option<String>,
@@ -253,15 +258,17 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
     let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
 
     // Registry values first, explicit flags override.
-    let (mut half_life, mut baseline) = (None, None);
+    let (mut half_life, mut baseline, mut source_fidelity) = (None, None, None);
     if let Some(path) = &args.half_lives {
         let info_type = args.info_type.as_deref().expect("clap enforces --type");
         let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
         half_life = Some(spec.half_life);
         baseline = spec.baseline;
+        source_fidelity = spec.source_fidelity;
     }
     half_life = args.half_life.or(half_life);
     baseline = args.baseline.or(baseline);
+    source_fidelity = args.source_fidelity.or(source_fidelity);
 
     let mut noise = 0.0;
     if let Some(path) = &args.noise_model {
@@ -293,6 +300,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         noise,
         half_life,
         baseline,
+        source_fidelity,
         info_type: args.info_type,
         state: args.state,
         condition: args.condition,

@@ -173,7 +173,7 @@ TTL = [
 
 def envelope(content, source_class, half_life, baseline=None, transforms=(), measured=T0, version="0.2", **extra):
     hl = None if half_life is None else parse_half_life(half_life)
-    source = SOURCE_CLASSES[source_class]
+    source = envelope_source(source_class, extra.get("source_fidelity"))
     noise = [t[1] for t in transforms]
     steps = []
     for i, (step, n, *condition) in enumerate(transforms):
@@ -196,6 +196,14 @@ def envelope(content, source_class, half_life, baseline=None, transforms=(), mea
     return {"fid": env, "content": content}
 
 
+def envelope_source(source_class, source_fidelity):
+    """The measured source fidelity when there is one, else the class constant; unknown stays unknown."""
+    constant = SOURCE_CLASSES[source_class]
+    if constant is None:
+        return None
+    return constant if source_fidelity is None else source_fidelity
+
+
 def envelope_case(name, stamped, now, floor, tamper=None):
     env = stamped["fid"]
     if tamper is not None:
@@ -205,7 +213,7 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     age = (now - measured).total_seconds()
     noise = [t["noise"] for t in env["transforms"]]
     baseline = env.get("baseline") or 0.0
-    source = SOURCE_CLASSES[env["source_class"]]
+    source = envelope_source(env["source_class"], env.get("source_fidelity"))
     ok = integrity(stamped["content"]) == env["integrity"]
 
     f = None if source is None else fidelity(source, age, hl, noise, baseline)
@@ -269,6 +277,16 @@ def envelope_cases():
                       T0 + timedelta(days=30), 0.40),
         envelope_case("already below at measurement", envelope(reading, "llm_ungrounded", "7d"), T0, 0.50),
         envelope_case("hearsay, months", envelope({"rumor": "x"}, "hearsay", "3mo"), T0 + timedelta(days=45), 0.10),
+        envelope_case(
+            "measured source fidelity replaces the class constant",
+            envelope({"clause": 7}, "database", "30d", baseline=0.30, version="0.3", source_fidelity=0.62),
+            T0 + timedelta(days=30), 0.50,
+        ),
+        envelope_case(
+            "measured source fidelity, unknown class stays unknown",
+            envelope({"clause": 7}, "unknown", "30d", version="0.3", source_fidelity=0.95),
+            T0, 0.50,
+        ),
     ]
 
 

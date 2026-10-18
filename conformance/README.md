@@ -56,6 +56,10 @@ half-life as infinite — that hides decay.
 Names are trimmed and lowercased; `-` is accepted for `_`. Anything else
 is an error.
 
+An envelope may carry a measured `source_fidelity` (from a calibrated
+registry, `fid_version` 0.3). It replaces the class constant above,
+except for `unknown`, which stays indeterminate.
+
 ## Fidelity
 
 ```
@@ -86,14 +90,16 @@ otherwise                    → half_life × log2((f − b) / (floor − b))
 ## Envelopes
 
 An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
-`source_class`, `measured_at` (RFC 3339), `half_life` (a duration string
-or null), `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
+`source_class`, `source_fidelity` (optional; see Source classes),
+`measured_at` (RFC 3339), `half_life` (a duration string or null),
+`baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 `transforms[].noise`, `integrity`.
 
 **check(stamped, floor, now)**
 
 - age = `now − measured_at`, in whole milliseconds, as seconds
-- fidelity as above, with `f = source × ∏(1 − noise)`
+- fidelity as above, with `f = source × ∏(1 − noise)`, where `source`
+  is `source_fidelity` if present, else the class constant
 - status: `UNKNOWN` if the integrity hash does not match the content,
   or the source is unknown; else `SIGNAL` if fidelity ≥ floor; else
   `NOISE`. (CLI exit codes 0 / 1 / 2.)

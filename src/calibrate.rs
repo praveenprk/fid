@@ -16,6 +16,12 @@
 //! scores better there than decay to zero. The final values are then
 //! refitted on all the data. Too little data is an error, never a guess.
 //!
+//! s0, the fraction correct when fresh, is the source's measured
+//! fidelity. It is written to the registry only when enough checks are
+//! fresh (the model has decayed less than a tenth of the way to the
+//! baseline); otherwise it is an extrapolation and the source class
+//! constant stays in force.
+//!
 //! The split and the method match calibration/fidcal.py, so the same
 //! data gives the same answer as the published study.
 
@@ -28,6 +34,10 @@ use sha2::{Digest, Sha256};
 /// Fewest observations, in total and in each half, a state needs.
 pub const MIN_OBSERVATIONS: usize = 50;
 pub const MIN_PER_HALF: usize = 10;
+/// Fewest fresh checks for s0 to count as measured, not extrapolated.
+pub const MIN_FRESH: usize = 20;
+/// A check is fresh while the decay factor 0.5^(age / h) is at least this.
+pub const FRESH_DECAY: f64 = 0.9;
 /// Ages with at most this many distinct values are used as they are.
 const MAX_EXACT_AGES: usize = 40;
 /// Otherwise ages are grouped into this many equal-count bins.
@@ -82,6 +92,10 @@ pub struct StateFit {
     pub uses_baseline: bool,
     pub shape_error: f64,
     pub empirical_half_life: Option<f64>,
+    /// Checks young enough to measure fidelity when fresh
+    pub fresh_checks: usize,
+    /// s0, when `fresh_checks` is enough to call it measured
+    pub source_fidelity: Option<f64>,
     pub brier_baseline: f64,
     pub brier_zero: f64,
     pub brier_constant: f64,
@@ -237,6 +251,14 @@ pub fn empirical_half_life(bins: &[Bin]) -> Option<f64> {
     })
 }
 
+/// Oldest age at which a check still counts as fresh under `model`.
+pub fn fresh_age(model: &Model) -> f64 {
+    if model.half_life.is_infinite() {
+        return f64::INFINITY;
+    }
+    model.half_life * (1.0 / FRESH_DECAY).log2()
+}
+
 /// Fit every state. Either every observation has a state or none does.
 pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, String> {
     if obs.is_empty() {
@@ -290,6 +312,7 @@ fn fit_state(state: Option<String>, group: &[&Observation]) -> Result<StateFit, 
 
     let model = fit(&all_bins, uses_baseline);
     let entities = group.iter().map(|o| o.entity.as_str()).collect::<std::collections::BTreeSet<_>>().len();
+    let fresh_checks = group.iter().filter(|o| o.age <= fresh_age(&model)).count();
     Ok(StateFit {
         state,
         observations: group.len(),
@@ -297,6 +320,8 @@ fn fit_state(state: Option<String>, group: &[&Observation]) -> Result<StateFit, 
         shape_error: shape_error(&all_bins, &model),
         empirical_half_life: empirical_half_life(&all_bins),
         bins: all_bins,
+        fresh_checks,
+        source_fidelity: (fresh_checks >= MIN_FRESH).then_some(model.s0),
         model,
         uses_baseline,
         brier_baseline,
@@ -399,6 +424,11 @@ fn trim(v: f64) -> String {
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
+fn trim3(v: f64) -> String {
+    let s = format!("{:.3}", v);
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
 /// The registry YAML for one information type.
 pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
     let observations: usize = fits.iter().map(|f| f.observations).sum();
@@ -410,6 +440,9 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
         let mut s = format!("{}half_life: {}\n", indent, format_half_life(f.model.half_life));
         if f.uses_baseline {
             s.push_str(&format!("{}baseline: {}\n", indent, trim(f.model.baseline)));
+        }
+        if let Some(sf) = f.source_fidelity {
+            s.push_str(&format!("{}source_fidelity: {}\n", indent, trim3(sf)));
         }
         s
     };
@@ -459,6 +492,20 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             f.model.s0,
             if f.uses_baseline { "" } else { "  (decay to 0: the baseline did not help on held-out data)" }
         ));
+        lines.push(match f.source_fidelity {
+            Some(_) => format!(
+                "  source fidelity {:.3}, measured from {} checks younger than {}",
+                f.model.s0,
+                f.fresh_checks,
+                age_label(fresh_age(&f.model))
+            ),
+            None => format!(
+                "  source fidelity not measured: {} checks younger than {}, need {}; the source class constant stays",
+                f.fresh_checks,
+                age_label(fresh_age(&f.model)),
+                MIN_FRESH
+            ),
+        });
         lines.push(format!(
             "  half wrong after {}; largest gap from the model {:.3}",
             f.empirical_half_life.map(age_label).unwrap_or_else(|| "— (never within the data)".into()),
@@ -610,6 +657,33 @@ mod tests {
         let spec = HalfLives::from_yaml(&yaml).unwrap().lookup("company_ceo", None).unwrap();
         let years = parse_half_life(&spec.half_life).unwrap().unwrap() / 31_557_600.0;
         assert!((years - 5.8).abs() < 0.12, "{}", yaml);
+    }
+
+    #[test]
+    fn test_source_fidelity_measured_from_fresh_checks() {
+        let truth = Model { s0: 0.95, baseline: 0.30, half_life: 30.0 * DAY };
+        let obs = synthetic(truth, &days(&[0.0, 3.0, 7.0, 14.0, 30.0, 60.0, 120.0, 365.0]), 200, None);
+        let fits = calibrate(&obs).unwrap();
+        let f = &fits[0];
+        // ages 0 and 3 days are under 0.152 half-lives
+        assert_eq!(f.fresh_checks, 400);
+        let sf = f.source_fidelity.unwrap();
+        assert!((sf - 0.95).abs() < 0.01, "{}", sf);
+        let yaml = registry_yaml("policy_clause", &fits);
+        let spec = HalfLives::from_yaml(&yaml).unwrap().lookup("policy_clause", None).unwrap();
+        assert!((spec.source_fidelity.unwrap() - sf).abs() < 0.001, "{}", yaml);
+    }
+
+    #[test]
+    fn test_source_fidelity_not_written_when_extrapolated() {
+        // Youngest check is two half-lives old: s0 is an extrapolation
+        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
+        let obs = synthetic(truth, &days(&[20.0, 30.0, 40.0, 60.0]), 200, None);
+        let fits = calibrate(&obs).unwrap();
+        assert_eq!(fits[0].fresh_checks, 0);
+        assert_eq!(fits[0].source_fidelity, None);
+        assert!(!registry_yaml("x", &fits).contains("source_fidelity"));
+        assert!(report("x", &fits).contains("source fidelity not measured"));
     }
 
     #[test]

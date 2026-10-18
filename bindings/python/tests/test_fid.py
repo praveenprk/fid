@@ -2,6 +2,7 @@
 
 import math
 import os
+import tempfile
 import unittest
 import warnings
 from datetime import datetime, timedelta, timezone
@@ -124,6 +125,20 @@ class Calibration(unittest.TestCase):
         self.assertAlmostEqual(cal.fits[0]["half_life_seconds"] / 86400, 10, delta=1)
         self.assertIn("policy_claim:", cal.yaml)
         self.assertIn("held-out Brier", cal.report)
+
+    def test_measured_source_fidelity_reaches_the_label(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        self.assertEqual(cal.fits[0]["fresh_checks"], 100)
+        self.assertEqual(cal.fits[0]["source_fidelity"], 1.0)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "half-lives.yaml")
+            with open(path, "w") as f:
+                f.write(cal.yaml)
+            entry = fid.registry(path, "policy_claim")
+        self.assertEqual(entry["source_fidelity"], 1.0)
+        stamped = fid.stamp({"clause": 1}, source="crm", source_class="database", **entry)
+        self.assertEqual(stamped["fid"]["source_fidelity"], 1.0)
+        self.assertEqual(fid.check(stamped, 0.95).source, 1.0)
 
     def test_calibrate_states_and_mappings(self):
         rows = [{"entity": e, "age": a, "correct": c, "state": "draft"} for e, a, c in self.ledger()]

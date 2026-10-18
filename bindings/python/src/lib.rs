@@ -74,7 +74,7 @@ fn time_to_floor(fidelity: f64, half_life_seconds: Option<f64>, baseline: f64, f
 
 /// Wrap content (raw stdin-style text) in an envelope. Returns (stamped JSON, warnings).
 #[pyfunction]
-#[pyo3(signature = (input, source, source_class, noise, half_life, baseline, info_type, state, condition, derived_from, upstream_json, now))]
+#[pyo3(signature = (input, source, source_class, noise, half_life, baseline, source_fidelity, info_type, state, condition, derived_from, upstream_json, now))]
 #[allow(clippy::too_many_arguments)]
 fn stamp(
     input: &str,
@@ -83,6 +83,7 @@ fn stamp(
     noise: f64,
     half_life: Option<String>,
     baseline: Option<f64>,
+    source_fidelity: Option<f64>,
     info_type: Option<String>,
     state: Option<String>,
     condition: Option<String>,
@@ -92,7 +93,7 @@ fn stamp(
 ) -> PyResult<(String, Vec<String>)> {
     let source_class = source_class.map(str::parse::<SourceClass>).transpose().map_err(err)?;
     let upstream: Option<FidEnvelope> = upstream_json.map(read_stamped).transpose()?.map(|s| s.fid);
-    let opts = StampOptions { source, source_class, noise, half_life, baseline, info_type, state, condition, derived_from };
+    let opts = StampOptions { source, source_class, noise, half_life, baseline, source_fidelity, info_type, state, condition, derived_from };
     let out = stamp_content(input, &opts, upstream, when(now)?).map_err(err)?;
     let json = serde_json::to_string(&out.stamped).map_err(err)?;
     Ok((json, out.warnings))
@@ -144,12 +145,12 @@ fn chain(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> 
     Ok(fid::chain::report(&stamped, &r))
 }
 
-/// Look up a half-life registry file: (half_life, baseline).
+/// Look up a half-life registry file: (half_life, baseline, source_fidelity).
 #[pyfunction]
 #[pyo3(signature = (path, info_type, state))]
-fn half_lives_lookup(path: &str, info_type: &str, state: Option<&str>) -> PyResult<(String, Option<f64>)> {
+fn half_lives_lookup(path: &str, info_type: &str, state: Option<&str>) -> PyResult<(String, Option<f64>, Option<f64>)> {
     let spec = HalfLives::load(path).map_err(err)?.lookup(info_type, state).map_err(err)?;
-    Ok((spec.half_life, spec.baseline))
+    Ok((spec.half_life, spec.baseline, spec.source_fidelity))
 }
 
 /// Look up a noise model file.
@@ -193,6 +194,8 @@ fn calibrate(
                 "baseline": f.model.baseline,
                 "uses_baseline": f.uses_baseline,
                 "correct_when_fresh": f.model.s0,
+                "fresh_checks": f.fresh_checks,
+                "source_fidelity": f.source_fidelity,
                 "shape_error": f.shape_error,
                 "empirical_half_life_seconds": f.empirical_half_life,
                 "brier_baseline": f.brier_baseline,
