@@ -137,8 +137,49 @@ to 84.2% by airline, 68.1% (July) to 85.8% (October) by month, and
 
 A temperature reading is right (±2 °F) 43% of the time at 24 hours old
 and 19% at 12 hours, because the daily cycle returns it. No monotonic
-decay model expresses this; the best one leaves a gap of 0.18. Periodic
-facts need a periodic component, which fid does not yet have.
+decay model expresses this; the best one leaves a gap of 0.18 (0.21
+with every hourly lag out to 14 days).
+
+An **echo model** adds one term per period: the fresh fact's agreement
+comes back at every multiple of the period P, as an echo of strength r
+and width w that fades with half-life h_r over periods:
+
+    S(t) = b + (s0 − b) × [ 0.5^(t/h) + Σₙ r × 0.5^(nP/h_r) × 0.5^(|t − nP|/w) ]
+
+Tested with every lag from 0 to 14 days, fitted on one half and scored
+on the other, split two ways (by station, and January to June against
+July to December), with the pass rule fixed before the run
+([results/weather_periodic.md](../calibration/results/weather_periodic.md)):
+
+| Temperature ±2 °F | Brier, station split | Brier, time split | Largest gap |
+|---|---|---|---|
+| constant | 0.1631 | 0.1746 | 0.776 |
+| decay to baseline (fid today) | 0.1599 | 0.1710 | 0.213 |
+| echo, P = 24h | **0.1572** | **0.1683** | **0.070** |
+
+- The echo beats decay-to-baseline in both splits, with reliability no
+  worse, and cuts the largest gap from 0.21 to 0.07. Fitted on all data:
+  b = 0.13, h = 2.4h, r = 0.31, h_r = 345h, w = 3.75h.
+- Scanning the period on the train half alone picks 24h (then 23h, 25h).
+- The Brier gain is small because most observations sit at stale lags,
+  where every model is near the base rate. The shape is where the
+  echo matters: at 24h the decay model says 0.22, the data 0.43, and
+  the echo 0.39.
+- The echo is not right yet. It under-predicts the first echo (0.39 vs
+  0.43 at 24h) and over-predicts the later ones (0.37 vs 0.32 at 72h).
+  The first day back carries the same air mass as well as the
+  sun, so it is stronger than the pure daily cycle that follows.
+- Echo strength depends on climate: r = 0.17 at Denver, 0.58 at Los
+  Angeles. Coastal airports return to yesterday's temperature far more
+  reliably. Like the half-life (Finding 3), it belongs per state.
+- **No weekly cycle.** Adding an echo at 168h changes the held-out Brier
+  by less than 0.00001 for every fact. For temperature the fitted weekly
+  strength is 0; for flight category it degenerates to a spike at a
+  single lag. Weather has no week.
+- Flight category also passes the rule, but the gain is negligible
+  (0.19896 to 0.19887): decay to a 0.71 baseline already fits it
+  (largest gap 0.045). IFR-or-worse fails it: the echo improves Brier
+  but its reliability on the station split is worse.
 
 ## What changed in fid
 
@@ -150,7 +191,7 @@ Each finding became a feature:
 | 2 | envelopes carry a `baseline`; `fid ttl` returns "never" when the baseline is above the floor |
 | 3 | registries hold per-state half-lives: `--type vessel_position --state underway` |
 | 4 | noise models hold per-condition noise: `--transform flight_leg --condition previous_leg_late` |
-| 5 | open |
+| 5 | the echo model passes on held-out data (temperature); not yet in fid |
 
 ## Limitations
 

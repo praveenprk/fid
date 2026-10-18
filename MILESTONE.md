@@ -92,7 +92,12 @@ Driven by calibration/ (public ground-truth data). Done:
 
 Open:
 
-- periodic facts (temperature) — no decay model expresses "comes back"
+- periodic facts (temperature) — tested in calibration/weather_periodic.py.
+  An echo model (one echo per period, fading over periods) beats decay to
+  baseline on held-out Brier in both splits (station, time), with largest
+  gap 0.07 against 0.21; the period scan picks 24h; no weekly cycle.
+  Passed the rule set before the run. Next, if approved: phase 2 —
+  period/echo terms in registry, envelope, compute, calibrate, spec.
 - source fidelity per context (airline, time of day), not only per class
 
 ---

@@ -18,7 +18,7 @@ ignores age entirely.
 | Fact | Hand-picked guess | Measured half-life | Data |
 |---|---|---|---|
 | The CEO of company X is Y | `employee_role: 1y` | **5.8 years** | Wikidata, 2,239 CEO facts × 10 years |
-| Airport temperature (±2 °F) | `weather_forecast: 6h` | **2.9 hours**, then cycles daily | METAR, 10 US airports, all of 2024 |
+| Airport temperature (±2 °F) | `weather_forecast: 6h` | **2.9 hours**, then cycles daily: an echo every 24h (strength 0.31) beats every monotonic model on held-out data | METAR, 10 US airports, all of 2024, every lag to 14 days |
 | Airport flight category (VFR/IFR…) | `weather_forecast: 6h` | **2.9 hours**, decaying to 73%, not 0 | same |
 | Airport is IFR or worse | `weather_forecast: 6h` | **5.1 hours** | same, 5,906 adverse reports |
 | Ship position (±1 km), underway | `shipping_status: 4h` | **3.0 minutes** | NOAA AIS, 6,592 cargo ships and tankers, 6 days across 2023, 2.9M observations |
@@ -93,6 +93,7 @@ into `calibration/.cache/` (override with `FID_CAL_CACHE`) and writes
 cd calibration
 python3 wikidata_ceo.py    # ~2 MB, Wikidata SPARQL
 python3 weather_metar.py   # ~10 MB, Iowa Environmental Mesonet
+python3 weather_periodic.py  # same data; the echo test, every lag to 14 days (slow: tens of minutes)
 python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation Statistics
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
 ```
