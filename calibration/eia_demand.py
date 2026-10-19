@@ -219,8 +219,8 @@ def markdown(r, regions):
              "Split by region (7 train, 7 test) and by time (Jan–Jun train, Jul–Dec test).", "",
              "| Model | Brier, region split | Brier, time split | Largest gap (all data) |", "|---|---|---|---|"]
     for m in wp.NAMES:
-        lines.append(f"| {m.replace('_', ' ')} | {r['splits']['station']['brier_test'][m]:.4f} | "
-                     f"{r['splits']['time']['brier_test'][m]:.4f} | {r['gap_all'][m]:.3f} |")
+        lines.append(f"| {m.replace('_', ' ')} | {r['splits']['station']['brier_test'][m]:.5f} | "
+                     f"{r['splits']['time']['brier_test'][m]:.5f} | {r['gap_all'][m]:.3f} |")
     yes = lambda v: "yes" if v else "no"
     lines += ["", f"- Echo beats decay to baseline in both splits: **{yes(rule['echo_beats_baseline_both_splits'])}**",
               f"- Echo reliability no worse in both splits: **{yes(rule['echo_reliability_no_worse_both_splits'])}**",

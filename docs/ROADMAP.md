@@ -76,7 +76,7 @@ Airport weather is good evidence, but only for one kind of world: physical facts
 
 | Kind of fact | Candidate | Why it matters |
 |---|---|---|
-| Daily and weekly human rhythm | US grid electricity demand, hourly (EIA) | The fair test for echoes. People keep a working week, so a weekly cycle should appear where weather had none. |
+| Daily and weekly human rhythm | US grid electricity demand, hourly (EIA) | **Done (19 Oct).** 14 balancing authorities, 2024, ±5%: half-life 1.9 hours; 62% right again at 24h, 42% at 168h (40% at 144h). The echo beats decay on held-out Brier in both splits, but fails the gap (0.118) and reliability checks, and the weekly term adds almost nothing. Not in the registry |
 | Business records (high stakes: fraud checks, compliance) | UK Companies House directors and addresses over time | "Company X's director is Y" decays like the CEO fact, at far larger scale |
 | Software facts (what AI agents rely on) | PyPI release history: "the latest version of X is Y" | **Done (19 Oct).** 977 packages, 2015–2024: half-life 29 days just after a release, 80 days for a quiet package, 230 days for a dormant one. In `examples/half-lives.yaml` as `package_latest_version` with three states |
 | Medical (highest stakes) | openFDA drug label versions | "This drug's warning says Z": changes are rare but critical |
@@ -98,7 +98,7 @@ Each step is either measured on held-out data or proven by a test, and nothing g
 | 1. Air-mass sentence | done | FINDINGS now states only the measured gap; the cause is an open question |
 | 2. Measured source fidelity | done | `source_fidelity` in registry and envelope (0.3); written only from ≥ 20 checks in fresh bins. The public studies give s0 = 1 by construction (a source checked against itself), so none is claimed for them |
 | 3. Uncertainty | done | 95% ranges from 200 entity resamples; refuses when the half-life range spans more than 2.5×. Ranges held the truth in 38 of 40 synthetic ledgers |
-| 4. EIA electricity data | ready to start | api.eia.gov, api.fda.gov and the Companies House API are now allowed (19 Oct); `FID_EIA_API_KEY` is set for new sessions |
+| 4. EIA electricity data | done (19 Oct) | `calibration/eia_demand.py`: 14 balancing authorities, all of 2024, every lag to 14 days. Daily echo: yes (62% at 24h, 19% at 12h). Weekly echo: small (42% at 168h, 40% at 144h, 38% at 192h). Echo vs decay to baseline, held-out Brier: 0.1792 vs 0.1843 by region, 0.1603 vs 0.1660 by time; weekly term −0.00003. Rule failed: largest gap 0.118 > 0.10 (the first daily echo is far stronger than later ones) and reliability worse in the time split. Not added to `half-lives.yaml` |
 | 5a. Drift check | done | `fid drift`: likelihood ratio of registry against recent checks. False alarms 3.5% (1% with repeated checks per entity); a halved half-life caught 29 of 30 |
 | 5b. AI transform noise | done (19 Oct) | 200 documents with known facts, standard and hard corpus, Opus 5.5 and Haiku 5.5. Extraction: 0 errors in 4,800 checks. Summary: 1.5% (Opus), 1.9% (Opus, low effort), 7.0% (Haiku); rewrite ≤ 0.2%. Every error was a fact left out, none a wrong value. In `examples/noise-model.yaml` as `llm_extract` 0.001 (was guessed 0.20), `llm_summarize` 0.015 (0.028 when facts are buried), `llm_rewrite` 0.002 |
 | 5c. Echo in fid | done | `echo` in registries and envelopes, matching the study to 1e-12; `fid calibrate --period` keeps an echo only if it wins held-out (0 false keeps in 40) |
