@@ -25,6 +25,9 @@ ignores age entirely.
 | Ship position (±1 km), moored or at anchor | `shipping_status: 4h` | **1.4 days** (fitted; 79% still within 1 km after 12 h) | same |
 | Flight schedule is true (source fidelity) | — | **77.9%** on time; 69.5–84.2% by airline, 68.1–85.8% by month | BTS, 7,079,061 US flights, all of 2024 |
 | Noise per flight leg (transform noise) | — | **0.045** per leg on average | same |
+| The latest version of package X is Y, just released | — | **29 days** (5% still latest after a year) | PyPI, 977 most downloaded packages, monthly snapshots 2015–2024, 1.0M observations |
+| The latest version of package X is Y, 30 days to 1 year old | — | **80 days** | same |
+| The latest version of package X is Y, no release for a year | — | **230 days**, decaying to 24% | same |
 | LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
 | LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
 | LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
@@ -56,7 +59,11 @@ fact type, same ships, same days: 3 minutes underway, 1.4 days moored,
 about 680× apart, and the same across six days spread through the year.
 For a moving object the half-life is roughly physics — distance
 tolerance ÷ speed (1 km at 12 knots ≈ 2.7 minutes). One half-life per
-information type, as `half-lives.yaml` assumes, is not enough.
+information type, as `half-lives.yaml` assumes, is not enough. Software
+shows the same: "the latest version of X is Y" lasts 29 days when Y
+has just come out and 230 days when the package has been quiet for a
+year, 8× apart, and the state (the age of the latest release) is known
+at the moment the fact is stored.
 
 **4. Transform noise is not independent.** fid multiplies per-step
 noise, which assumes steps are independent. After an on-time leg, the
@@ -116,6 +123,7 @@ python3 weather_metar.py   # ~10 MB, Iowa Environmental Mesonet
 python3 weather_periodic.py  # same data; the echo test, every lag to 14 days (slow: tens of minutes)
 python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation Statistics
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
+python3 pypi_latest.py     # ~500 MB (1,000 package histories), PyPI JSON API
 ```
 
 ### AI transform noise

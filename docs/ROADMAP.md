@@ -58,7 +58,7 @@ Every answer fid gives rests on five things:
 |---|---|
 | Half-life and baseline | **Measured.** `fid calibrate` learns them from real re-checks, and the study shows they hold on held-out data. |
 | Source fidelity | **Guessed.** It's hard-coded per class in `src/envelope.rs`: instrument 0.97, database 0.90, AI 0.55, and so on. `calibrate` already measures "correct when fresh", but that number never reaches the label. **This is the biggest gap.** |
-| Transform noise | **Mostly guessed.** It's measured only for flight legs. AI summarizing and extracting are unmeasured, and those are the most common steps today. |
+| Transform noise | **Measured for flight legs and AI steps.** AI extraction loses almost nothing (0 errors in 4,800 checks); an AI summary loses 1.5% of facts (Opus 5.5) to 7% (Haiku 5.5). Deterministic steps (copy, join, aggregate…) are still guessed. |
 | Floor | Your policy. It's right that fid doesn't choose it. |
 | The re-check log | Only as good as what's fed in. `docs/LEDGER.md` covers the bias and the format. |
 
@@ -78,7 +78,7 @@ Airport weather is good evidence, but only for one kind of world: physical facts
 |---|---|---|
 | Daily and weekly human rhythm | US grid electricity demand, hourly (EIA) | The fair test for echoes. People keep a working week, so a weekly cycle should appear where weather had none. |
 | Business records (high stakes: fraud checks, compliance) | UK Companies House directors and addresses over time | "Company X's director is Y" decays like the CEO fact, at far larger scale |
-| Software facts (what AI agents rely on) | PyPI release history: "the latest version of X is Y" | Fast, real decay, and exactly the stale knowledge AI coding tools act on |
+| Software facts (what AI agents rely on) | PyPI release history: "the latest version of X is Y" | **Done (19 Oct).** 977 packages, 2015–2024: half-life 29 days just after a release, 80 days for a quiet package, 230 days for a dormant one. In `examples/half-lives.yaml` as `package_latest_version` with three states |
 | Medical (highest stakes) | openFDA drug label versions | "This drug's warning says Z": changes are rare but critical |
 
 ## Next steps, for the cloud session
@@ -98,7 +98,7 @@ Each step is either measured on held-out data or proven by a test, and nothing g
 | 1. Air-mass sentence | done | FINDINGS now states only the measured gap; the cause is an open question |
 | 2. Measured source fidelity | done | `source_fidelity` in registry and envelope (0.3); written only from ≥ 20 checks in fresh bins. The public studies give s0 = 1 by construction (a source checked against itself), so none is claimed for them |
 | 3. Uncertainty | done | 95% ranges from 200 entity resamples; refuses when the half-life range spans more than 2.5×. Ranges held the truth in 38 of 40 synthetic ledgers |
-| 4. EIA electricity data | blocked | eia.gov is not reachable from the cloud environment; needs it under Allowed domains |
+| 4. EIA electricity data | ready to start | api.eia.gov, api.fda.gov and the Companies House API are now allowed (19 Oct); `FID_EIA_API_KEY` is set for new sessions |
 | 5a. Drift check | done | `fid drift`: likelihood ratio of registry against recent checks. False alarms 3.5% (1% with repeated checks per entity); a halved half-life caught 29 of 30 |
-| 5b. AI transform noise | harness ready | `calibration/ai_noise.py`; needs `ANTHROPIC_API_KEY` in the cloud environment, and approval of the spend (1,000 requests at 200 documents) |
+| 5b. AI transform noise | done (19 Oct) | 200 documents with known facts, standard and hard corpus, Opus 5.5 and Haiku 5.5. Extraction: 0 errors in 4,800 checks. Summary: 1.5% (Opus), 1.9% (Opus, low effort), 7.0% (Haiku); rewrite ≤ 0.2%. Every error was a fact left out, none a wrong value. In `examples/noise-model.yaml` as `llm_extract` 0.001 (was guessed 0.20), `llm_summarize` 0.015 (0.028 when facts are buried), `llm_rewrite` 0.002 |
 | 5c. Echo in fid | done | `echo` in registries and envelopes, matching the study to 1e-12; `fid calibrate --period` keeps an echo only if it wins held-out (0 false keeps in 40) |
