@@ -45,6 +45,12 @@ airport_temperature:              # same data, ±2 °F; periodic: a 24h-old
   echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h }
                                   # passed held-out in both splits (docs/FINDINGS.md, Finding 5)
 
+package_latest_version:           # PyPI, 977 most downloaded packages, monthly snapshots 2015–2024
+  states:                         # state = age of the latest release when the fact was stored
+    just_released: { half_life: 29d, baseline: 0.07 }   # released in the last 30 days
+    quiet:         { half_life: 80d, baseline: 0.10 }   # 30 days to 1 year old
+    dormant:       { half_life: 230d, baseline: 0.24 }  # no new version for over a year
+
 # ── Hand-picked, not yet measured ───────────────────────────────
 # employee_role was guessed at 1y; CEOs measured 5.8y (above).
 

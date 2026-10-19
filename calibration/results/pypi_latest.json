@@ -1,0 +1,774 @@
+[
+  {
+    "experiment": "PyPI latest version \u2014 all snapshots",
+    "fact": "the latest version of package X is Y",
+    "truth": "Y is still the highest final, unyanked release on PyPI",
+    "entities": 915,
+    "observations": 1016717,
+    "curve": [
+      {
+        "lag_s": 0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 78209
+      },
+      {
+        "lag_s": 86400,
+        "lag": "1.0d",
+        "still_correct": 0.9796954314720813,
+        "n": 78209
+      },
+      {
+        "lag_s": 259200,
+        "lag": "3.0d",
+        "still_correct": 0.9485225485557928,
+        "n": 78209
+      },
+      {
+        "lag_s": 604800,
+        "lag": "7.0d",
+        "still_correct": 0.8975821197048933,
+        "n": 78209
+      },
+      {
+        "lag_s": 1209600,
+        "lag": "14d",
+        "still_correct": 0.8278331138360036,
+        "n": 78209
+      },
+      {
+        "lag_s": 2592000,
+        "lag": "30d",
+        "still_correct": 0.714751499188073,
+        "n": 78209
+      },
+      {
+        "lag_s": 5270400,
+        "lag": "61d",
+        "still_correct": 0.5686941400606068,
+        "n": 78209
+      },
+      {
+        "lag_s": 7862400,
+        "lag": "91d",
+        "still_correct": 0.4762878952550218,
+        "n": 78209
+      },
+      {
+        "lag_s": 15724800,
+        "lag": "182d",
+        "still_correct": 0.3151043997493895,
+        "n": 78209
+      },
+      {
+        "lag_s": 23673600,
+        "lag": "274d",
+        "still_correct": 0.22897620478461558,
+        "n": 78209
+      },
+      {
+        "lag_s": 31536000,
+        "lag": "365d",
+        "still_correct": 0.1787390198059047,
+        "n": 78209
+      },
+      {
+        "lag_s": 47347200,
+        "lag": "1.5y",
+        "still_correct": 0.12365584523520311,
+        "n": 78209
+      },
+      {
+        "lag_s": 63072000,
+        "lag": "2.0y",
+        "still_correct": 0.09381273254996228,
+        "n": 78209
+      }
+    ],
+    "empirical_half_life_s": 7197274.221668742,
+    "empirical_half_life": "83d",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 8538634.524049852,
+      "half_life": "99d"
+    },
+    "shape_error": 0.10223818380227212,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.15,
+      "half_life_s": 5407836.149268793,
+      "half_life": "63d"
+    },
+    "shape_error_with_baseline": 0.05644937735376557,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.13805399335086124,
+      "fitted_half_life_with_baseline": 0.13425830343881148,
+      "constant_base_rate": 0.24693724656556945
+    },
+    "reliability_test": [
+      {
+        "bin": "0.0\u20130.1",
+        "predicted": 0.04126795110465096,
+        "actual": 0.12343246303162297,
+        "n": 115707
+      },
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.1630298241489182,
+        "actual": 0.21709144649848325,
+        "n": 38569
+      },
+      {
+        "bin": "0.2\u20130.3",
+        "predicted": 0.29975147711455224,
+        "actual": 0.3022116207316757,
+        "n": 38569
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5474956411831534,
+        "actual": 0.4646477741191112,
+        "n": 38569
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6677729119940332,
+        "actual": 0.557727708781664,
+        "n": 38569
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8198829742109179,
+        "actual": 0.7039850657263605,
+        "n": 38569
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9679890289380314,
+        "actual": 0.9265420415359485,
+        "n": 192845
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.1674792025241937,
+        "actual": 0.14684720889833805,
+        "n": 154276
+      },
+      {
+        "bin": "0.2\u20130.3",
+        "predicted": 0.27633330094278113,
+        "actual": 0.3022116207316757,
+        "n": 38569
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.47769392090999185,
+        "actual": 0.4646477741191112,
+        "n": 38569
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5986788479581274,
+        "actual": 0.557727708781664,
+        "n": 38569
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7708000088283357,
+        "actual": 0.7039850657263605,
+        "n": 38569
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8840645091174142,
+        "actual": 0.8191552801472686,
+        "n": 38569
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9761893562646313,
+        "actual": 0.9533887318831186,
+        "n": 154276
+      }
+    ]
+  },
+  {
+    "experiment": "PyPI latest version \u2014 latest released in the 30 days before",
+    "fact": "the latest version of package X is Y",
+    "truth": "Y is still the highest final, unyanked release on PyPI",
+    "entities": 914,
+    "observations": 294736,
+    "curve": [
+      {
+        "lag_s": 0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 22672
+      },
+      {
+        "lag_s": 86400,
+        "lag": "1.0d",
+        "still_correct": 0.9519671841919548,
+        "n": 22672
+      },
+      {
+        "lag_s": 259200,
+        "lag": "3.0d",
+        "still_correct": 0.8851005645730416,
+        "n": 22672
+      },
+      {
+        "lag_s": 604800,
+        "lag": "7.0d",
+        "still_correct": 0.7859915314043754,
+        "n": 22672
+      },
+      {
+        "lag_s": 1209600,
+        "lag": "14d",
+        "still_correct": 0.6670783345095271,
+        "n": 22672
+      },
+      {
+        "lag_s": 2592000,
+        "lag": "30d",
+        "still_correct": 0.5018525052928723,
+        "n": 22672
+      },
+      {
+        "lag_s": 5270400,
+        "lag": "61d",
+        "still_correct": 0.3304075511644319,
+        "n": 22672
+      },
+      {
+        "lag_s": 7862400,
+        "lag": "91d",
+        "still_correct": 0.24228122794636556,
+        "n": 22672
+      },
+      {
+        "lag_s": 15724800,
+        "lag": "182d",
+        "still_correct": 0.12314749470712774,
+        "n": 22672
+      },
+      {
+        "lag_s": 23673600,
+        "lag": "274d",
+        "still_correct": 0.07374735356386733,
+        "n": 22672
+      },
+      {
+        "lag_s": 31536000,
+        "lag": "365d",
+        "still_correct": 0.04781227946365561,
+        "n": 22672
+      },
+      {
+        "lag_s": 47347200,
+        "lag": "1.5y",
+        "still_correct": 0.026155610444601272,
+        "n": 22672
+      },
+      {
+        "lag_s": 63072000,
+        "lag": "2.0y",
+        "still_correct": 0.017378263937896966,
+        "n": 22672
+      }
+    ],
+    "empirical_half_life_s": 2620940.776948804,
+    "empirical_half_life": "30d",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 2987523.262766061,
+      "half_life": "35d"
+    },
+    "shape_error": 0.09711405767665941,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.07,
+      "half_life_s": 2468396.3067249884,
+      "half_life": "29d"
+    },
+    "shape_error_with_baseline": 0.0700380379366349,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.11666054240652937,
+      "fitted_half_life_with_baseline": 0.11514585862127609,
+      "constant_base_rate": 0.24502406773191024
+    },
+    "reliability_test": [
+      {
+        "bin": "0.0\u20130.1",
+        "predicted": 0.00752484272144792,
+        "actual": 0.054620689655172416,
+        "n": 58000
+      },
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.17670349823412573,
+        "actual": 0.2371551724137931,
+        "n": 11600
+      },
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3129003780176243,
+        "actual": 0.32198275862068965,
+        "n": 11600
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5647276598182085,
+        "actual": 0.48758620689655174,
+        "n": 11600
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7659343752082655,
+        "actual": 0.651896551724138,
+        "n": 11600
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8751767679779127,
+        "actual": 0.7708620689655172,
+        "n": 11600
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9751979750043746,
+        "actual": 0.9410632183908046,
+        "n": 34800
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.0\u20130.1",
+        "predicted": 0.07323548106561481,
+        "actual": 0.054620689655172416,
+        "n": 58000
+      },
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.18507579027010201,
+        "actual": 0.2371551724137931,
+        "n": 11600
+      },
+      {
+        "bin": "0.2\u20130.3",
+        "predicted": 0.29917089180616807,
+        "actual": 0.32198275862068965,
+        "n": 11600
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5369898699077036,
+        "actual": 0.48758620689655174,
+        "n": 11600
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7443226079578809,
+        "actual": 0.651896551724138,
+        "n": 11600
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8619091017287457,
+        "actual": 0.7708620689655172,
+        "n": 11600
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9723264744094673,
+        "actual": 0.9410632183908046,
+        "n": 34800
+      }
+    ]
+  },
+  {
+    "experiment": "PyPI latest version \u2014 latest is 30 days to 1 year old",
+    "fact": "the latest version of package X is Y",
+    "truth": "Y is still the highest final, unyanked release on PyPI",
+    "entities": 886,
+    "observations": 562458,
+    "curve": [
+      {
+        "lag_s": 0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 43266
+      },
+      {
+        "lag_s": 86400,
+        "lag": "1.0d",
+        "still_correct": 0.9889982896500716,
+        "n": 43266
+      },
+      {
+        "lag_s": 259200,
+        "lag": "3.0d",
+        "still_correct": 0.9691674756159571,
+        "n": 43266
+      },
+      {
+        "lag_s": 604800,
+        "lag": "7.0d",
+        "still_correct": 0.9317477927240789,
+        "n": 43266
+      },
+      {
+        "lag_s": 1209600,
+        "lag": "14d",
+        "still_correct": 0.8730642999121713,
+        "n": 43266
+      },
+      {
+        "lag_s": 2592000,
+        "lag": "30d",
+        "still_correct": 0.7652891415892387,
+        "n": 43266
+      },
+      {
+        "lag_s": 5270400,
+        "lag": "61d",
+        "still_correct": 0.609300605556326,
+        "n": 43266
+      },
+      {
+        "lag_s": 7862400,
+        "lag": "91d",
+        "still_correct": 0.5041140849627883,
+        "n": 43266
+      },
+      {
+        "lag_s": 15724800,
+        "lag": "182d",
+        "still_correct": 0.31278602135626127,
+        "n": 43266
+      },
+      {
+        "lag_s": 23673600,
+        "lag": "274d",
+        "still_correct": 0.21196782693107752,
+        "n": 43266
+      },
+      {
+        "lag_s": 31536000,
+        "lag": "365d",
+        "still_correct": 0.15617343872786946,
+        "n": 43266
+      },
+      {
+        "lag_s": 47347200,
+        "lag": "1.5y",
+        "still_correct": 0.09913095733370314,
+        "n": 43266
+      },
+      {
+        "lag_s": 63072000,
+        "lag": "2.0y",
+        "still_correct": 0.07026302408357601,
+        "n": 43266
+      }
+    ],
+    "empirical_half_life_s": 8031463.445276636,
+    "empirical_half_life": "93d",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 9036350.684741301,
+      "half_life": "105d"
+    },
+    "shape_error": 0.07266351291418444,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.1,
+      "half_life_s": 6891105.265831982,
+      "half_life": "80d"
+    },
+    "shape_error_with_baseline": 0.03131827799632038,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.11991790493392303,
+      "fitted_half_life_with_baseline": 0.11836120492306741,
+      "constant_base_rate": 0.24481680617416499
+    },
+    "reliability_test": [
+      {
+        "bin": "0.0\u20130.1",
+        "predicted": 0.04478410171209335,
+        "actual": 0.10310555111382841,
+        "n": 63789
+      },
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.1717719484069671,
+        "actual": 0.2030757654140996,
+        "n": 21263
+      },
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.31033416584885226,
+        "actual": 0.3029205662418285,
+        "n": 21263
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5570764452468371,
+        "actual": 0.4969665616328834,
+        "n": 21263
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6755836783153363,
+        "actual": 0.6042421107087429,
+        "n": 21263
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8245854112935146,
+        "actual": 0.7621219959554155,
+        "n": 21263
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9688812376877274,
+        "actual": 0.9525184592954898,
+        "n": 106315
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.1\u20130.2",
+        "predicted": 0.14234076753177172,
+        "actual": 0.1280981046888962,
+        "n": 85052
+      },
+      {
+        "bin": "0.2\u20130.3",
+        "predicted": 0.29350537013829275,
+        "actual": 0.3029205662418285,
+        "n": 21263
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5141284194697034,
+        "actual": 0.4969665616328834,
+        "n": 21263
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6342683748500677,
+        "actual": 0.6042421107087429,
+        "n": 21263
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7960499518608137,
+        "actual": 0.7621219959554155,
+        "n": 21263
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8982077148755552,
+        "actual": 0.8717490476414429,
+        "n": 21263
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9792514063463914,
+        "actual": 0.9727108122090016,
+        "n": 85052
+      }
+    ]
+  },
+  {
+    "experiment": "PyPI latest version \u2014 no new latest version for over a year",
+    "fact": "the latest version of package X is Y",
+    "truth": "Y is still the highest final, unyanked release on PyPI",
+    "entities": 496,
+    "observations": 159523,
+    "curve": [
+      {
+        "lag_s": 0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 12271
+      },
+      {
+        "lag_s": 86400,
+        "lag": "1.0d",
+        "still_correct": 0.9981256621302257,
+        "n": 12271
+      },
+      {
+        "lag_s": 259200,
+        "lag": "3.0d",
+        "still_correct": 0.9929101132752017,
+        "n": 12271
+      },
+      {
+        "lag_s": 604800,
+        "lag": "7.0d",
+        "still_correct": 0.9832939450737511,
+        "n": 12271
+      },
+      {
+        "lag_s": 1209600,
+        "lag": "14d",
+        "still_correct": 0.965365495884606,
+        "n": 12271
+      },
+      {
+        "lag_s": 2592000,
+        "lag": "30d",
+        "still_correct": 0.9299160622606144,
+        "n": 12271
+      },
+      {
+        "lag_s": 5270400,
+        "lag": "61d",
+        "still_correct": 0.8657811099339907,
+        "n": 12271
+      },
+      {
+        "lag_s": 7862400,
+        "lag": "91d",
+        "still_correct": 0.8105288892510798,
+        "n": 12271
+      },
+      {
+        "lag_s": 15724800,
+        "lag": "182d",
+        "still_correct": 0.6779398582022655,
+        "n": 12271
+      },
+      {
+        "lag_s": 23673600,
+        "lag": "274d",
+        "still_correct": 0.5757476978241383,
+        "n": 12271
+      },
+      {
+        "lag_s": 31536000,
+        "lag": "365d",
+        "still_correct": 0.5002037323771493,
+        "n": 12271
+      },
+      {
+        "lag_s": 47347200,
+        "lag": "1.5y",
+        "still_correct": 0.3902697416673458,
+        "n": 12271
+      },
+      {
+        "lag_s": 63072000,
+        "lag": "2.0y",
+        "still_correct": 0.3180669872056067,
+        "n": 12271
+      }
+    ],
+    "empirical_half_life_s": 31565301.704966635,
+    "empirical_half_life": "1.0y",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 32495935.041518062,
+      "half_life": "1.0y"
+    },
+    "shape_error": 0.05761663103029052,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.24,
+      "half_life_s": 19882672.401658453,
+      "half_life": "230d"
+    },
+    "shape_error_with_baseline": 0.007266871287867738,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.12144112862886741,
+      "fitted_half_life_with_baseline": 0.12080163481707251,
+      "constant_base_rate": 0.17954021848060467
+    },
+    "reliability_test": [
+      {
+        "bin": "0.2\u20130.3",
+        "predicted": 0.2690849783952589,
+        "actual": 0.3086225026288118,
+        "n": 5706
+      },
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3732730229289527,
+        "actual": 0.37960042060988436,
+        "n": 5706
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5187340150744492,
+        "actual": 0.49053627760252366,
+        "n": 5706
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6109607376329127,
+        "actual": 0.5685243603224676,
+        "n": 5706
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7208797900363547,
+        "actual": 0.6724500525762356,
+        "n": 5706
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8725774799004504,
+        "actual": 0.8351735015772871,
+        "n": 11412
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9838224152646292,
+        "actual": 0.9770417104801963,
+        "n": 34236
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3643675510857394,
+        "actual": 0.3441114616193481,
+        "n": 11412
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.540215228870899,
+        "actual": 0.5295303189624956,
+        "n": 11412
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6843866859982586,
+        "actual": 0.6724500525762356,
+        "n": 5706
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8476636956615878,
+        "actual": 0.8351735015772871,
+        "n": 11412
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9800032005297714,
+        "actual": 0.9770417104801963,
+        "n": 34236
+      }
+    ]
+  }
+]

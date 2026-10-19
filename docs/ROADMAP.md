@@ -78,7 +78,7 @@ Airport weather is good evidence, but only for one kind of world: physical facts
 |---|---|---|
 | Daily and weekly human rhythm | US grid electricity demand, hourly (EIA) | The fair test for echoes. People keep a working week, so a weekly cycle should appear where weather had none. |
 | Business records (high stakes: fraud checks, compliance) | UK Companies House directors and addresses over time | "Company X's director is Y" decays like the CEO fact, at far larger scale |
-| Software facts (what AI agents rely on) | PyPI release history: "the latest version of X is Y" | Fast, real decay, and exactly the stale knowledge AI coding tools act on |
+| Software facts (what AI agents rely on) | PyPI release history: "the latest version of X is Y" | **Done (19 Oct).** 977 packages, 2015–2024: half-life 29 days just after a release, 80 days for a quiet package, 230 days for a dormant one. In `examples/half-lives.yaml` as `package_latest_version` with three states |
 | Medical (highest stakes) | openFDA drug label versions | "This drug's warning says Z": changes are rare but critical |
 
 ## Next steps, for the cloud session
