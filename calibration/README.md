@@ -29,6 +29,7 @@ ignores age entirely.
 | The latest version of package X is Y, 30 days to 1 year old | — | **80 days** | same |
 | The latest version of package X is Y, no release for a year | — | **230 days**, decaying to 24% | same |
 | Hourly electricity demand in region R is D (±5%) | — | **1.9 hours**, then comes back daily: 62% still right at 24h against 19% at 12h; a small weekly echo (42% at 168h, 40% at 144h). The echo beats monotonic decay on held-out Brier but fails the shape and reliability checks, so it is not in the registry | EIA, 14 US balancing authorities, all of 2024, every lag to 14 days, 40.6M pairs |
+| The warnings of drug label X say Z | `drug_interaction: domain_specific` | **3.2 years** (2.1 years decaying to 23% with a baseline); 78% unchanged after a year, 38% after five. How long the text had been unchanged does not change the rate | DailyMed version history of 400 sampled US prescription labels, 2,277 versions; 173 labels with versions before Oct 2021, 113,410 observations |
 | LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
 | LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
 | LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
@@ -92,6 +93,17 @@ fading echo cannot express, and its reliability is worse in the time
 split (0.0248 against 0.0219). So it is not added to
 `half-lives.yaml`.
 
+**5c. Drug label warnings change every few years, at a steady rate.**
+A label's warnings text (boxed warning, warnings, warnings and
+precautions, compared word for word) is unchanged after a year 78% of
+the time and after five years 38%: half-life 3.2 years. Unlike
+software, recent change does not predict the next one: warnings
+changed in the year before last 2.9 years, warnings unchanged for 1
+to 5 years 2.9 years. Labels unchanged for over five years look
+steadier (68% still unchanged after five more years), but that state
+has 36 labels and its fit does not hold on the held-out half, so it
+is not in the registry.
+
 **6. LLM steps lose facts by leaving them out, not by getting them
 wrong.** The hand-picked 0.20 for extraction and 0.15 for summaries
 are 10× to 100× too high for short business documents. Extraction
@@ -122,9 +134,14 @@ July versus 85.8% in October. One number per source class is too coarse.
   half-life scales with them.
 - The held-out split is by entity, not by time (the echo tests also
   split by time).
-- Drug labels (openFDA) are not measured: the API serves only each
-  label's current version, so past warnings text cannot be compared
-  (`results/openfda_labels.md`).
+- Drug labels: openFDA serves only each label's current version
+  (`results/openfda_labels.md`), so history comes from DailyMed. The
+  sample is labels on the market today (withdrawn ones are missing),
+  and only 173 of the 375 with warnings had a DailyMed version before
+  October 2021, the last snapshot that can be followed for five
+  years. A label's history starts at its first DailyMed version, so
+  "unchanged for N years" is a lower bound. Any changed word counts,
+  including a renumbered cross-reference.
 - EIA demand: as reported by each balancing authority, hours in UTC;
   readings of zero or less are dropped and nothing else is cleaned.
 - AI noise: short generated English documents with every fact stated.
@@ -147,8 +164,9 @@ python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation St
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
 python3 pypi_latest.py     # ~500 MB (1,000 package histories), PyPI JSON API
 FID_EIA_API_KEY=... python3 eia_demand.py  # ~5 MB, EIA API v2 (free key); the echo test, every lag to 14 days
-python3 openfda_labels.py  # checks whether openFDA keeps label versions (it does not); no half-life
-python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels  # no network
+python3 openfda_labels.py  # checks whether openFDA keeps label versions (it does not)
+python3 dailymed_warnings.py  # ~2,300 label versions from DailyMed, ~1 MB each, read then deleted
+python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels test_dailymed_warnings  # no network
 ```
 
 ### AI transform noise

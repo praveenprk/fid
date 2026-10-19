@@ -51,6 +51,10 @@ package_latest_version:           # PyPI, 977 most downloaded packages, monthly 
     quiet:         { half_life: 80d, baseline: 0.10 }   # 30 days to 1 year old
     dormant:       { half_life: 230d, baseline: 0.24 }  # no new version for over a year
 
+drug_label_warnings:              # DailyMed, 400 US prescription labels, 2,277 versions;
+  half_life:  2.1y                # boxed warning + warnings (+ precautions), word for word
+  baseline:   0.23                # without a baseline: 3.2y
+
 # ── Hand-picked, not yet measured ───────────────────────────────
 # employee_role was guessed at 1y; CEOs measured 5.8y (above).
 

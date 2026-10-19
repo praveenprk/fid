@@ -1,0 +1,691 @@
+[
+  {
+    "experiment": "DailyMed warnings \u2014 all snapshots",
+    "fact": "the warnings of drug label X say Z",
+    "truth": "the label's warnings text (boxed warning, warnings, warnings and precautions) is unchanged",
+    "entities": 173,
+    "observations": 113410,
+    "curve": [
+      {
+        "lag_s": 0.0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 10310
+      },
+      {
+        "lag_s": 2592000.0,
+        "lag": "30d",
+        "still_correct": 0.9801163918525703,
+        "n": 10310
+      },
+      {
+        "lag_s": 7862400.0,
+        "lag": "91d",
+        "still_correct": 0.9396702230843841,
+        "n": 10310
+      },
+      {
+        "lag_s": 15724800.0,
+        "lag": "182d",
+        "still_correct": 0.8841901066925315,
+        "n": 10310
+      },
+      {
+        "lag_s": 23673600.0,
+        "lag": "274d",
+        "still_correct": 0.8309408341416101,
+        "n": 10310
+      },
+      {
+        "lag_s": 31536000.0,
+        "lag": "365d",
+        "still_correct": 0.7814742967992241,
+        "n": 10310
+      },
+      {
+        "lag_s": 47347200.0,
+        "lag": "1.5y",
+        "still_correct": 0.6971871968962172,
+        "n": 10310
+      },
+      {
+        "lag_s": 63072000.0,
+        "lag": "2.0y",
+        "still_correct": 0.62909796314258,
+        "n": 10310
+      },
+      {
+        "lag_s": 94608000.0,
+        "lag": "3.0y",
+        "still_correct": 0.5167798254122211,
+        "n": 10310
+      },
+      {
+        "lag_s": 126230400.0,
+        "lag": "4.0y",
+        "still_correct": 0.43171677982541223,
+        "n": 10310
+      },
+      {
+        "lag_s": 157766400.0,
+        "lag": "5.0y",
+        "still_correct": 0.379631425800194,
+        "n": 10310
+      }
+    ],
+    "empirical_half_life_s": 100845942.07525656,
+    "empirical_half_life": "3.2y",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 100496733.31326579,
+      "half_life": "3.2y"
+    },
+    "shape_error": 0.04279173577598516,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.23,
+      "half_life_s": 66111350.3009234,
+      "half_life": "2.1y"
+    },
+    "shape_error_with_baseline": 0.003265323952308885,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.15147504008233154,
+      "fitted_half_life_with_baseline": 0.1511015279274529,
+      "constant_base_rate": 0.1950901475767144
+    },
+    "reliability_test": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3362172266226726,
+        "actual": 0.3836520947176685,
+        "n": 4392
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.41806529835971135,
+        "actual": 0.4305555555555556,
+        "n": 4392
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5201487072185211,
+        "actual": 0.5145719489981785,
+        "n": 4392
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6467727030500262,
+        "actual": 0.6300091074681239,
+        "n": 4392
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7209981320829463,
+        "actual": 0.6987704918032787,
+        "n": 4392
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8501299103902519,
+        "actual": 0.8329538554948391,
+        "n": 13176
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9764598810119152,
+        "actual": 0.9737401335761992,
+        "n": 13176
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3768107469591774,
+        "actual": 0.3836520947176685,
+        "n": 4392
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.43446811444569755,
+        "actual": 0.4305555555555556,
+        "n": 4392
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5150279793537358,
+        "actual": 0.5145719489981785,
+        "n": 4392
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6626165596655667,
+        "actual": 0.6643897996357013,
+        "n": 8784
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7828699448567996,
+        "actual": 0.7823315118397086,
+        "n": 4392
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8566153433401017,
+        "actual": 0.8582650273224044,
+        "n": 8784
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9727595506333063,
+        "actual": 0.9737401335761992,
+        "n": 13176
+      }
+    ],
+    "sample": {
+      "labels_sampled": 400,
+      "labels_with_warnings": 375,
+      "labels_skipped": 1,
+      "versions_read": 2277,
+      "warnings_changes": 410
+    }
+  },
+  {
+    "experiment": "DailyMed warnings \u2014 warnings changed in the year before",
+    "fact": "the warnings of drug label X say Z",
+    "truth": "the label's warnings text (boxed warning, warnings, warnings and precautions) is unchanged",
+    "entities": 173,
+    "observations": 40447,
+    "curve": [
+      {
+        "lag_s": 0.0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 3677
+      },
+      {
+        "lag_s": 2592000.0,
+        "lag": "30d",
+        "still_correct": 0.9793309763394071,
+        "n": 3677
+      },
+      {
+        "lag_s": 7862400.0,
+        "lag": "91d",
+        "still_correct": 0.9352733206418276,
+        "n": 3677
+      },
+      {
+        "lag_s": 15724800.0,
+        "lag": "182d",
+        "still_correct": 0.8770737013870002,
+        "n": 3677
+      },
+      {
+        "lag_s": 23673600.0,
+        "lag": "274d",
+        "still_correct": 0.8194180038074518,
+        "n": 3677
+      },
+      {
+        "lag_s": 31536000.0,
+        "lag": "365d",
+        "still_correct": 0.7604025020397063,
+        "n": 3677
+      },
+      {
+        "lag_s": 47347200.0,
+        "lag": "1.5y",
+        "still_correct": 0.6663040522164808,
+        "n": 3677
+      },
+      {
+        "lag_s": 63072000.0,
+        "lag": "2.0y",
+        "still_correct": 0.6018493336959477,
+        "n": 3677
+      },
+      {
+        "lag_s": 94608000.0,
+        "lag": "3.0y",
+        "still_correct": 0.4878977427250476,
+        "n": 3677
+      },
+      {
+        "lag_s": 126230400.0,
+        "lag": "4.0y",
+        "still_correct": 0.3845526244220832,
+        "n": 3677
+      },
+      {
+        "lag_s": 157766400.0,
+        "lag": "5.0y",
+        "still_correct": 0.31601849333695947,
+        "n": 3677
+      }
+    ],
+    "empirical_half_life_s": 91258711.21718377,
+    "empirical_half_life": "2.9y",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 88825953.57733285,
+      "half_life": "2.8y"
+    },
+    "shape_error": 0.024796051359019744,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.15,
+      "half_life_s": 68271359.63582085,
+      "half_life": "2.2y"
+    },
+    "shape_error_with_baseline": 0.01261399773295313,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.15267499443182145,
+      "fitted_half_life_with_baseline": 0.15271538139904473,
+      "constant_base_rate": 0.2076125000104487
+    },
+    "reliability_test": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.34170128996146665,
+        "actual": 0.3290464240903388,
+        "n": 3188
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.4866393414574358,
+        "actual": 0.48243412797992474,
+        "n": 1594
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6580268550273108,
+        "actual": 0.632685069008783,
+        "n": 3188
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7865670302835029,
+        "actual": 0.7578419071518193,
+        "n": 1594
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8611311503632452,
+        "actual": 0.8450439146800501,
+        "n": 3188
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9741207406660872,
+        "actual": 0.9711417816813049,
+        "n": 4782
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3686924402535194,
+        "actual": 0.3290464240903388,
+        "n": 3188
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.4831114130539565,
+        "actual": 0.48243412797992474,
+        "n": 1594
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6391776238533197,
+        "actual": 0.632685069008783,
+        "n": 3188
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7672105437520084,
+        "actual": 0.7578419071518193,
+        "n": 1594
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.846087881384403,
+        "actual": 0.8450439146800501,
+        "n": 3188
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9707131777247553,
+        "actual": 0.9711417816813049,
+        "n": 4782
+      }
+    ]
+  },
+  {
+    "experiment": "DailyMed warnings \u2014 warnings unchanged for 1 to 5 years",
+    "fact": "the warnings of drug label X say Z",
+    "truth": "the label's warnings text (boxed warning, warnings, warnings and precautions) is unchanged",
+    "entities": 145,
+    "observations": 60456,
+    "curve": [
+      {
+        "lag_s": 0.0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 5496
+      },
+      {
+        "lag_s": 2592000.0,
+        "lag": "30d",
+        "still_correct": 0.9785298398835517,
+        "n": 5496
+      },
+      {
+        "lag_s": 7862400.0,
+        "lag": "91d",
+        "still_correct": 0.9363173216885007,
+        "n": 5496
+      },
+      {
+        "lag_s": 15724800.0,
+        "lag": "182d",
+        "still_correct": 0.8768195050946143,
+        "n": 5496
+      },
+      {
+        "lag_s": 23673600.0,
+        "lag": "274d",
+        "still_correct": 0.8215065502183406,
+        "n": 5496
+      },
+      {
+        "lag_s": 31536000.0,
+        "lag": "365d",
+        "still_correct": 0.774745269286754,
+        "n": 5496
+      },
+      {
+        "lag_s": 47347200.0,
+        "lag": "1.5y",
+        "still_correct": 0.6879548762736536,
+        "n": 5496
+      },
+      {
+        "lag_s": 63072000.0,
+        "lag": "2.0y",
+        "still_correct": 0.6104439592430859,
+        "n": 5496
+      },
+      {
+        "lag_s": 94608000.0,
+        "lag": "3.0y",
+        "still_correct": 0.4856259097525473,
+        "n": 5496
+      },
+      {
+        "lag_s": 126230400.0,
+        "lag": "4.0y",
+        "still_correct": 0.4041120815138282,
+        "n": 5496
+      },
+      {
+        "lag_s": 157766400.0,
+        "lag": "5.0y",
+        "still_correct": 0.36044395924308587,
+        "n": 5496
+      }
+    ],
+    "empirical_half_life_s": 90976303.2069971,
+    "empirical_half_life": "2.9y",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 93938046.80396737,
+      "half_life": "3.0y"
+    },
+    "shape_error": 0.04824727038304083,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.21,
+      "half_life_s": 63982008.2850859,
+      "half_life": "2.0y"
+    },
+    "shape_error_with_baseline": 0.00784230400254221,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.15470319130488355,
+      "fitted_half_life_with_baseline": 0.15419730787774355,
+      "constant_base_rate": 0.2019591171960161
+    },
+    "reliability_test": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.3559763075614754,
+        "actual": 0.3886021505376344,
+        "n": 4650
+      },
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5002715468019467,
+        "actual": 0.47096774193548385,
+        "n": 2325
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6301885893283684,
+        "actual": 0.5995698924731183,
+        "n": 2325
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7504596494883397,
+        "actual": 0.7258064516129032,
+        "n": 4650
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8660693747991125,
+        "actual": 0.8481720430107527,
+        "n": 4650
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9750899113964419,
+        "actual": 0.9718996415770609,
+        "n": 6975
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.3\u20130.4",
+        "predicted": 0.34779709247678753,
+        "actual": 0.3772043010752688,
+        "n": 2325
+      },
+      {
+        "bin": "0.4\u20130.5",
+        "predicted": 0.45354930535593685,
+        "actual": 0.43548387096774194,
+        "n": 4650
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6521145504608522,
+        "actual": 0.6406451612903226,
+        "n": 4650
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7771500003329983,
+        "actual": 0.7698924731182796,
+        "n": 2325
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8531723900253366,
+        "actual": 0.8481720430107527,
+        "n": 4650
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9721880675558169,
+        "actual": 0.9718996415770609,
+        "n": 6975
+      }
+    ]
+  },
+  {
+    "experiment": "DailyMed warnings \u2014 warnings unchanged for over 5 years",
+    "fact": "the warnings of drug label X say Z",
+    "truth": "the label's warnings text (boxed warning, warnings, warnings and precautions) is unchanged",
+    "entities": 36,
+    "observations": 12507,
+    "curve": [
+      {
+        "lag_s": 0.0,
+        "lag": "0s",
+        "still_correct": 1.0,
+        "n": 1137
+      },
+      {
+        "lag_s": 2592000.0,
+        "lag": "30d",
+        "still_correct": 0.990325417766051,
+        "n": 1137
+      },
+      {
+        "lag_s": 7862400.0,
+        "lag": "91d",
+        "still_correct": 0.9700967458223395,
+        "n": 1137
+      },
+      {
+        "lag_s": 15724800.0,
+        "lag": "182d",
+        "still_correct": 0.9428320140721196,
+        "n": 1137
+      },
+      {
+        "lag_s": 23673600.0,
+        "lag": "274d",
+        "still_correct": 0.9138082673702727,
+        "n": 1137
+      },
+      {
+        "lag_s": 31536000.0,
+        "lag": "365d",
+        "still_correct": 0.882145998240985,
+        "n": 1137
+      },
+      {
+        "lag_s": 47347200.0,
+        "lag": "1.5y",
+        "still_correct": 0.841688654353562,
+        "n": 1137
+      },
+      {
+        "lag_s": 63072000.0,
+        "lag": "2.0y",
+        "still_correct": 0.8073878627968337,
+        "n": 1137
+      },
+      {
+        "lag_s": 94608000.0,
+        "lag": "3.0y",
+        "still_correct": 0.7607739665787159,
+        "n": 1137
+      },
+      {
+        "lag_s": 126230400.0,
+        "lag": "4.0y",
+        "still_correct": 0.7176781002638523,
+        "n": 1137
+      },
+      {
+        "lag_s": 157766400.0,
+        "lag": "5.0y",
+        "still_correct": 0.6781002638522428,
+        "n": 1137
+      }
+    ],
+    "empirical_half_life_s": null,
+    "empirical_half_life": "\u2014",
+    "fitted": {
+      "s0": 1.0,
+      "half_life_s": 246613505.67539808,
+      "half_life": "7.8y"
+    },
+    "shape_error": 0.03626782440651788,
+    "fitted_with_baseline": {
+      "s0": 1.0,
+      "baseline": 0.61,
+      "half_life_s": 65343868.120230086,
+      "half_life": "2.1y"
+    },
+    "shape_error_with_baseline": 0.007812538391127277,
+    "guess": null,
+    "brier_test": {
+      "fitted_half_life": 0.08633131973380166,
+      "fitted_half_life_with_baseline": 0.08684125182597209,
+      "constant_base_rate": 0.09162451896394398
+    },
+    "reliability_test": [
+      {
+        "bin": "0.5\u20130.6",
+        "predicted": 0.5778704862952478,
+        "actual": 0.7357293868921776,
+        "n": 473
+      },
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6448197411199013,
+        "actual": 0.7864693446088795,
+        "n": 473
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7197415386032958,
+        "actual": 0.8372093023255814,
+        "n": 473
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8491831356582114,
+        "actual": 0.9006342494714588,
+        "n": 1419
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9663762291382701,
+        "actual": 0.9758985200845666,
+        "n": 2365
+      }
+    ],
+    "reliability_test_with_baseline": [
+      {
+        "bin": "0.6\u20130.7",
+        "predicted": 0.6509247913655625,
+        "actual": 0.7610993657505285,
+        "n": 946
+      },
+      {
+        "bin": "0.7\u20130.8",
+        "predicted": 0.7337039710269344,
+        "actual": 0.8562367864693446,
+        "n": 946
+      },
+      {
+        "bin": "0.8\u20130.9",
+        "predicted": 0.8499424661857171,
+        "actual": 0.923185341789993,
+        "n": 1419
+      },
+      {
+        "bin": "0.9\u20131.0",
+        "predicted": 0.9663504882587018,
+        "actual": 0.9841437632135307,
+        "n": 1892
+      }
+    ]
+  }
+]
