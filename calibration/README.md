@@ -122,6 +122,9 @@ July versus 85.8% in October. One number per source class is too coarse.
   half-life scales with them.
 - The held-out split is by entity, not by time (the echo tests also
   split by time).
+- Drug labels (openFDA) are not measured: the API serves only each
+  label's current version, so past warnings text cannot be compared
+  (`results/openfda_labels.md`).
 - EIA demand: as reported by each balancing authority, hours in UTC;
   readings of zero or less are dropped and nothing else is cleaned.
 - AI noise: short generated English documents with every fact stated.
@@ -144,7 +147,8 @@ python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation St
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
 python3 pypi_latest.py     # ~500 MB (1,000 package histories), PyPI JSON API
 FID_EIA_API_KEY=... python3 eia_demand.py  # ~5 MB, EIA API v2 (free key); the echo test, every lag to 14 days
-python3 -m unittest test_pypi_latest test_eia_demand  # no network
+python3 openfda_labels.py  # checks whether openFDA keeps label versions (it does not); no half-life
+python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels  # no network
 ```
 
 ### AI transform noise

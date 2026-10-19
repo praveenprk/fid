@@ -1,0 +1,314 @@
+{
+ "labels": 262897,
+ "labels_with_warnings": 209079,
+ "labels_at_version_1": 63168,
+ "labels_revised": 199729,
+ "max_records_per_set_id": 1,
+ "sample_labels": 50,
+ "sample_labels_with_past_versions": 0,
+ "history_available": false,
+ "sample": [
+  {
+   "set_id": "0000025c-6dbf-4af7-a741-5cbacaed519a",
+   "version": "2",
+   "effective_time": "20210902",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0000076a-fc39-4208-ace8-6c2cb367904f",
+   "version": "4",
+   "effective_time": "20150109",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00006ebc-ec2b-406c-96b7-a3cc422e933f",
+   "version": "3",
+   "effective_time": "20230802",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00011703-bc55-4c0c-858c-149dc674bc3c",
+   "version": "7",
+   "effective_time": "20230905",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00018a89-9260-459b-86d3-c58a9bb899ea",
+   "version": "4",
+   "effective_time": "20201214",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0001d1cf-f727-4875-a44f-5a51f7b617a4",
+   "version": "5",
+   "effective_time": "20260227",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0001eaa9-e890-4e94-9d44-47a0f3086a02",
+   "version": "2",
+   "effective_time": "20130320",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00023ca2-4433-4f88-8252-bc8c1d7ea2e0",
+   "version": "2",
+   "effective_time": "20181115",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00025ea5-d15f-49d2-a52a-6c1bd8c6a033",
+   "version": "16",
+   "effective_time": "20260227",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0002a6ef-6e5e-4a34-95d5-ebaab222496f",
+   "version": "4",
+   "effective_time": "20240304",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00038c95-b2c8-4245-b671-6af177b3a00e",
+   "version": "5",
+   "effective_time": "20170622",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0003eccd-6147-4a7c-ae83-b2a94933e07d",
+   "version": "7",
+   "effective_time": "20200801",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00040bfe-001a-484e-bec0-e21e8b27f369",
+   "version": "4",
+   "effective_time": "20240917",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00046231-8fab-44a0-b986-9a9dd450881d",
+   "version": "12",
+   "effective_time": "20251209",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000506eb-0340-4d15-9dd1-71f10c83a3b9",
+   "version": "16",
+   "effective_time": "20221201",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00051a01-1c2e-4abb-b04c-548401f822c6",
+   "version": "4",
+   "effective_time": "20171112",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00052c1a-9e0f-44ba-bc93-025add5a4031",
+   "version": "3",
+   "effective_time": "20201019",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0005aafa-08f8-4990-a54d-cc097195708f",
+   "version": "20",
+   "effective_time": "20260102",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0005e125-fbf2-4f90-8960-99e00250fc20",
+   "version": "2",
+   "effective_time": "20171119",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0006d193-29d6-4163-a592-5329b477051b",
+   "version": "4",
+   "effective_time": "20211216",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00071697-4ac6-4962-8eee-388b8b52bd40",
+   "version": "7",
+   "effective_time": "20250122",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00077597-e9a3-0fea-12bf-244eaa17b9ff",
+   "version": "2",
+   "effective_time": "20130307",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000775ae-38dc-40ea-b96f-a0baf5d03511",
+   "version": "9",
+   "effective_time": "20250826",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0007892c-8c17-400d-b820-020aa32f433b",
+   "version": "3",
+   "effective_time": "20100507",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0007e3ea-882b-4000-8e70-2bcec2c08613",
+   "version": "2",
+   "effective_time": "20250226",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00082d30-f839-106e-f466-1138d5a2f335",
+   "version": "2",
+   "effective_time": "20201218",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000835f5-7126-4b88-aa49-728d286fbf6b",
+   "version": "4",
+   "effective_time": "20161108",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000886ff-2ed7-4dbb-af17-78bf96d10c1f",
+   "version": "2",
+   "effective_time": "20091125",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00088ecd-e45d-4080-b124-e66376ad7694",
+   "version": "2",
+   "effective_time": "20101018",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000a0275-cf01-488e-a54c-be7bdf9e8f0d",
+   "version": "3",
+   "effective_time": "20210707",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000aecdc-d965-469d-a97d-e7b5c18442db",
+   "version": "14",
+   "effective_time": "20231115",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000bf57b-1805-4746-bf1c-32856241213a",
+   "version": "5",
+   "effective_time": "20260121",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000c5311-6758-4364-9775-8649b495cab9",
+   "version": "3",
+   "effective_time": "20191212",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000c5acd-18a5-4566-80aa-486050ba52da",
+   "version": "3",
+   "effective_time": "20230206",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000cf6bc-9e52-4261-9c73-4087c5ba1142",
+   "version": "2",
+   "effective_time": "20251229",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000e127c-dab2-4c8a-a8c4-0d80e879be05",
+   "version": "2",
+   "effective_time": "20151106",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000e75d2-909f-48e4-a491-beefdd60594d",
+   "version": "2",
+   "effective_time": "20150807",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "000ec13b-9c26-45b8-84f1-144cac3f58f2",
+   "version": "2",
+   "effective_time": "20141007",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00100102-c245-4b63-a4ff-794cacda6f17",
+   "version": "8",
+   "effective_time": "20260124",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "001018f4-0093-49a7-a5c5-4f4c550259c8",
+   "version": "2",
+   "effective_time": "20190321",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00109d18-397a-4c10-a28b-836d56d71829",
+   "version": "3",
+   "effective_time": "20120307",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0012578b-66ff-49a8-8415-693c68ab9c16",
+   "version": "2",
+   "effective_time": "20160517",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00125d63-d8d0-46c5-bdf1-80d2c85eda5a",
+   "version": "14",
+   "effective_time": "20260113",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00139e9f-3fd0-4dcf-a437-fb68a9988cea",
+   "version": "104",
+   "effective_time": "20240404",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0013c0c8-513a-48f3-a918-5bc1750c96a7",
+   "version": "4",
+   "effective_time": "20130827",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00146b91-008d-4b16-95b0-6077f98821be",
+   "version": "3",
+   "effective_time": "20241024",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "0016c77a-64fa-45a1-8721-4fd3a826a885",
+   "version": "3",
+   "effective_time": "20170112",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "001714c1-a292-40be-bfbd-0ff67193ace6",
+   "version": "2",
+   "effective_time": "20180411",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "00171d6f-a0a7-4e90-abde-6dd3f1285ec0",
+   "version": "3",
+   "effective_time": "20231129",
+   "versions_returned": 1
+  },
+  {
+   "set_id": "001777fb-196c-499a-94c8-6cdcef0958e9",
+   "version": "19",
+   "effective_time": "20260219",
+   "versions_returned": 1
+  }
+ ],
+ "drugsfda_applications": 29390,
+ "drugsfda_applications_with_labeling_supplements": 16952
+}
