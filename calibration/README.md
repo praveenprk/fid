@@ -28,7 +28,7 @@ ignores age entirely.
 | The latest version of package X is Y, just released | — | **29 days** (5% still latest after a year) | PyPI, 977 most downloaded packages, monthly snapshots 2015–2024, 1.0M observations |
 | The latest version of package X is Y, 30 days to 1 year old | — | **80 days** | same |
 | The latest version of package X is Y, no release for a year | — | **230 days**, decaying to 24% | same |
-| Hourly electricity demand in region R is D (±5%) | — | **1.9 hours**, then comes back daily: 62% still right at 24h against 19% at 12h; a small weekly echo (42% at 168h, 40% at 144h). The echo beats monotonic decay on held-out Brier but fails the shape and reliability checks, so it is not in the registry | EIA, 14 US balancing authorities, all of 2024, every lag to 14 days, 41M pairs |
+| Hourly electricity demand in region R is D (±5%) | — | **1.9 hours**, then comes back daily: 62% still right at 24h against 19% at 12h; a small weekly echo (42% at 168h, 40% at 144h). The echo beats monotonic decay on held-out Brier but fails the shape and reliability checks, so it is not in the registry | EIA, 14 US balancing authorities, all of 2024, every lag to 14 days, 40.6M pairs |
 | LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
 | LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
 | LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
