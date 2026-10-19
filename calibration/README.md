@@ -126,7 +126,9 @@ content is known (generated company records with real-world traps: a
 former CEO, an older headcount, revenue in billions, a competitor's
 figures). It writes the noise per step, field and trap as a
 `noise-model.yaml` block. Unlike the others it calls the Claude API, so
-it needs `pip install anthropic` and `ANTHROPIC_API_KEY`, and it costs
+it needs `pip install anthropic` and a key in `FID_ANTHROPIC_API_KEY`
+(cloud sessions keep `ANTHROPIC_API_KEY` for their own sign-in, and
+network secrets are never sent to `api.anthropic.com`), and it costs
 money: 5 requests per document, 1,000 at the default 200 documents.
 Responses are cached, so reruns are free.
 
