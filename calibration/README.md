@@ -28,6 +28,7 @@ ignores age entirely.
 | The latest version of package X is Y, just released | — | **29 days** (5% still latest after a year) | PyPI, 977 most downloaded packages, monthly snapshots 2015–2024, 1.0M observations |
 | The latest version of package X is Y, 30 days to 1 year old | — | **80 days** | same |
 | The latest version of package X is Y, no release for a year | — | **230 days**, decaying to 24% | same |
+| Hourly electricity demand in region R is D (±5%) | — | **1.9 hours**, then comes back daily: 62% still right at 24h against 19% at 12h; a small weekly echo (42% at 168h, 40% at 144h). The echo beats monotonic decay on held-out Brier but fails the shape and reliability checks, so it is not in the registry | EIA, 14 US balancing authorities, all of 2024, every lag to 14 days, 40.6M pairs |
 | LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
 | LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
 | LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
@@ -76,6 +77,21 @@ average. Noise should be conditioned on what is known upstream.
 reading is right 43% of the time, a 12-hour-old one 19%. No monotonic
 decay model — exponential or with a baseline — can express that.
 
+**5b. Human rhythms echo too, but not in the shape fid's echo has.**
+Electricity demand is a fact people drive. Within ±5%, yesterday's
+reading at the same hour is right 62% of the time; a 12-hour-old one,
+19%. A week-old reading is right 42% of the time, against 40% at six
+days and 38% at eight: a weekly echo exists, but it is 2 to 4 points,
+far weaker than the daily one. The echo model beats decay to baseline
+on held-out data (Brier 0.1792 against 0.1843 split by region, 0.1603
+against 0.1660 split by time), and the weekly term adds almost nothing
+(0.00003). It still fails the rule set for temperature: its largest
+gap from the curve is 0.118 (limit 0.10), because the first daily echo
+(0.62) is much stronger than the later ones (about 0.40), which one
+fading echo cannot express, and its reliability is worse in the time
+split (0.0248 against 0.0219). So it is not added to
+`half-lives.yaml`.
+
 **6. LLM steps lose facts by leaving them out, not by getting them
 wrong.** The hand-picked 0.20 for extraction and 0.15 for summaries
 are 10× to 100× too high for short business documents. Extraction
@@ -104,7 +120,10 @@ July versus 85.8% in October. One number per source class is too coarse.
   Weather: ten US airports.
 - "Still correct" thresholds (±2 °F, 1 km, 15 minutes) are choices; the
   half-life scales with them.
-- The held-out split is by entity, not by time.
+- The held-out split is by entity, not by time (the echo tests also
+  split by time).
+- EIA demand: as reported by each balancing authority, hours in UTC;
+  readings of zero or less are dropped and nothing else is cleaned.
 - AI noise: short generated English documents with every fact stated.
   Long reports, tables, scanned text or other languages may lose more.
   A summary that drops the fiscal month is not a bad summary; the
@@ -124,6 +143,8 @@ python3 weather_periodic.py  # same data; the echo test, every lag to 14 days (s
 python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation Statistics
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
 python3 pypi_latest.py     # ~500 MB (1,000 package histories), PyPI JSON API
+FID_EIA_API_KEY=... python3 eia_demand.py  # ~5 MB, EIA API v2 (free key); the echo test, every lag to 14 days
+python3 -m unittest test_pypi_latest test_eia_demand  # no network
 ```
 
 ### AI transform noise

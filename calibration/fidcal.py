@@ -43,8 +43,10 @@ def default_cache_dir():
     return os.environ.get("FID_CAL_CACHE", os.path.join(here, ".cache"))
 
 
-def download(url, path, data=None, attempts=5, pause=3.0, deadline=900):
+def download(url, path, data=None, attempts=5, pause=3.0, deadline=900, label=None):
     """Download `url` to `path` unless it is already there. Returns `path`.
+
+    `label` is logged instead of the URL, for URLs that carry a key.
 
     Public archives rate-limit, so: pause before each request and retry
     with exponential backoff on connection errors. A stalled transfer can
@@ -55,7 +57,7 @@ def download(url, path, data=None, attempts=5, pause=3.0, deadline=900):
         return path
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".part"
-    log(f"downloading {url[:120]}")
+    log(f"downloading {label or url[:120]}")
     for attempt in range(attempts):
         time.sleep(pause * 2 ** attempt)
         req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
@@ -362,15 +364,18 @@ def _finite(value):
     return value
 
 
-def write_results(results, slug):
-    """Write results/<slug>.json and results/<slug>.md next to this file."""
+def write_results(results, slug, extra_markdown=""):
+    """Write results/<slug>.json and results/<slug>.md next to this file.
+
+    `extra_markdown` is appended to the summaries, for analyses beyond them.
+    """
     here = os.path.dirname(os.path.abspath(__file__))
     out_dir = os.path.join(here, "results")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{slug}.json"), "w") as f:
         json.dump(_finite(results), f, indent=2)
         f.write("\n")
-    md = "\n".join(summary_markdown(r) for r in results)
+    md = "\n".join(summary_markdown(r) for r in results) + extra_markdown
     with open(os.path.join(out_dir, f"{slug}.md"), "w") as f:
         f.write(md)
     print(md)
