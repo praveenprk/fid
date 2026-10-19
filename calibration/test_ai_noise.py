@@ -77,6 +77,40 @@ class Corpus(unittest.TestCase):
     def test_corpus_is_reproducible(self):
         self.assertEqual([d["text"] for d in an.corpus(20)], [d["text"] for d in an.corpus(20)])
 
+    def test_hard_corpus_states_every_field(self):
+        for d in an.corpus(80, hard=True):
+            r, text = d["record"], d["text"]
+            for f in ("ceo", "founded", "hq_city", "fiscal_year_end"):
+                self.assertIn(r[f].lower(), text.lower(), (d["id"], f))
+            self.assertIn(f"{int(r['employees']):,}", text)
+            self.assertIn(an._revenue(d), text)
+            if d["style"] == "email":
+                self.assertTrue(text.startswith("Hi all,\n\n") and text.endswith("\n\nThanks"))
+
+    def test_hard_traps_follow_conditions(self):
+        for d in an.corpus(80, hard=True):
+            c, h, text = d["conditions"], d["hard"], d["text"]
+            self.assertEqual(d["former_ceo"] in text, c["superseded"], d["id"])
+            self.assertEqual("billion" in text, c["unit"], d["id"])
+            self.assertEqual("Correction:" in text, c["correction"], d["id"])
+            self.assertEqual(h["subsidiary"]["ceo"] in text, c["subsidiary"], d["id"])
+            self.assertEqual(f"from {h['old_hq']} in {h['moved']}" in text, c["relocated"], d["id"])
+            self.assertEqual(f"as {h['old_name']} and" in text, c["renamed"], d["id"])
+            self.assertEqual("Management expects" in text, c["forecast"], d["id"])
+            self.assertEqual(h["filler"][0] in text, c["buried"], d["id"])
+            if c["correction"]:
+                # the wrong figure comes first, the right one only in the correction
+                self.assertLess(text.index(an._money(h["wrong_revenue_musd"], c["unit"])), text.index("Correction:"))
+
+    def test_hard_leaves_standard_corpus_alone(self):
+        standard, hard = an.corpus(20), an.corpus(20, hard=True)
+        self.assertEqual([d["record"] for d in standard], [d["record"] for d in hard])
+        self.assertNotIn("buried", standard[0]["conditions"])
+
+    def test_result_names(self):
+        self.assertEqual(an.result_name(an.DEFAULT_MODEL, None, False), "ai_noise")
+        self.assertEqual(an.result_name("claude-haiku-5-5", "low", True), "ai_noise_hard_claude-haiku-5-5_low")
+
 
 class Scoring(unittest.TestCase):
     def test_numbers(self):

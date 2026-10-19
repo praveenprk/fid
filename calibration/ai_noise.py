@@ -40,6 +40,7 @@ Usage:
   python3 ai_noise.py --dry-run            # corpus and request count, no API calls
   python3 ai_noise.py --docs 200           # measure; writes results/ai_noise.{json,md}
   python3 ai_noise.py --model claude-opus-5-5 --effort low
+  python3 ai_noise.py --docs 200 --hard    # harder corpus; writes results/ai_noise_hard.{json,md}
 """
 
 import argparse
@@ -144,10 +145,7 @@ def make_record(rng, doc_id):
 
 
 def _revenue(doc):
-    musd = float(doc["record"]["revenue_musd"])
-    if doc["conditions"]["unit"]:
-        return f"${musd / 1000:.2f} billion".replace(".00 ", " ")
-    return f"${musd:,.1f} million".replace(".0 ", " ")
+    return _money(float(doc["record"]["revenue_musd"]), doc["conditions"]["unit"])
 
 
 def render(doc):
@@ -177,11 +175,103 @@ def render(doc):
             f"has {emp_line}; {ceo_line}. Its revenue was {_revenue(doc)} in the fiscal year to {r['fiscal_year_end']}.")
 
 
-def corpus(n):
+def _money(musd, billions):
+    if billions:
+        return f"${musd / 1000:.2f} billion".replace(".00 ", " ")
+    return f"${musd:,.1f} million".replace(".0 ", " ")
+
+
+FILLER = [
+    "The company runs {n} distribution centres and buys from about {k:,} suppliers.",
+    "{chair} chairs the board, which met {n} times during the year.",
+    "Capital spending came to ${m:,} million, mostly on new equipment.",
+    "It trains about {k:,} contract workers a year through its academy.",
+    "In {y} it opened a research office in {city}.",
+    "Its largest customer accounts for {n}% of sales.",
+    "The company lists {n} product lines and sells in {n2} countries.",
+    "A {y} plant expansion added {k:,} square metres of floor space.",
+]
+
+
+def make_hard(rng, doc):
+    """Harder traps on top of a document, from their own random stream so the standard corpus is unchanged."""
+    r = doc["record"]
+    musd, emp, founded = float(r["revenue_musd"]), int(r["employees"]), int(r["founded"])
+    others = [c for c in CITIES if c != r["hq_city"]]
+    hard = {
+        "buried": rng.random() < 0.5,
+        "correction": rng.random() < 0.5,
+        "forecast": rng.random() < 0.5,
+        "subsidiary": rng.random() < 0.5,
+        "relocated": rng.random() < 0.5,
+        "renamed": rng.random() < 0.5,
+    }
+    ceo, chair = r["ceo"], _person(rng)
+    while chair in (ceo, doc["former_ceo"]):
+        chair = _person(rng)
+    pool = rng.sample(FILLER, 6)
+    doc["hard"] = {
+        "wrong_revenue_musd": musd * rng.choice([rng.uniform(0.7, 0.88), rng.uniform(1.12, 1.35)]),
+        "forecast": (int(emp * rng.uniform(1.08, 1.25)), musd * rng.uniform(1.1, 1.3)),
+        "subsidiary": {"company": _name(rng), "ceo": _person(rng), "hq_city": rng.choice(others),
+                       "employees": max(5, int(emp * rng.uniform(0.15, 0.4)))},
+        "old_hq": rng.choice(others),
+        "moved": rng.randint(min(founded + 1, 2024), 2024),
+        "old_name": _name(rng),
+        "renamed": rng.randint(min(founded + 3, 2024), 2024),
+        "filler": [s.format(n=rng.randint(3, 40), n2=rng.randint(5, 60), k=rng.randint(200, 90000),
+                            m=rng.randint(40, 4000), y=rng.randint(1990, 2024), city=rng.choice(others), chair=chair)
+                   for s in pool],
+    }
+    doc["conditions"].update(hard)
+
+
+def render_hard(doc):
+    """The document with the hard traps that are switched on. Every true field is still stated."""
+    text, c, h, r = render(doc), doc["conditions"], doc["hard"], doc["record"]
+    billions = c["unit"]
+    if c["correction"]:
+        right = _revenue(doc)
+        text = text.replace(right, _money(h["wrong_revenue_musd"], billions), 1)
+    extras = []
+    if c["relocated"]:
+        extras.append(f"{r['company']} moved its headquarters to {r['hq_city']} from {h['old_hq']} in {h['moved']}.")
+    if c["renamed"]:
+        extras.append(f"It was founded in {r['founded']} as {h['old_name']} and took its current name in {h['renamed']}.")
+    if c["subsidiary"]:
+        s = h["subsidiary"]
+        extras.append(f"Its subsidiary {s['company']}, based in {s['hq_city']} and led by {s['ceo']}, "
+                      f"employs {s['employees']:,} of the group's staff.")
+    if c["forecast"]:
+        emp, musd = h["forecast"]
+        extras.append(f"Management expects headcount to reach {emp:,} and revenue of {_money(musd, billions)} "
+                      f"next fiscal year.")
+    head, tail = "", ""
+    if doc["style"] == "email":
+        head, text, tail = "Hi all,\n\n", text[len("Hi all,\n\n"):-len("\n\nThanks")], "\n\nThanks"
+    if extras:
+        text += ("\nNotes: " if doc["style"] == "fact_sheet" else " ") + " ".join(extras)
+    paragraphs = [text]
+    if c["buried"]:
+        f = h["filler"]
+        paragraphs = [" ".join(f[:3]), text, " ".join(f[3:])]
+    if c["correction"]:
+        paragraphs.append(f"Correction: the revenue figure above is wrong; the correct figure is {_revenue(doc)}.")
+    return head + "\n\n".join(paragraphs) + tail
+
+
+HARD_CONDITIONS = {"buried": FIELDS, "correction": ["revenue_musd"], "forecast": ["employees", "revenue_musd"],
+                   "subsidiary": ["ceo", "hq_city", "employees"], "relocated": ["hq_city"], "renamed": ["founded"]}
+
+
+def corpus(n, hard=False):
     rng = random.Random(SEED)
     docs = [make_record(rng, i) for i in range(n)]
+    hard_rng = random.Random(SEED + 1)
     for d in docs:
-        d["text"] = render(d)
+        if hard:
+            make_hard(hard_rng, d)
+        d["text"] = render_hard(d) if hard else render(d)
     return docs
 
 
@@ -340,9 +430,10 @@ def breakdown(rows):
     for f in FIELDS:
         sub = [r for r in rows if r["field"] == f]
         out["field"][f] = {**noise(sub), "range": ranges(sub)}
-    for c in ("superseded", "old_figure", "unit", "competitor"):
-        affected = {"superseded": ["ceo"], "old_figure": ["employees"], "unit": ["revenue_musd"],
-                    "competitor": FIELDS}[c]
+    affects = {"superseded": ["ceo"], "old_figure": ["employees"], "unit": ["revenue_musd"],
+               "competitor": FIELDS, **HARD_CONDITIONS}
+    for c in [c for c in affects if rows and c in rows[0]["conditions"]]:
+        affected = affects[c]
         for present in (True, False):
             sub = [r for r in rows if r["field"] in affected and r["conditions"][c] == present]
             if sub:
@@ -375,7 +466,8 @@ def markdown(result):
     b, h = result["breakdown"], result["held_out"]
     pct = lambda v: "—" if v is None else f"{100 * v:.1f}%"
     rng = lambda r: "—" if r[0] is None else f"{100 * r[0]:.1f}–{100 * r[1]:.1f}%"
-    lines = [f"### AI transform noise: {result['model']} (effort {result['effort'] or 'default'})", "",
+    corpus_name = " — hard corpus" if result.get("hard") else ""
+    lines = [f"### AI transform noise: {result['model']} (effort {result['effort'] or 'default'}){corpus_name}", "",
              f"- {result['documents']} documents, {b['all']['n']} field checks; {result['refused']} documents left out for refusals",
              "- Noise as fid multiplies it: extract = 1 − accuracy; summarize and rewrite = 1 − accuracy(step → extract) ÷ accuracy(extract)",
              "", "| Step | Noise | 95% range | Held-out: train → test |", "|---|---|---|---|"]
@@ -391,17 +483,25 @@ def markdown(result):
 
 # ── main ─────────────────────────────────────────────────────────────────
 
+def result_name(model, effort, hard):
+    """ai_noise for the default run; other models, efforts and the hard corpus get their own files."""
+    parts = ["ai_noise"] + (["hard"] if hard else []) + ([model] if model != DEFAULT_MODEL else [])
+    return "_".join(parts + ([effort] if effort else []))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--docs", type=int, default=200)
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], default=None,
                     help="output_config.effort; omitted uses the model's default")
+    ap.add_argument("--hard", action="store_true",
+                    help="harder corpus: buried facts, a correction, a forecast, a subsidiary, a move, a rename")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--dry-run", action="store_true", help="print the corpus and request count; no API calls")
     args = ap.parse_args(argv)
 
-    docs = corpus(args.docs)
+    docs = corpus(args.docs, hard=args.hard)
     if args.dry_run:
         for d in docs[:4]:
             print(f"--- {d['id']} ({d['style']}, {d['conditions']})\n{d['text']}\n")
@@ -419,13 +519,14 @@ def main(argv=None):
     rows = outcomes(docs, results)
     refused = len(docs) - len({r["doc"] for r in rows})
     b = breakdown(rows)
-    result = {"model": args.model, "effort": args.effort, "documents": len(docs), "refused": refused,
-              "breakdown": b, "held_out": held_out(rows), "noise_model": noise_yaml(b),
+    result = {"model": args.model, "effort": args.effort, "hard": args.hard, "documents": len(docs),
+              "refused": refused, "breakdown": b, "held_out": held_out(rows), "noise_model": noise_yaml(b),
               "requests": {"api": model.calls, "cached": model.cached}}
     here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, "results", "ai_noise.json"), "w") as f:
+    out = os.path.join(here, "results", result_name(args.model, args.effort, args.hard))
+    with open(out + ".json", "w") as f:
         json.dump(result, f, indent=2)
-    with open(os.path.join(here, "results", "ai_noise.md"), "w") as f:
+    with open(out + ".md", "w") as f:
         f.write(markdown(result))
     print(markdown(result))
     fidcal.log(f"{model.calls} API requests, {model.cached} from cache, {model.refusals} refusals")

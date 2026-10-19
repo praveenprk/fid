@@ -110,8 +110,17 @@ it needs `pip install anthropic` and `ANTHROPIC_API_KEY`, and it costs
 money: 5 requests per document, 1,000 at the default 200 documents.
 Responses are cached, so reruns are free.
 
+`--hard` adds traps a strong model can miss: facts buried among
+unrelated figures, a revenue figure corrected later in the text, a
+forecast, a subsidiary with its own city, chief and headcount, an
+earlier headquarters, and an earlier company name. The standard corpus
+does not change. Each model, effort and corpus writes its own file
+(`results/ai_noise_hard_claude-haiku-5-5.md`, for example); the default
+run writes `results/ai_noise.md`.
+
 ```bash
 python3 ai_noise.py --dry-run          # the corpus and request count, no API calls
 python3 ai_noise.py --docs 200         # default model claude-opus-5-5; --model, --effort
+python3 ai_noise.py --docs 200 --hard  # the harder corpus
 python3 -m unittest test_ai_noise      # the pipeline against a fake client, no API calls
 ```
