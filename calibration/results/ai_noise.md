@@ -1,6 +1,6 @@
 ### AI transform noise: claude-opus-5-5 (effort default)
 
-- 50 documents, 300 field checks; 0 documents left out for refusals
+- 200 documents, 1200 field checks; 0 documents left out for refusals
 - Noise as fid multiplies it: extract = 1 − accuracy; summarize and rewrite = 1 − accuracy(step → extract) ÷ accuracy(extract)
 
 | Step | Noise | 95% range | Held-out: train → test |
@@ -11,20 +11,20 @@
 
 | Field / condition | Extract | Summarize | Rewrite | Checks |
 |---|---|---|---|---|
-| ceo | 0.0% | 0.0% | 0.0% | 50 |
-| founded | 0.0% | 0.0% | 0.0% | 50 |
-| hq_city | 0.0% | 0.0% | 0.0% | 50 |
-| employees | 0.0% | 0.0% | 0.0% | 50 |
-| revenue_musd | 0.0% | 0.0% | 0.0% | 50 |
-| fiscal_year_end | 0.0% | 0.0% | 0.0% | 50 |
-| superseded=yes | 0.0% | 0.0% | 0.0% | 29 |
-| superseded=no | 0.0% | 0.0% | 0.0% | 21 |
-| old_figure=yes | 0.0% | 0.0% | 0.0% | 29 |
-| old_figure=no | 0.0% | 0.0% | 0.0% | 21 |
-| unit=yes | 0.0% | 0.0% | 0.0% | 35 |
-| unit=no | 0.0% | 0.0% | 0.0% | 15 |
-| competitor=yes | 0.0% | 0.0% | 0.0% | 72 |
-| competitor=no | 0.0% | 0.0% | 0.0% | 228 |
+| ceo | 0.0% | 0.0% | 0.0% | 200 |
+| founded | 0.0% | 0.0% | 0.0% | 200 |
+| hq_city | 0.0% | 0.0% | 0.0% | 200 |
+| employees | 0.0% | 0.0% | 0.0% | 200 |
+| revenue_musd | 0.0% | 0.0% | 0.0% | 200 |
+| fiscal_year_end | 0.0% | 0.0% | 0.0% | 200 |
+| superseded=yes | 0.0% | 0.0% | 0.0% | 97 |
+| superseded=no | 0.0% | 0.0% | 0.0% | 103 |
+| old_figure=yes | 0.0% | 0.0% | 0.0% | 105 |
+| old_figure=no | 0.0% | 0.0% | 0.0% | 95 |
+| unit=yes | 0.0% | 0.0% | 0.0% | 133 |
+| unit=no | 0.0% | 0.0% | 0.0% | 67 |
+| competitor=yes | 0.0% | 0.0% | 0.0% | 300 |
+| competitor=no | 0.0% | 0.0% | 0.0% | 900 |
 
 ```yaml
 llm_extract:
