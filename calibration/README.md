@@ -25,6 +25,9 @@ ignores age entirely.
 | Ship position (±1 km), moored or at anchor | `shipping_status: 4h` | **1.4 days** (fitted; 79% still within 1 km after 12 h) | same |
 | Flight schedule is true (source fidelity) | — | **77.9%** on time; 69.5–84.2% by airline, 68.1–85.8% by month | BTS, 7,079,061 US flights, all of 2024 |
 | Noise per flight leg (transform noise) | — | **0.045** per leg on average | same |
+| LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
+| LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
+| LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
 
 Full tables, curves and held-out reliability: [`results/`](results/).
 
@@ -66,6 +69,19 @@ average. Noise should be conditioned on what is known upstream.
 reading is right 43% of the time, a 12-hour-old one 19%. No monotonic
 decay model — exponential or with a baseline — can express that.
 
+**6. LLM steps lose facts by leaving them out, not by getting them
+wrong.** The hand-picked 0.20 for extraction and 0.15 for summaries
+are 10× to 100× too high for short business documents. Extraction
+never took the bait: not a former CEO, an older headcount, a revenue
+figure corrected later, a forecast, a subsidiary's figures, a former
+headquarters or name, or a competitor's numbers. Every one of the 128
+errors across the three hard-corpus runs was an empty field, mostly in
+summaries, and mostly the minor facts (Haiku 5.5 leaves the fiscal
+year end out of 26.5% of summaries). Burying the facts among unrelated
+figures is what raises the loss: summary noise 0.028 against 0.003
+for Opus 5.5, 0.113 against 0.031 for Haiku 5.5. The model matters
+more than the effort setting.
+
 **Source fidelity varies within a class.** A flight schedule is true
 78% of the time overall, but 69.5% for one airline and 84.2% for
 another, 89.6% for 5 am departures versus 68.1% for 8 pm, and 68.1% in
@@ -82,6 +98,10 @@ July versus 85.8% in October. One number per source class is too coarse.
 - "Still correct" thresholds (±2 °F, 1 km, 15 minutes) are choices; the
   half-life scales with them.
 - The held-out split is by entity, not by time.
+- AI noise: short generated English documents with every fact stated.
+  Long reports, tables, scanned text or other languages may lose more.
+  A summary that drops the fiscal month is not a bad summary; the
+  number is what the summary loses for a later extraction.
 
 ## Running
 

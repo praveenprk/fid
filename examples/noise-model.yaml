@@ -28,6 +28,17 @@ flight_leg:
     # An on-time previous leg raises confidence (85.9%). Noise cannot be
     # negative; fid treats that as new evidence — stamp a fresh root.
 
+# See calibration/README.md (ai_noise.py: 200 generated company documents
+# with known facts and traps, Claude Opus 5.5 at default effort, hard corpus).
+# Every error measured was a field left out; none was a wrong value.
+
+llm_extract:  0.001   # 0 errors in 4,800 field checks (Opus and Haiku 5.5); 0.001 is the 95% upper bound
+llm_summarize:
+  noise: 0.015                    # 3-sentence summary, then extraction; Haiku 5.5: 0.070
+  conditions:
+    buried: 0.028                 # facts among unrelated figures; Haiku 5.5: 0.113
+llm_rewrite:  0.002   # plain-language rewrite, then extraction; Haiku 5.5: 0.001
+
 # ── Hand-picked, not yet measured ───────────────────────────────
 
 # Deterministic transforms — low noise
@@ -44,9 +55,8 @@ deduplicate:  0.03    # information removed intentionally
 format:       0.04    # structural change, content preserved
 
 # Inference transforms — high noise
-summarize:    0.15    # lossy, language-dependent
+summarize:    0.15    # lossy, language-dependent (by an LLM: see llm_summarize above)
 translate:    0.12    # semantic transfer, meaning drift
 classify:     0.10    # reduction to category
 llm_infer:    0.30    # high noise, model-dependent
-llm_extract:  0.20    # structured extraction from text
 embedding:    0.25    # dimensionality reduction
