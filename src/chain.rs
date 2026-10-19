@@ -41,7 +41,7 @@ pub fn chain_lines(stamped: &Stamped, result: &CheckResult) -> Vec<ChainLine> {
     lines.push(ChainLine {
         label: env.source_id.clone(),
         fid: current,
-        note: format!("source: {}", class),
+        note: format!("source: {}{}", class, crate::check::measured_note(env)),
     });
 
     for t in &env.transforms {
@@ -148,6 +148,8 @@ mod tests {
                 measured_at: t0(),
                 half_life: half_life.map(str::to_string),
                 baseline: None,
+                source_fidelity: None,
+                echo: None,
                 info_type: None,
                 state: None,
                 transforms: steps
@@ -200,6 +202,16 @@ mod tests {
         assert!((lines[2].fid.unwrap() - 0.325).abs() < 1e-10);
         assert!(lines[2].note.contains("baseline 0.20"));
         assert!((lines[2].fid.unwrap() - r.assessment.fidelity.unwrap()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_chain_measured_source() {
+        let mut s = stamped(SourceClass::Database, None, &[]);
+        s.fid.source_fidelity = Some(0.62);
+        let r = assess(&s, 0.50, t0()).unwrap();
+        let lines = chain_lines(&s, &r);
+        assert_eq!(lines[0].fid, Some(0.62));
+        assert_eq!(lines[0].note, "source: database, measured");
     }
 
     #[test]

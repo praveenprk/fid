@@ -56,6 +56,10 @@ half-life as infinite — that hides decay.
 Names are trimmed and lowercased; `-` is accepted for `_`. Anything else
 is an error.
 
+An envelope may carry a measured `source_fidelity` (from a calibrated
+registry, `fid_version` 0.3). It replaces the class constant above,
+except for `unknown`, which stays indeterminate.
+
 ## Fidelity
 
 ```
@@ -86,14 +90,16 @@ otherwise                    → half_life × log2((f − b) / (floor − b))
 ## Envelopes
 
 An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
-`source_class`, `measured_at` (RFC 3339), `half_life` (a duration string
-or null), `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
+`source_class`, `source_fidelity` (optional; see Source classes),
+`measured_at` (RFC 3339), `half_life` (a duration string or null),
+`baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 `transforms[].noise`, `integrity`.
 
 **check(stamped, floor, now)**
 
 - age = `now − measured_at`, in whole milliseconds, as seconds
-- fidelity as above, with `f = source × ∏(1 − noise)`
+- fidelity as above, with `f = source × ∏(1 − noise)`, where `source`
+  is `source_fidelity` if present, else the class constant
 - status: `UNKNOWN` if the integrity hash does not match the content,
   or the source is unknown; else `SIGNAL` if fidelity ≥ floor; else
   `NOISE`. (CLI exit codes 0 / 1 / 2.)
@@ -102,6 +108,29 @@ or null), `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 half up to the millisecond, written `YYYY-MM-DDTHH:MM:SS.mmmZ`; or
 `never`; or `unknown` for an unknown source. It does not depend on `now`
 or on integrity.
+
+## Echo
+
+A fact that comes back once per period (`fid_version` 0.3 envelopes
+and registries) carries `echo: {period, strength, width, fade}`:
+durations as in Durations, `fade` may be `infinite`. Invalid: an
+infinite period or width, zero or negative durations, a negative
+strength, a width not under half the period, or an echo without a
+finite half-life.
+
+```
+echoes   = Σ over n ≥ 1 with |age − n × period| ≤ 30 × width of
+           0.5^(n × period / fade) × 0.5^(|age − n × period| / width)
+           (0.5^(…/fade) is 1 when fade is infinite; age below 0 counts as 0)
+temporal = min(1, 0.5^(max(age, 0) / half_life) + strength × echoes)
+fidelity = b + (f − b) × temporal                 (b clamped as above)
+```
+
+Time to floor with an echo is the first time fidelity falls below the
+floor (`never` if not within 10,000 periods, or floor ≤ b). It has no
+closed form; any search is fine that finds the first crossing within
+1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
+after `expires_at`.
 
 ## Integrity
 

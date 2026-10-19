@@ -1,0 +1,722 @@
+{
+  "model": "claude-haiku-5-5",
+  "effort": null,
+  "hard": true,
+  "documents": 200,
+  "refused": 0,
+  "breakdown": {
+    "all": {
+      "extract": 0.0,
+      "summarize": 0.06999999999999995,
+      "rewrite": 0.0008333333333333526,
+      "accuracy": {
+        "extract": 1.0,
+        "summarize": 0.93,
+        "rewrite": 0.9991666666666666
+      },
+      "n": 1200,
+      "range": {
+        "extract": [
+          0.0,
+          0.0
+        ],
+        "summarize": [
+          0.05583333333333329,
+          0.08583333333333332
+        ],
+        "rewrite": [
+          0.0,
+          0.0024999999999999467
+        ]
+      }
+    },
+    "field": {
+      "ceo": {
+        "extract": 0.0,
+        "summarize": 0.015000000000000013,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.985,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.03500000000000003
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "founded": {
+        "extract": 0.0,
+        "summarize": 0.10499999999999998,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.895,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.06499999999999995,
+            0.15000000000000002
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "hq_city": {
+        "extract": 0.0,
+        "summarize": 0.020000000000000018,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.98,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0050000000000000044,
+            0.040000000000000036
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "employees": {
+        "extract": 0.0,
+        "summarize": 0.015000000000000013,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.985,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.03500000000000003
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "revenue_musd": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0050000000000000044,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 0.995
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.015000000000000013
+          ]
+        }
+      },
+      "fiscal_year_end": {
+        "extract": 0.0,
+        "summarize": 0.265,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.735,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.20999999999999996,
+            0.32499999999999996
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "condition": {
+      "superseded=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 97,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "superseded=no": {
+        "extract": 0.0,
+        "summarize": 0.029126213592232997,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.970873786407767,
+          "rewrite": 1.0
+        },
+        "n": 103,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.06796116504854366
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 105,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=no": {
+        "extract": 0.0,
+        "summarize": 0.03157894736842104,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.968421052631579,
+          "rewrite": 1.0
+        },
+        "n": 95,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0736842105263158
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 133,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.014925373134328401,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 0.9850746268656716
+        },
+        "n": 67,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.04477611940298509
+          ]
+        }
+      },
+      "competitor=yes": {
+        "extract": 0.0,
+        "summarize": 0.11333333333333329,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.8866666666666667,
+          "rewrite": 1.0
+        },
+        "n": 300,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.06999999999999995,
+            0.16000000000000003
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "competitor=no": {
+        "extract": 0.0,
+        "summarize": 0.05555555555555558,
+        "rewrite": 0.0011111111111110628,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9444444444444444,
+          "rewrite": 0.9988888888888889
+        },
+        "n": 900,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.043333333333333335,
+            0.06777777777777783
+          ],
+          "rewrite": [
+            0.0,
+            0.004444444444444473
+          ]
+        }
+      },
+      "buried=yes": {
+        "extract": 0.0,
+        "summarize": 0.11347517730496459,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.8865248226950354,
+          "rewrite": 1.0
+        },
+        "n": 564,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.08687943262411346,
+            0.14184397163120566
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "buried=no": {
+        "extract": 0.0,
+        "summarize": 0.03144654088050314,
+        "rewrite": 0.0015723270440252124,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9685534591194969,
+          "rewrite": 0.9984276729559748
+        },
+        "n": 636,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.018867924528301883,
+            0.04245283018867929
+          ],
+          "rewrite": [
+            0.0,
+            0.004716981132075526
+          ]
+        }
+      },
+      "correction=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.009009009009009028,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 0.990990990990991
+        },
+        "n": 111,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.027027027027026973
+          ]
+        }
+      },
+      "correction=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 89,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "forecast=yes": {
+        "extract": 0.0,
+        "summarize": 0.011494252873563204,
+        "rewrite": 0.005747126436781658,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9885057471264368,
+          "rewrite": 0.9942528735632183
+        },
+        "n": 174,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.028735632183908066
+          ],
+          "rewrite": [
+            0.0,
+            0.017241379310344862
+          ]
+        }
+      },
+      "forecast=no": {
+        "extract": 0.0,
+        "summarize": 0.004424778761061954,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.995575221238938,
+          "rewrite": 1.0
+        },
+        "n": 226,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.017699115044247815
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "subsidiary=yes": {
+        "extract": 0.0,
+        "summarize": 0.009708737864077666,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9902912621359223,
+          "rewrite": 1.0
+        },
+        "n": 309,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.02265372168284785
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "subsidiary=no": {
+        "extract": 0.0,
+        "summarize": 0.02405498281786944,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9759450171821306,
+          "rewrite": 1.0
+        },
+        "n": 291,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0034364261168384758,
+            0.04810996563573888
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "relocated=yes": {
+        "extract": 0.0,
+        "summarize": 0.028846153846153855,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9711538461538461,
+          "rewrite": 1.0
+        },
+        "n": 104,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.06730769230769229
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "relocated=no": {
+        "extract": 0.0,
+        "summarize": 0.01041666666666663,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9895833333333334,
+          "rewrite": 1.0
+        },
+        "n": 96,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.03125
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "renamed=yes": {
+        "extract": 0.0,
+        "summarize": 0.16504854368932043,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.8349514563106796,
+          "rewrite": 1.0
+        },
+        "n": 103,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.09708737864077666,
+            0.23300970873786409
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "renamed=no": {
+        "extract": 0.0,
+        "summarize": 0.04123711340206182,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9587628865979382,
+          "rewrite": 1.0
+        },
+        "n": 97,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.010309278350515427,
+            0.08247422680412375
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  },
+  "held_out": {
+    "extract": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    },
+    "summarize": {
+      "train": 0.07861635220125784,
+      "test": 0.06028368794326244,
+      "train_range": [
+        0.05660377358490565,
+        0.10534591194968557
+      ],
+      "test_inside": true
+    },
+    "rewrite": {
+      "train": 0.0,
+      "test": 0.0017730496453900457,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": false
+    }
+  },
+  "noise_model": "llm_extract:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\n    buried: 0.000\n    correction: 0.000\n    forecast: 0.000\n    subsidiary: 0.000\n    relocated: 0.000\n    renamed: 0.000\nllm_summarize:\n  noise: 0.070    # 95% range 0.056 to 0.086\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.113\n    buried: 0.113\n    correction: 0.000\n    forecast: 0.011\n    subsidiary: 0.010\n    relocated: 0.029\n    renamed: 0.165\nllm_rewrite:\n  noise: 0.001    # 95% range 0.000 to 0.002\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\n    buried: 0.000\n    correction: 0.009\n    forecast: 0.006\n    subsidiary: 0.000\n    relocated: 0.000\n    renamed: 0.000\n",
+  "requests": {
+    "api": 1000,
+    "cached": 0
+  }
+}

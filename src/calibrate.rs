@@ -16,6 +16,18 @@
 //! scores better there than decay to zero. The final values are then
 //! refitted on all the data. Too little data is an error, never a guess.
 //!
+//! s0, the fraction correct when fresh, is the source's measured
+//! fidelity. It is written to the registry only when enough checks fall
+//! in fresh bins (the model has decayed less than a tenth of the way to
+//! the baseline at the bin's age); otherwise it is an extrapolation and
+//! the source class constant stays in force.
+//!
+//! Uncertainty comes from resampling entities with replacement and
+//! refitting (a bootstrap, 200 rounds, fixed seed): the middle 95% of the
+//! refitted values is the range. When the half-life's range spans more
+//! than a factor of `max_spread`, the data cannot pin it down and
+//! calibrate refuses, as it does for too little data.
+//!
 //! The split and the method match calibration/fidcal.py, so the same
 //! data gives the same answer as the published study.
 
@@ -28,6 +40,18 @@ use sha2::{Digest, Sha256};
 /// Fewest observations, in total and in each half, a state needs.
 pub const MIN_OBSERVATIONS: usize = 50;
 pub const MIN_PER_HALF: usize = 10;
+/// Fewest fresh checks for s0 to count as measured, not extrapolated.
+pub const MIN_FRESH: usize = 20;
+/// A check is fresh while the decay factor 0.5^(age / h) is at least this.
+pub const FRESH_DECAY: f64 = 0.9;
+/// Bootstrap rounds, and the seed that makes them reproducible.
+pub const BOOTSTRAP_ROUNDS: usize = 200;
+const BOOTSTRAP_SEED: u64 = 0x5eed_f1d0;
+/// Default limit on the half-life range: high end ÷ low end.
+pub const MAX_SPREAD: f64 = 2.5;
+/// A half-life beyond this many times the oldest check cannot be told
+/// apart from no decay within the data.
+const BEYOND_DATA: f64 = 10.0;
 /// Ages with at most this many distinct values are used as they are.
 const MAX_EXACT_AGES: usize = 40;
 /// Otherwise ages are grouped into this many equal-count bins.
@@ -61,6 +85,35 @@ impl Model {
     }
 }
 
+/// The middle 95% of bootstrap refits.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Range {
+    pub lo: f64,
+    pub hi: f64,
+}
+
+impl Range {
+    fn of(mut values: Vec<f64>) -> Range {
+        values.sort_by(f64::total_cmp);
+        let n = values.len();
+        let lo = values[(0.025 * n as f64).floor() as usize];
+        let hi = values[((0.975 * n as f64).ceil() as usize).clamp(1, n) - 1];
+        Range { lo, hi }
+    }
+
+    pub fn contains(&self, v: f64) -> bool {
+        self.lo <= v && v <= self.hi
+    }
+}
+
+/// Uncertainty of the final model's values.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Uncertainty {
+    pub half_life: Range,
+    pub baseline: Range,
+    pub s0: Range,
+}
+
 /// Observations at one age (or one group of nearby ages).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bin {
@@ -82,9 +135,27 @@ pub struct StateFit {
     pub uses_baseline: bool,
     pub shape_error: f64,
     pub empirical_half_life: Option<f64>,
+    /// Checks in bins young enough to measure fidelity when fresh
+    pub fresh_checks: usize,
+    /// s0, when `fresh_checks` is enough to call it measured
+    pub source_fidelity: Option<f64>,
+    /// 95% ranges from the entity bootstrap
+    pub uncertainty: Uncertainty,
+    /// Half-life range, high end ÷ low end; infinite when one end is
+    /// within the data and the other beyond it
+    pub spread: f64,
     pub brier_baseline: f64,
     pub brier_zero: f64,
     pub brier_constant: f64,
+    /// The echo test, when a period was given
+    pub echo: Option<crate::echo::EchoFit>,
+}
+
+impl StateFit {
+    /// The echo, if one was tested and kept.
+    pub fn kept_echo(&self) -> Option<&crate::echo::EchoFit> {
+        self.echo.as_ref().filter(|e| e.kept)
+    }
 }
 
 /// Deterministic 50/50 split by entity — the same as calibration/fidcal.py.
@@ -237,8 +308,156 @@ pub fn empirical_half_life(bins: &[Bin]) -> Option<f64> {
     })
 }
 
-/// Fit every state. Either every observation has a state or none does.
+/// Oldest age at which a check still counts as fresh under `model`.
+pub fn fresh_age(model: &Model) -> f64 {
+    if model.half_life.is_infinite() {
+        return f64::INFINITY;
+    }
+    model.half_life * (1.0 / FRESH_DECAY).log2()
+}
+
+/// splitmix64: a small, fixed pseudo-random sequence, so ranges are reproducible.
+pub(crate) struct Rng(pub(crate) u64);
+
+impl Rng {
+    pub(crate) fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n as u64) as usize
+    }
+
+    /// Uniform in [0, 1).
+    #[cfg(test)]
+    pub(crate) fn unit(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+/// Random re-checks of `entities` entities at uniform ages up to `max_age`,
+/// each correct with the model's probability. For tests.
+#[cfg(test)]
+pub(crate) fn random_ledger(truth: Model, entities: usize, max_age: f64, rng: &mut Rng) -> Vec<Observation> {
+    (0..entities)
+        .map(|i| {
+            let age = rng.unit() * max_age;
+            let correct = rng.unit() < truth.predict(age);
+            Observation { entity: format!("r{}", i), age, correct, state: None }
+        })
+        .collect()
+}
+
+/// Bin index of each observation, as `bins` would group the whole group.
+fn bin_index(group: &[&Observation]) -> (Vec<usize>, usize) {
+    let mut order: Vec<usize> = (0..group.len()).collect();
+    order.sort_by(|&a, &b| group[a].age.total_cmp(&group[b].age));
+    let mut index = vec![0; group.len()];
+    let distinct: Vec<u64> = {
+        let mut d: Vec<u64> = order.iter().map(|&i| group[i].age.to_bits()).collect();
+        d.dedup();
+        d
+    };
+    if distinct.len() <= MAX_EXACT_AGES {
+        for (i, o) in group.iter().enumerate() {
+            index[i] = distinct.binary_search(&o.age.to_bits()).expect("age is in its own group");
+        }
+        return (index, distinct.len());
+    }
+    let per_bin = group.len().div_ceil(BINS);
+    for (rank, &i) in order.iter().enumerate() {
+        index[i] = rank / per_bin;
+    }
+    (index, group.len().div_ceil(per_bin))
+}
+
+/// Refit on entities drawn with replacement, `BOOTSTRAP_ROUNDS` times.
+///
+/// Bin membership is fixed from the whole group; each round sums the
+/// drawn entities' counts per bin, so a round costs one pass over the
+/// entities, not a sort of the observations.
+pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
+    let (index, nbins) = bin_index(group);
+    // Per entity: (bin, sum of ages, correct, n)
+    let mut by_entity: BTreeMap<&str, BTreeMap<usize, (f64, usize, usize)>> = BTreeMap::new();
+    for (o, &bin) in group.iter().zip(&index) {
+        let e = by_entity.entry(o.entity.as_str()).or_default().entry(bin).or_insert((0.0, 0, 0));
+        e.0 += o.age;
+        e.1 += o.correct as usize;
+        e.2 += 1;
+    }
+    let entities: Vec<Vec<(usize, f64, usize, usize)>> = by_entity
+        .into_values()
+        .map(|bins| bins.into_iter().map(|(bin, (age, k, n))| (bin, age, k, n)).collect())
+        .collect();
+
+    let mut rng = Rng(BOOTSTRAP_SEED);
+    let (mut h, mut b, mut s0) = (Vec::new(), Vec::new(), Vec::new());
+    for _ in 0..BOOTSTRAP_ROUNDS {
+        let mut sums = vec![(0.0, 0, 0); nbins];
+        for _ in 0..entities.len() {
+            for &(bin, age, k, n) in &entities[rng.below(entities.len())] {
+                sums[bin].0 += age;
+                sums[bin].1 += k;
+                sums[bin].2 += n;
+            }
+        }
+        let sample: Vec<Bin> = sums
+            .into_iter()
+            .filter(|&(_, _, n)| n > 0)
+            .map(|(age, k, n)| Bin { age: age / n as f64, correct: k as f64 / n as f64, n })
+            .collect();
+        let m = fit(&sample, with_baseline);
+        h.push(m.half_life);
+        b.push(m.baseline);
+        s0.push(m.s0);
+    }
+    Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
+}
+
+/// Is a half-life too long to tell from no decay, given checks up to `max_age`?
+pub fn beyond_data(half_life: f64, max_age: f64) -> bool {
+    half_life > BEYOND_DATA * max_age
+}
+
+/// High end ÷ low end of a half-life range. Half-lives beyond
+/// `BEYOND_DATA` × the oldest age count as no decay: both ends there is
+/// a spread of 1, one end there is infinite.
+pub fn spread(range: &Range, max_age: f64) -> f64 {
+    let beyond = |h: f64| beyond_data(h, max_age);
+    match (beyond(range.lo), beyond(range.hi)) {
+        (true, true) => 1.0,
+        (false, true) => f64::INFINITY,
+        _ => range.hi / range.lo,
+    }
+}
+
+/// Fit every state with the default limit on the half-life range.
 pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, String> {
+    calibrate_with(obs, MAX_SPREAD)
+}
+
+/// Fit every state. Either every observation has a state or none does.
+/// A state whose half-life range spans more than `max_spread` is an error.
+pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, String> {
+    calibrate_periodic(obs, max_spread, None)
+}
+
+/// As `calibrate_with`, and with a period, test an echo at that period
+/// on the held-out half (see `crate::echo`).
+pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f64>) -> Result<Vec<StateFit>, String> {
+    if let Some(p) = period {
+        if !(p.is_finite() && p > 0.0) {
+            return Err(format!("invalid period {} (must be a positive duration)", p));
+        }
+    }
+    if max_spread.is_nan() || max_spread < 1.0 {
+        return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
+    }
     if obs.is_empty() {
         return Err("no observations".to_string());
     }
@@ -256,10 +475,10 @@ pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, String> {
         groups.entry(o.state.clone()).or_default().push(o);
     }
 
-    groups.into_iter().map(|(state, group)| fit_state(state, &group)).collect()
+    groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread, period)).collect()
 }
 
-fn fit_state(state: Option<String>, group: &[&Observation]) -> Result<StateFit, String> {
+fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>) -> Result<StateFit, String> {
     let name = state.as_deref().map(|s| format!("state '{}'", s)).unwrap_or_else(|| "data".to_string());
     let train: Vec<&Observation> = group.iter().copied().filter(|o| is_train(&o.entity)).collect();
     let test: Vec<&Observation> = group.iter().copied().filter(|o| !is_train(&o.entity)).collect();
@@ -290,6 +509,23 @@ fn fit_state(state: Option<String>, group: &[&Observation]) -> Result<StateFit, 
 
     let model = fit(&all_bins, uses_baseline);
     let entities = group.iter().map(|o| o.entity.as_str()).collect::<std::collections::BTreeSet<_>>().len();
+    // Fresh by the bins the fit sees: a young check grouped into an old bin
+    // does not inform s0
+    let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh_age(&model)).map(|b| b.n).sum();
+    let uncertainty = bootstrap(group, uses_baseline);
+    let max_age = group.iter().map(|o| o.age).fold(0.0, f64::max);
+    let spread = spread(&uncertainty.half_life, max_age);
+    if spread > max_spread {
+        return Err(format!(
+            "{}: half-life too uncertain: 95% range {} to {} (×{:.1}; limit ×{}). Re-check more entities, \
+             over a wider range of ages, or raise --max-spread",
+            name,
+            format_half_life(uncertainty.half_life.lo),
+            format_half_life(uncertainty.half_life.hi),
+            spread,
+            trim(max_spread)
+        ));
+    }
     Ok(StateFit {
         state,
         observations: group.len(),
@@ -297,11 +533,16 @@ fn fit_state(state: Option<String>, group: &[&Observation]) -> Result<StateFit, 
         shape_error: shape_error(&all_bins, &model),
         empirical_half_life: empirical_half_life(&all_bins),
         bins: all_bins,
+        fresh_checks,
+        source_fidelity: (fresh_checks >= MIN_FRESH).then_some(model.s0),
+        uncertainty,
+        spread,
         model,
         uses_baseline,
         brier_baseline,
         brier_zero,
         brier_constant,
+        echo: period.map(|p| crate::echo::test_echo(group, &train, &test, p)),
     })
 }
 
@@ -399,6 +640,11 @@ fn trim(v: f64) -> String {
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
+fn trim3(v: f64) -> String {
+    let s = format!("{:.3}", v);
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
 /// The registry YAML for one information type.
 pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
     let observations: usize = fits.iter().map(|f| f.observations).sum();
@@ -407,9 +653,56 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
         observations, info_type
     );
     let entry = |f: &StateFit, indent: &str| {
-        let mut s = format!("{}half_life: {}\n", indent, format_half_life(f.model.half_life));
+        if let Some(e) = f.kept_echo() {
+            let m = &e.model;
+            let mut s = format!(
+                "{}# echo kept: held-out Brier {:.4} vs decay {:.4}\n{}half_life: {}\n{}baseline: {}\n",
+                indent,
+                e.brier_echo,
+                e.brier_decay,
+                indent,
+                format_half_life(m.half_life),
+                indent,
+                trim(m.baseline)
+            );
+            if e.source_fidelity.is_some() {
+                s.push_str(&format!("{}source_fidelity: {}\n", indent, trim3(m.s0)));
+            }
+            s.push_str(&format!(
+                "{}echo: {{ period: {}, strength: {}, width: {}, fade: {} }}\n",
+                indent,
+                format_half_life(m.echo.period),
+                trim(m.echo.strength),
+                format_half_life(m.echo.width),
+                m.echo.fade.map_or("infinite".to_string(), format_half_life)
+            ));
+            return s;
+        }
+        let u = &f.uncertainty;
+        let mut s = format!(
+            "{}half_life: {}  # 95% range {} to {}\n",
+            indent,
+            format_half_life(f.model.half_life),
+            format_half_life(u.half_life.lo),
+            format_half_life(u.half_life.hi)
+        );
         if f.uses_baseline {
-            s.push_str(&format!("{}baseline: {}\n", indent, trim(f.model.baseline)));
+            s.push_str(&format!(
+                "{}baseline: {}  # 95% range {} to {}\n",
+                indent,
+                trim(f.model.baseline),
+                trim(u.baseline.lo),
+                trim(u.baseline.hi)
+            ));
+        }
+        if let Some(sf) = f.source_fidelity {
+            s.push_str(&format!(
+                "{}source_fidelity: {}  # 95% range {} to {}\n",
+                indent,
+                trim3(sf),
+                trim3(u.s0.lo),
+                trim3(u.s0.hi)
+            ));
         }
         s
     };
@@ -459,6 +752,32 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             f.model.s0,
             if f.uses_baseline { "" } else { "  (decay to 0: the baseline did not help on held-out data)" }
         ));
+        let u = &f.uncertainty;
+        lines.push(format!(
+            "  95% ranges ({} entity resamples): half-life {} to {} (×{:.2}), baseline {:.2} to {:.2}, when fresh {:.3} to {:.3}",
+            BOOTSTRAP_ROUNDS,
+            format_half_life(u.half_life.lo),
+            format_half_life(u.half_life.hi),
+            f.spread,
+            u.baseline.lo,
+            u.baseline.hi,
+            u.s0.lo,
+            u.s0.hi
+        ));
+        lines.push(match f.source_fidelity {
+            Some(_) => format!(
+                "  source fidelity {:.3}, measured from {} checks in bins younger than {}",
+                f.model.s0,
+                f.fresh_checks,
+                age_label(fresh_age(&f.model))
+            ),
+            None => format!(
+                "  source fidelity not measured: {} checks in bins younger than {}, need {}; the source class constant stays",
+                f.fresh_checks,
+                age_label(fresh_age(&f.model)),
+                MIN_FRESH
+            ),
+        });
         lines.push(format!(
             "  half wrong after {}; largest gap from the model {:.3}",
             f.empirical_half_life.map(age_label).unwrap_or_else(|| "— (never within the data)".into()),
@@ -468,6 +787,30 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             "  held-out Brier (lower is better): with baseline {:.4} · decay to 0 {:.4} · constant {:.4}",
             f.brier_baseline, f.brier_zero, f.brier_constant
         ));
+        if let Some(e) = &f.echo {
+            let m = &e.model;
+            lines.push(format!(
+                "  echo every {}: strength {:.2}, width {}, fade {}; half-life {}, baseline {:.2}",
+                format_half_life(m.echo.period),
+                m.echo.strength,
+                format_half_life(m.echo.width),
+                m.echo.fade.map_or("infinite".to_string(), format_half_life),
+                format_half_life(m.half_life),
+                m.baseline
+            ));
+            lines.push(format!(
+                "  echo vs decay: held-out Brier {:.4} vs {:.4}, largest gap {:.3} vs {:.3}  {}",
+                e.brier_echo,
+                e.brier_decay,
+                e.gap_echo,
+                e.gap_decay,
+                if e.kept {
+                    "→ echo kept"
+                } else {
+                    "→ echo not kept (needs a 0.1% better Brier and a smaller gap); registry gets plain decay"
+                }
+            ));
+        }
         lines.push(format!("  {:<10} {:>8} {:>8} {:>9}", "age", "correct", "model", "n"));
         for b in &f.bins {
             lines.push(format!(
@@ -610,6 +953,134 @@ mod tests {
         let spec = HalfLives::from_yaml(&yaml).unwrap().lookup("company_ceo", None).unwrap();
         let years = parse_half_life(&spec.half_life).unwrap().unwrap() / 31_557_600.0;
         assert!((years - 5.8).abs() < 0.12, "{}", yaml);
+    }
+
+    #[test]
+    fn test_source_fidelity_measured_from_fresh_checks() {
+        let truth = Model { s0: 0.95, baseline: 0.30, half_life: 30.0 * DAY };
+        let obs = synthetic(truth, &days(&[0.0, 3.0, 7.0, 14.0, 30.0, 60.0, 120.0, 365.0]), 200, None);
+        let fits = calibrate(&obs).unwrap();
+        let f = &fits[0];
+        // ages 0 and 3 days are under 0.152 half-lives
+        assert_eq!(f.fresh_checks, 400);
+        let sf = f.source_fidelity.unwrap();
+        assert!((sf - 0.95).abs() < 0.01, "{}", sf);
+        let yaml = registry_yaml("policy_clause", &fits);
+        let spec = HalfLives::from_yaml(&yaml).unwrap().lookup("policy_clause", None).unwrap();
+        assert!((spec.source_fidelity.unwrap() - sf).abs() < 0.001, "{}", yaml);
+    }
+
+    #[test]
+    fn test_source_fidelity_not_written_when_extrapolated() {
+        // Youngest check is two half-lives old: s0 is an extrapolation
+        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
+        let obs = synthetic(truth, &days(&[20.0, 30.0, 40.0, 60.0]), 200, None);
+        let fits = calibrate(&obs).unwrap();
+        assert_eq!(fits[0].fresh_checks, 0);
+        assert_eq!(fits[0].source_fidelity, None);
+        assert!(!registry_yaml("x", &fits).contains("source_fidelity"));
+        assert!(report("x", &fits).contains("source fidelity not measured"));
+    }
+
+    #[test]
+    fn test_ranges_cover_the_truth() {
+        // 40 independent ledgers from a known model: the 95% half-life
+        // range should contain the true value in most of them.
+        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
+        let mut rng = Rng(7);
+        let (mut covered, mut s0_covered, trials) = (0, 0, 40);
+        for _ in 0..trials {
+            let obs = random_ledger(truth, 1500, 40.0 * DAY, &mut rng);
+            let f = &calibrate_with(&obs, f64::INFINITY).unwrap()[0];
+            covered += f.uncertainty.half_life.contains(truth.half_life) as usize;
+            s0_covered += f.uncertainty.s0.contains(truth.s0) as usize;
+        }
+        assert!(covered >= 34, "half-life covered in {} of {}", covered, trials);
+        assert!(s0_covered >= 34, "s0 covered in {} of {}", s0_covered, trials);
+    }
+
+    #[test]
+    fn test_ranges_narrow_with_more_data() {
+        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
+        let mut rng = Rng(11);
+        let small = &calibrate_with(&random_ledger(truth, 300, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
+        let large = &calibrate_with(&random_ledger(truth, 5000, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
+        assert!(large.spread < small.spread, "{} vs {}", large.spread, small.spread);
+    }
+
+    #[test]
+    fn test_too_uncertain_is_error() {
+        // 60 re-checks: the plan's example of a half-life that might be 3 days or 9
+        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 6.0 * DAY };
+        let obs = random_ledger(truth, 60, 20.0 * DAY, &mut Rng(3));
+        let err = calibrate(&obs).unwrap_err();
+        assert!(err.contains("too uncertain") && err.contains("--max-spread"), "{}", err);
+        assert!(calibrate_with(&obs, f64::INFINITY).is_ok());
+        assert!(calibrate_with(&obs, 0.5).unwrap_err().contains("invalid max spread"));
+    }
+
+    #[test]
+    fn test_ranges_are_reproducible() {
+        let truth = Model { s0: 0.9, baseline: 0.2, half_life: 3.0 * DAY };
+        let obs = random_ledger(truth, 800, 20.0 * DAY, &mut Rng(5));
+        let a = calibrate_with(&obs, f64::INFINITY).unwrap();
+        let b = calibrate_with(&obs, f64::INFINITY).unwrap();
+        assert_eq!(a[0].uncertainty, b[0].uncertainty);
+    }
+
+    #[test]
+    fn test_bin_index_matches_bins() {
+        let mut rng = Rng(9);
+        let truth = Model { s0: 0.9, baseline: 0.0, half_life: DAY };
+        for obs in [
+            random_ledger(truth, 1000, 5.0 * DAY, &mut rng),
+            synthetic(truth, &days(&[0.0, 1.0, 2.0, 4.0]), 50, None),
+        ] {
+            let group: Vec<&Observation> = obs.iter().collect();
+            let (index, nbins) = bin_index(&group);
+            let mut sums = vec![(0.0, 0, 0); nbins];
+            for (o, &i) in group.iter().zip(&index) {
+                sums[i].0 += o.age;
+                sums[i].1 += o.correct as usize;
+                sums[i].2 += 1;
+            }
+            let expected = bins(&group);
+            assert_eq!(expected.len(), nbins);
+            for (bin, (age, k, n)) in expected.iter().zip(sums) {
+                assert_eq!(bin.n, n);
+                assert!((bin.age - age / n as f64).abs() < 1e-6);
+                assert!((bin.correct - k as f64 / n as f64).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn test_spread() {
+        let max_age = 10.0;
+        assert_eq!(spread(&Range { lo: 2.0, hi: 5.0 }, max_age), 2.5);
+        assert_eq!(spread(&Range { lo: 2.0, hi: f64::INFINITY }, max_age), f64::INFINITY);
+        // Both ends beyond 10× the oldest check: no decay within the data
+        assert_eq!(spread(&Range { lo: 150.0, hi: f64::INFINITY }, max_age), 1.0);
+    }
+
+    #[test]
+    fn test_registry_yaml_shows_ranges() {
+        let obs = synthetic(Model { s0: 0.95, baseline: 0.3, half_life: 30.0 * DAY }, &days(&[0.0, 3.0, 7.0, 14.0, 30.0, 60.0, 120.0, 365.0]), 200, None);
+        let fits = calibrate(&obs).unwrap();
+        let yaml = registry_yaml("policy_clause", &fits);
+        assert_eq!(yaml.matches("# 95% range").count(), 3, "{}", yaml);
+        assert!(report("policy_clause", &fits).contains("95% ranges (200 entity resamples)"));
+    }
+
+    #[test]
+    fn test_young_checks_in_an_old_bin_do_not_measure_source_fidelity() {
+        // True half-life 3h, checks spread over 40 days: the youngest of 20
+        // equal-count bins averages about a day, so s0 is extrapolated
+        let truth = Model { s0: 1.0, baseline: 0.62, half_life: 3.0 * 3600.0 };
+        let obs = random_ledger(truth, 50_000, 40.0 * DAY, &mut Rng(13));
+        let f = &calibrate_with(&obs, f64::INFINITY).unwrap()[0];
+        assert!(obs.iter().filter(|o| o.age < 3600.0).count() >= MIN_FRESH);
+        assert_eq!(f.source_fidelity, None, "{:?}", f.model);
     }
 
     #[test]

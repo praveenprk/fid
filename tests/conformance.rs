@@ -9,7 +9,10 @@ use serde_json::Value;
 
 use fid::calibrate;
 use fid::check::assess;
-use fid::compute::{parse_duration, parse_half_life, time_to_floor, total_fidelity, TimeToFloor};
+use fid::compute::{
+    apply_decay, parse_duration, parse_half_life, temporal_factor, time_to_floor, time_to_floor_echo, total_fidelity,
+    transform_factor, Echo, TimeToFloor,
+};
 use fid::envelope::{integrity_hash, Expiry, FidStatus, SourceClass, Stamped};
 
 fn root() -> PathBuf {
@@ -104,6 +107,41 @@ fn ttl() {
             (TimeToFloor::Never, None) => {}
             (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
         }
+    }
+}
+
+fn echo(c: &Value) -> fid::compute::EchoParams {
+    serde_json::from_value::<Echo>(c["echo"].clone()).unwrap().params().unwrap()
+}
+
+#[test]
+fn echoes() {
+    let v = vectors();
+    let tol = v["tolerance"].as_f64().unwrap();
+    for c in cases(&v, "echo") {
+        let noise: Vec<f64> = c["noise"].as_array().unwrap().iter().map(|n| n.as_f64().unwrap()).collect();
+        let temporal = temporal_factor(c["age_seconds"].as_f64().unwrap(), c["half_life_seconds"].as_f64(), Some(&echo(c)));
+        let got = apply_decay(c["source"].as_f64().unwrap() * transform_factor(&noise), temporal, c["baseline"].as_f64().unwrap());
+        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+    }
+    for c in cases(&v, "echo_time_to_floor") {
+        let name = c["name"].as_str().unwrap();
+        let got = time_to_floor_echo(
+            c["fidelity"].as_f64().unwrap(),
+            c["half_life_seconds"].as_f64().unwrap(),
+            c["baseline"].as_f64().unwrap(),
+            c["floor"].as_f64().unwrap(),
+            &echo(c),
+        );
+        match (got, c["seconds"].as_f64()) {
+            (TimeToFloor::After(s), Some(want)) => close(s, want, 1e-6, name),
+            (TimeToFloor::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+    for c in cases(&v, "echo_errors") {
+        let e: Echo = serde_json::from_value(c["echo"].clone()).unwrap();
+        assert!(e.params().is_err(), "{}", c["error"]);
     }
 }
 

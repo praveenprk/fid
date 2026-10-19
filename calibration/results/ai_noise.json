@@ -1,0 +1,421 @@
+{
+  "model": "claude-opus-5-5",
+  "effort": null,
+  "documents": 200,
+  "refused": 0,
+  "breakdown": {
+    "all": {
+      "extract": 0.0,
+      "summarize": 0.0,
+      "rewrite": 0.0,
+      "accuracy": {
+        "extract": 1.0,
+        "summarize": 1.0,
+        "rewrite": 1.0
+      },
+      "n": 1200,
+      "range": {
+        "extract": [
+          0.0,
+          0.0
+        ],
+        "summarize": [
+          0.0,
+          0.0
+        ],
+        "rewrite": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "field": {
+      "ceo": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "founded": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "hq_city": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "employees": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "revenue_musd": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "fiscal_year_end": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "condition": {
+      "superseded=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 97,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "superseded=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 103,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 105,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 95,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 133,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 67,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "competitor=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 300,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "competitor=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 900,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  },
+  "held_out": {
+    "extract": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    },
+    "summarize": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    },
+    "rewrite": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    }
+  },
+  "noise_model": "llm_extract:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\nllm_summarize:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\nllm_rewrite:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\n",
+  "requests": {
+    "api": 750,
+    "cached": 250
+  }
+}

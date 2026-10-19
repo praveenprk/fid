@@ -14,12 +14,10 @@ fn fid(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("failed to run fid");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    // fid may exit on bad arguments before reading stdin; its exit code is the test
+    if let Err(e) = child.stdin.take().unwrap().write_all(stdin.as_bytes()) {
+        assert_eq!(e.kind(), std::io::ErrorKind::BrokenPipe, "{}", e);
+    }
     child.wait_with_output().unwrap()
 }
 

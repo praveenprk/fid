@@ -11,7 +11,10 @@ fn fid(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("failed to run fid");
-    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    // fid may exit on bad arguments before reading stdin; its exit code is the test
+    if let Err(e) = child.stdin.take().unwrap().write_all(stdin.as_bytes()) {
+        assert_eq!(e.kind(), std::io::ErrorKind::BrokenPipe, "{}", e);
+    }
     child.wait_with_output().unwrap()
 }
 
@@ -63,8 +66,29 @@ fn calibrated_registry_feeds_stamp() {
     assert!(half_life.ends_with('d'), "{}", half_life);
     let days: f64 = half_life.trim_end_matches('d').parse().unwrap();
     assert!((days - 10.0).abs() < 1.0, "{}", half_life);
+    // 100 checks at age 0, all correct: the measured source fidelity replaces database's 0.90
+    assert_eq!(v["fid"]["source_fidelity"].as_f64(), Some(1.0));
+    assert_eq!(v["fid"]["fid_at_stamp"].as_f64(), Some(1.0));
 
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn calibrate_refuses_an_uncertain_half_life() {
+    // 60 re-checks, a few at each age: the half-life cannot be pinned down
+    let mut csv = String::from("entity,age,correct\n");
+    for (i, (day, ok)) in [(0, 5), (2, 4), (4, 4), (6, 3), (8, 2), (10, 2)].iter().enumerate() {
+        for j in 0..10 {
+            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok * 2));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "t"], &csv);
+    assert_eq!(out.status.code(), Some(3));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("too uncertain"), "{}", err);
+    let relaxed = fid(&["calibrate", "-", "--type", "t", "--max-spread", "inf"], &csv);
+    assert_eq!(relaxed.status.code(), Some(0), "{}", String::from_utf8_lossy(&relaxed.stderr));
+    assert!(String::from_utf8_lossy(&relaxed.stdout).contains("# 95% range"));
 }
 
 #[test]
@@ -80,4 +104,55 @@ fn calibrate_errors_exit_3() {
         assert_eq!(out.status.code(), Some(3), "args: {:?}", args);
         assert!(out.stdout.is_empty());
     }
+}
+
+#[test]
+fn drift_against_a_calibrated_registry() {
+    let dir = std::env::temp_dir().join(format!("fid-drift-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let registry = dir.join("half-lives.yaml");
+    std::fs::write(&registry, fid(&["calibrate", "-", "--type", "policy_claim"], &ledger()).stdout).unwrap();
+    let reg = registry.to_str().unwrap();
+
+    // The same checks again: current
+    let same = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &ledger());
+    assert_eq!(same.status.code(), Some(0), "{}", String::from_utf8_lossy(&same.stderr));
+    assert_eq!(String::from_utf8_lossy(&same.stdout).trim(), "current");
+
+    // Facts now go stale twice as fast: drifted
+    let mut faster = String::from("entity,age,correct\n");
+    for (day, n_correct) in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)] {
+        for i in 0..100 {
+            faster.push_str(&format!("new-{}-{},{}d,{}\n", day, i, day, i < n_correct));
+        }
+    }
+    let drifted = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &faster);
+    assert_eq!(drifted.status.code(), Some(1), "{}", String::from_utf8_lossy(&drifted.stderr));
+    assert_eq!(String::from_utf8_lossy(&drifted.stdout).trim(), "drifted");
+    assert!(String::from_utf8_lossy(&drifted.stderr).contains("recalibrate"));
+
+    let missing = fid(&["drift", "-", "--type", "other", "--half-lives", reg], &ledger());
+    assert_eq!(missing.status.code(), Some(3));
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn calibrate_period_writes_an_echo() {
+    // A daily fact: right when fresh, back at every multiple of 24h, wrong in between
+    let mut csv = String::from("entity,age,correct\n");
+    for lag in 0..=168 {
+        let returns = lag % 24 == 0 || lag % 24 == 1 || lag % 24 == 23;
+        let p = if lag < 3 { 0.95 } else if returns { 0.6 } else { 0.15 };
+        for i in 0..40 {
+            csv.push_str(&format!("e{}-{},{}h,{}\n", lag, i, lag, (i as f64) < p * 40.0));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "load", "--period", "24h", "--max-spread", "inf"], &csv);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let yaml = String::from_utf8(out.stdout).unwrap();
+    assert!(yaml.contains("echo: { period: 1d"), "{}", yaml);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("→ echo kept"));
+    let spec = fid::registry::HalfLives::from_yaml(&yaml).unwrap().lookup("load", None).unwrap();
+    assert!(spec.echo.unwrap().strength > 0.2);
 }

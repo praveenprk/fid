@@ -25,6 +25,9 @@ ignores age entirely.
 | Ship position (±1 km), moored or at anchor | `shipping_status: 4h` | **1.4 days** (fitted; 79% still within 1 km after 12 h) | same |
 | Flight schedule is true (source fidelity) | — | **77.9%** on time; 69.5–84.2% by airline, 68.1–85.8% by month | BTS, 7,079,061 US flights, all of 2024 |
 | Noise per flight leg (transform noise) | — | **0.045** per leg on average | same |
+| LLM extraction from a document (transform noise) | `llm_extract: 0.20` | **0.000**: 0 errors in 4,800 field checks | generated company documents, Claude Opus 5.5 and Haiku 5.5, 200 documents per run |
+| LLM summary, then extraction | `summarize: 0.15` | **0.015** Opus 5.5 (0.019 at low effort), **0.070** Haiku 5.5 | same, hard corpus |
+| LLM plain-language rewrite, then extraction | — | **0.002** Opus 5.5, **0.001** Haiku 5.5 | same, hard corpus |
 
 Full tables, curves and held-out reliability: [`results/`](results/).
 
@@ -66,6 +69,19 @@ average. Noise should be conditioned on what is known upstream.
 reading is right 43% of the time, a 12-hour-old one 19%. No monotonic
 decay model — exponential or with a baseline — can express that.
 
+**6. LLM steps lose facts by leaving them out, not by getting them
+wrong.** The hand-picked 0.20 for extraction and 0.15 for summaries
+are 10× to 100× too high for short business documents. Extraction
+never took the bait: not a former CEO, an older headcount, a revenue
+figure corrected later, a forecast, a subsidiary's figures, a former
+headquarters or name, or a competitor's numbers. Every one of the 128
+errors across the three hard-corpus runs was an empty field, mostly in
+summaries, and mostly the minor facts (Haiku 5.5 leaves the fiscal
+year end out of 26.5% of summaries). Burying the facts among unrelated
+figures is what raises the loss: summary noise 0.028 against 0.003
+for Opus 5.5, 0.113 against 0.031 for Haiku 5.5. The model matters
+more than the effort setting.
+
 **Source fidelity varies within a class.** A flight schedule is true
 78% of the time overall, but 69.5% for one airline and 84.2% for
 another, 89.6% for 5 am departures versus 68.1% for 8 pm, and 68.1% in
@@ -82,6 +98,10 @@ July versus 85.8% in October. One number per source class is too coarse.
 - "Still correct" thresholds (±2 °F, 1 km, 15 minutes) are choices; the
   half-life scales with them.
 - The held-out split is by entity, not by time.
+- AI noise: short generated English documents with every fact stated.
+  Long reports, tables, scanned text or other languages may lose more.
+  A summary that drops the fiscal month is not a bad summary; the
+  number is what the summary loses for a later extraction.
 
 ## Running
 
@@ -96,4 +116,31 @@ python3 weather_metar.py   # ~10 MB, Iowa Environmental Mesonet
 python3 weather_periodic.py  # same data; the echo test, every lag to 14 days (slow: tens of minutes)
 python3 flights_bts.py     # ~340 MB (12 months), US Bureau of Transportation Statistics
 python3 ships_ais.py       # ~1.9 GB (6 days), NOAA MarineCadastre AIS
+```
+
+### AI transform noise
+
+`ai_noise.py` measures how much an LLM step loses: extraction, summary
+then extraction, rewrite then extraction, on documents whose true
+content is known (generated company records with real-world traps: a
+former CEO, an older headcount, revenue in billions, a competitor's
+figures). It writes the noise per step, field and trap as a
+`noise-model.yaml` block. Unlike the others it calls the Claude API, so
+it needs `pip install anthropic` and `ANTHROPIC_API_KEY`, and it costs
+money: 5 requests per document, 1,000 at the default 200 documents.
+Responses are cached, so reruns are free.
+
+`--hard` adds traps a strong model can miss: facts buried among
+unrelated figures, a revenue figure corrected later in the text, a
+forecast, a subsidiary with its own city, chief and headcount, an
+earlier headquarters, and an earlier company name. The standard corpus
+does not change. Each model, effort and corpus writes its own file
+(`results/ai_noise_hard_claude-haiku-5-5.md`, for example); the default
+run writes `results/ai_noise.md`.
+
+```bash
+python3 ai_noise.py --dry-run          # the corpus and request count, no API calls
+python3 ai_noise.py --docs 200         # default model claude-opus-5-5; --model, --effort
+python3 ai_noise.py --docs 200 --hard  # the harder corpus
+python3 -m unittest test_ai_noise      # the pipeline against a fake client, no API calls
 ```

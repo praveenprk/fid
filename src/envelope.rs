@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
 /// Current envelope schema version.
-pub const FID_VERSION: &str = "0.2";
+pub const FID_VERSION: &str = "0.3";
 
 /// Source class — determines initial fidelity ceiling.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -118,6 +118,15 @@ pub struct FidEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline: Option<f64>,
 
+    /// Measured fraction correct when fresh, from a calibrated registry.
+    /// Replaces the source class constant; an unknown class stays unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_fidelity: Option<f64>,
+
+    /// Periodic return of a fact that comes back (e.g. daily temperature)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub echo: Option<crate::compute::Echo>,
+
     /// Information type, as named in a half-life registry (e.g. "vessel_position")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info_type: Option<String>,
@@ -140,39 +149,49 @@ pub struct FidEnvelope {
 }
 
 impl FidEnvelope {
+    /// Fidelity when fresh: the measured value if the envelope carries one,
+    /// else the source class constant. None if the source class is Unknown.
+    pub fn source_fidelity(&self) -> Option<f64> {
+        let class = self.source_class.default_fidelity()?;
+        Some(self.source_fidelity.unwrap_or(class))
+    }
+
     /// Total fidelity at `now`, accounting for age since measurement.
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn fidelity_at(&self, now: DateTime<Utc>) -> Result<Option<f64>, String> {
-        let half_life = match &self.half_life {
-            Some(hl) => crate::compute::parse_half_life(hl)?,
-            None => None,
-        };
+        let (half_life, echo) = self.decay_curve()?;
         let age_seconds = (now - self.measured_at).num_milliseconds() as f64 / 1000.0;
         let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
-        Ok(crate::compute::total_fidelity(
-            self.source_class.default_fidelity(),
-            age_seconds,
-            half_life,
-            &noise,
-            self.baseline.unwrap_or(0.0),
-        ))
+        Ok(self.source_fidelity().map(|source| {
+            crate::compute::apply_decay(
+                source * crate::compute::transform_factor(&noise),
+                crate::compute::temporal_factor(age_seconds, half_life, echo.as_ref()),
+                self.baseline.unwrap_or(0.0),
+            )
+        }))
+    }
+
+    /// Half-life in seconds (None: no decay) and echo, validated.
+    pub fn decay_curve(&self) -> Result<(Option<f64>, Option<crate::compute::EchoParams>), String> {
+        crate::compute::decay_curve(self.half_life.as_deref(), self.echo.as_ref())
     }
 
     /// When fidelity falls below `floor`: the TTL implied by measured decay.
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn expires_at(&self, floor: f64) -> Result<Option<Expiry>, String> {
-        let half_life = match &self.half_life {
-            Some(hl) => crate::compute::parse_half_life(hl)?,
-            None => None,
-        };
-        let Some(source) = self.source_class.default_fidelity() else {
+        let (half_life, echo) = self.decay_curve()?;
+        let Some(source) = self.source_fidelity() else {
             return Ok(None);
         };
         let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
         let at_measurement = source * crate::compute::transform_factor(&noise);
-        let ttl = crate::compute::time_to_floor(at_measurement, half_life, self.baseline.unwrap_or(0.0), floor);
+        let baseline = self.baseline.unwrap_or(0.0);
+        let ttl = match (half_life, echo) {
+            (Some(h), Some(e)) => crate::compute::time_to_floor_echo(at_measurement, h, baseline, floor, &e),
+            _ => crate::compute::time_to_floor(at_measurement, half_life, baseline, floor),
+        };
         Ok(Some(match ttl {
             crate::compute::TimeToFloor::Never => Expiry::Never,
             crate::compute::TimeToFloor::After(seconds) => {
@@ -268,6 +287,8 @@ mod tests {
             measured_at: at,
             half_life: Some("30d".to_string()),
             baseline: None,
+            source_fidelity: None,
+            echo: None,
             info_type: None,
             state: None,
             transforms: vec![TransformStep {
@@ -328,6 +349,7 @@ mod tests {
         let mut value = serde_json::to_value(sample_envelope()).unwrap();
         let obj = value.as_object_mut().unwrap();
         obj.remove("baseline");
+        obj.remove("source_fidelity");
         obj.remove("info_type");
         obj.remove("state");
         obj.insert("fid_version".into(), Value::String("0.1".into()));
@@ -340,6 +362,7 @@ mod tests {
     fn test_new_fields_omitted_when_unset() {
         let value = serde_json::to_value(sample_envelope()).unwrap();
         assert!(value.get("baseline").is_none());
+        assert!(value.get("source_fidelity").is_none());
         assert!(value.get("state").is_none());
         assert!(value["transforms"][0].get("condition").is_none());
     }
@@ -353,6 +376,30 @@ mod tests {
         env.baseline = Some(0.70);
         let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
         assert!((f - 0.80).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_measured_source_fidelity_replaces_class() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Database; // 0.90
+        env.transforms.clear();
+        env.half_life = Some("1d".into());
+        env.source_fidelity = Some(0.80);
+        assert_eq!(env.source_fidelity(), Some(0.80));
+        let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
+        assert!((f - 0.40).abs() < 1e-10);
+        // 0.80 → 0.40 takes one half-life
+        assert_eq!(env.expires_at(0.40).unwrap(), Some(Expiry::At(env.measured_at + chrono::Duration::days(1))));
+    }
+
+    #[test]
+    fn test_unknown_class_stays_unknown_with_measured_fidelity() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Unknown;
+        env.source_fidelity = Some(0.95);
+        assert_eq!(env.source_fidelity(), None);
+        assert_eq!(env.fidelity_at(env.measured_at).unwrap(), None);
+        assert_eq!(env.expires_at(0.5).unwrap(), None);
     }
 
     #[test]

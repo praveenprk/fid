@@ -90,3 +90,15 @@ Airport weather is good evidence, but only for one kind of world: physical facts
 5. Then the drift check, AI noise, and phase 2 (the echo model in fid), in that order.
 
 Each step is either measured on held-out data or proven by a test, and nothing goes into the docs without a number behind it.
+
+## Progress, 18 October
+
+| Step | State | Evidence |
+|---|---|---|
+| 1. Air-mass sentence | done | FINDINGS now states only the measured gap; the cause is an open question |
+| 2. Measured source fidelity | done | `source_fidelity` in registry and envelope (0.3); written only from ≥ 20 checks in fresh bins. The public studies give s0 = 1 by construction (a source checked against itself), so none is claimed for them |
+| 3. Uncertainty | done | 95% ranges from 200 entity resamples; refuses when the half-life range spans more than 2.5×. Ranges held the truth in 38 of 40 synthetic ledgers |
+| 4. EIA electricity data | blocked | eia.gov is not reachable from the cloud environment; needs it under Allowed domains |
+| 5a. Drift check | done | `fid drift`: likelihood ratio of registry against recent checks. False alarms 3.5% (1% with repeated checks per entity); a halved half-life caught 29 of 30 |
+| 5b. AI transform noise | harness ready | `calibration/ai_noise.py`; needs `ANTHROPIC_API_KEY` in the cloud environment, and approval of the spend (1,000 requests at 200 documents) |
+| 5c. Echo in fid | done | `echo` in registries and envelopes, matching the study to 1e-12; `fid calibrate --period` keeps an echo only if it wins held-out (0 false keeps in 40) |

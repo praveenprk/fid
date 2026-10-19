@@ -25,6 +25,10 @@ pub struct StampOptions {
     pub half_life: Option<String>,
     /// Baseline the fact decays toward; overrides any inherited baseline
     pub baseline: Option<f64>,
+    /// Measured fidelity when fresh; only meaningful on a root stamp
+    pub source_fidelity: Option<f64>,
+    /// Periodic return; overrides any inherited echo
+    pub echo: Option<crate::compute::Echo>,
     /// Information type (e.g. "vessel_position"); overrides any inherited type
     pub info_type: Option<String>,
     /// State of the observed thing (e.g. "underway"); overrides any inherited state
@@ -75,8 +79,14 @@ pub fn stamp(
     if let Some(hl) = &opts.half_life {
         parse_half_life(hl)?;
     }
+    if let Some(e) = &opts.echo {
+        e.params()?;
+    }
     if let Some(b) = opts.baseline {
         check_unit(b, "baseline")?;
+    }
+    if let Some(f) = opts.source_fidelity {
+        check_unit(f, "source fidelity")?;
     }
 
     let mut warnings = Vec::new();
@@ -101,11 +111,20 @@ pub fn stamp(
                     upstream.source_id
                 ));
             }
+            if opts.source_fidelity.is_some() && opts.source_fidelity != upstream.source_fidelity {
+                warnings.push(format!(
+                    "source fidelity ignored; source is inherited from upstream ({})",
+                    upstream.source_id
+                ));
+            }
             if opts.half_life.is_some() {
                 upstream.half_life = opts.half_life.clone();
             }
             if opts.baseline.is_some() {
                 upstream.baseline = opts.baseline;
+            }
+            if opts.echo.is_some() {
+                upstream.echo = opts.echo.clone();
             }
             if opts.info_type.is_some() {
                 upstream.info_type = opts.info_type.clone();
@@ -117,21 +136,29 @@ pub fn stamp(
             upstream.derived_from = opts.derived_from.clone();
             upstream
         }
-        None => FidEnvelope {
-            fid_version: FID_VERSION.to_string(),
-            source_class: opts.source_class.clone().unwrap_or(SourceClass::Unknown),
-            source_id: opts.source.clone(),
-            measured_at: now,
-            half_life: opts.half_life.clone(),
-            baseline: opts.baseline,
-            info_type: opts.info_type.clone(),
-            state: opts.state.clone(),
-            // A lossless root has no transform step, unless it records a condition
-            transforms: if opts.noise > 0.0 || opts.condition.is_some() { vec![step] } else { Vec::new() },
-            fid_at_stamp: None,
-            derived_from: opts.derived_from.clone(),
-            integrity: String::new(),
-        },
+        None => {
+            let source_class = opts.source_class.clone().unwrap_or(SourceClass::Unknown);
+            if opts.source_fidelity.is_some() && source_class == SourceClass::Unknown {
+                warnings.push("measured source fidelity not used: the source class is unknown".to_string());
+            }
+            FidEnvelope {
+                fid_version: FID_VERSION.to_string(),
+                source_class,
+                source_id: opts.source.clone(),
+                measured_at: now,
+                half_life: opts.half_life.clone(),
+                baseline: opts.baseline,
+                source_fidelity: opts.source_fidelity,
+                echo: opts.echo.clone(),
+                info_type: opts.info_type.clone(),
+                state: opts.state.clone(),
+                // A lossless root has no transform step, unless it records a condition
+                transforms: if opts.noise > 0.0 || opts.condition.is_some() { vec![step] } else { Vec::new() },
+                fid_at_stamp: None,
+                derived_from: opts.derived_from.clone(),
+                integrity: String::new(),
+            }
+        }
     };
 
     envelope.fid_version = FID_VERSION.to_string();
@@ -160,6 +187,8 @@ mod tests {
             noise: 0.0,
             half_life: None,
             baseline: None,
+            source_fidelity: None,
+            echo: None,
             info_type: None,
             state: None,
             condition: None,
@@ -353,6 +382,49 @@ mod tests {
         let o = StampOptions { noise: 0.54, condition: Some("previous_leg_late".into()), ..opts("flight_leg") };
         let second = stamp(&to_json(&first), &o, None, t0()).unwrap();
         assert_eq!(second.stamped.fid.transforms[0].condition.as_deref(), Some("previous_leg_late"));
+    }
+
+    #[test]
+    fn test_root_records_measured_source_fidelity() {
+        let o = StampOptions {
+            source_class: Some(SourceClass::Database),
+            source_fidelity: Some(0.62),
+            ..opts("crm")
+        };
+        let out = stamp("{}", &o, None, t0()).unwrap();
+        assert_eq!(out.stamped.fid.source_fidelity, Some(0.62));
+        assert_eq!(out.stamped.fid.fid_at_stamp, Some(0.62));
+        assert!(out.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_restamp_keeps_upstream_source_fidelity() {
+        let root = StampOptions { source_class: Some(SourceClass::Database), source_fidelity: Some(0.62), ..opts("crm") };
+        let first = stamp("{}", &root, None, t0()).unwrap();
+        let same = StampOptions { source_fidelity: Some(0.62), ..opts("step") };
+        let kept = stamp(&to_json(&first), &same, None, t0()).unwrap();
+        assert_eq!(kept.stamped.fid.source_fidelity, Some(0.62));
+        assert!(kept.warnings.is_empty());
+        let other = StampOptions { source_fidelity: Some(0.99), ..opts("step") };
+        let ignored = stamp(&to_json(&first), &other, None, t0()).unwrap();
+        assert_eq!(ignored.stamped.fid.source_fidelity, Some(0.62));
+        assert_eq!(ignored.warnings.len(), 1);
+    }
+
+    #[test]
+    fn test_measured_source_fidelity_with_unknown_class_warns() {
+        let o = StampOptions { source_fidelity: Some(0.9), ..opts("x") };
+        let out = stamp("{}", &o, None, t0()).unwrap();
+        assert_eq!(out.stamped.fid.fid_at_stamp, None);
+        assert!(out.warnings[0].contains("source class is unknown"));
+    }
+
+    #[test]
+    fn test_invalid_source_fidelity_is_error() {
+        for f in [-0.1, 1.1, f64::NAN] {
+            let o = StampOptions { source_fidelity: Some(f), ..opts("x") };
+            assert!(stamp("{}", &o, None, t0()).is_err());
+        }
     }
 
     #[test]

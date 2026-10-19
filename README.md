@@ -80,7 +80,10 @@ floor even with zero temporal decay.
 
 **Source reliability.** A calibrated sensor starts at high fidelity.
 An ungrounded LLM inference starts low. The source sets the ceiling.
-Everything after can only decrease it.
+Everything after can only decrease it. The per-class values (instrument
+0.97, database 0.90, …) are defaults; a calibrated registry's
+`source_fidelity` replaces them with the measured fraction correct when
+fresh.
 
 ```
 fidelity = baseline + (source × transform_noise − baseline) × temporal_decay(t)
@@ -91,8 +94,19 @@ week-old "the airport is VFR" is still right 73% of the time, because
 VFR is the usual weather. With no baseline this is
 `source × temporal_decay(t) × transform_noise`.
 
-It never spontaneously increases. New measurement is the only
-restoration mechanism.
+It never spontaneously increases, except for facts that come back. A
+day-old temperature reading is right more often than a 12-hour-old one,
+because the daily cycle returns it. A registry entry with an `echo`
+adds that return to the temporal factor:
+
+```yaml
+airport_temperature:
+  half_life: 2.42h
+  baseline:  0.13
+  echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h }
+```
+
+Otherwise new measurement is the only restoration mechanism.
 
 ## Configuration
 
@@ -104,6 +118,10 @@ company_ceo:      5.8y               # measured
 airport_flight_category:             # measured; decays toward a baseline
   half_life: 2.9h
   baseline:  0.73
+policy_clause:                       # from fid calibrate on your re-check log
+  half_life: 30d
+  baseline:  0.3
+  source_fidelity: 0.95              # measured; replaces the source class value
 vessel_position:                     # measured; depends on state
   states:
     underway: { half_life: 1.9m, baseline: 0.02 }
@@ -196,7 +214,50 @@ It fits on half the entities and scores on the other half, keeps the
 baseline only when it helps there, and refuses to guess from too little
 data. On the Wikidata CEO data it reproduces the published study.
 
+The fraction correct when fresh is the source's measured fidelity.
+`calibrate` writes it as `source_fidelity` only when at least 20 checks
+are fresh (decayed less than a tenth of the way to the baseline);
+otherwise it is an extrapolation and the source class value stays.
+It is only meaningful when checks compare against independent truth: a
+log that re-reads the same source is right at age zero by construction.
+
+Every value comes with a 95% range from resampling entities, written as
+a comment in the registry. If the half-life's range spans more than a
+factor of 2.5 (`--max-spread`), `calibrate` refuses rather than write a
+number the data cannot support.
+
+For facts that come back, `--period 24h` also fits an echo, and writes
+it only if it beats plain decay on the held-out half (Brier at least
+0.1% better, smaller largest gap). On synthetic ledgers it kept no echo
+in 40 without one, found a real one in 20 of 20 at 100 checks per
+hourly lag (18 of 20 at 30), and recovered the temperature echo's
+strength as 0.34 (true 0.31) and width 3.6h (3.75h).
+
 Exporting re-checks from your own store: [docs/LEDGER.md](docs/LEDGER.md).
+
+## Is the calibration still right?
+
+Decay rates change. `fid drift` tests the registry in force against
+recent re-checks and answers through its exit code:
+
+```bash
+$ fid drift recent.csv --type policy_clause --half-lives half-lives.yaml
+DRIFTED  policy_clause — 500 recent checks, 500 entities
+  registry curve vs recent refit: χ² 41.3 on 2 df (design effect 1.00), p = 0.0000  → recalibrate
+  ...
+```
+
+| Exit | Means |
+|---|---|
+| 0 `current` | the recent checks fit the registry's curve, and pin the half-life |
+| 1 `drifted` | they do not (likelihood ratio, p < 0.05): recalibrate |
+| 2 `unknown` | not rejected, but too few recent checks to tell |
+
+On 200 synthetic ledgers drawn from the registry's own curve it raised
+3.5% false alarms (7 of 200), and 1% when each entity was checked five
+times with a shared fate. It caught a half-life halved from 10 to 5
+days in 29 of 30 ledgers of 1,500 checks, and a baseline moved from
+0.3 to 0.5 in 30 of 30.
 
 ## Porting the formula
 

@@ -8,7 +8,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::compute::{apply_decay, parse_half_life, temporal_decay, transform_factor};
+use crate::compute::{apply_decay, temporal_factor, transform_factor};
 use crate::envelope::{integrity_hash, FidAssessment, FidStatus, Stamped};
 
 /// Result of checking one artifact.
@@ -31,15 +31,12 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     }
 
     let env = &stamped.fid;
-    let half_life = match &env.half_life {
-        Some(hl) => parse_half_life(hl).map_err(|e| format!("envelope has {}", e))?,
-        None => None,
-    };
+    let (half_life, echo) = env.decay_curve().map_err(|e| format!("envelope has {}", e))?;
     let age_seconds = (now - env.measured_at).num_milliseconds() as f64 / 1000.0;
     let noise: Vec<f64> = env.transforms.iter().map(|t| t.noise).collect();
 
-    let source = env.source_class.default_fidelity();
-    let temporal = temporal_decay(age_seconds, half_life);
+    let source = env.source_fidelity();
+    let temporal = temporal_factor(age_seconds, half_life, echo.as_ref());
     let transforms = transform_factor(&noise);
     let baseline = env.baseline.unwrap_or(0.0);
     let fidelity = source.map(|s| apply_decay(s * transforms, temporal, baseline));
@@ -93,7 +90,19 @@ pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> S
     if baseline > 0.0 {
         out.push_str(&format!(", baseline {:.2}", baseline));
     }
+    if let Some(e) = &env.echo {
+        out.push_str(&format!(", echo every {} (strength {:.2})", e.period, e.strength));
+    }
     out
+}
+
+/// ", measured" when the source fidelity was measured, not the class constant.
+pub fn measured_note(env: &crate::envelope::FidEnvelope) -> &'static str {
+    if env.source_fidelity.is_some() && env.source_fidelity().is_some() {
+        ", measured"
+    } else {
+        ""
+    }
 }
 
 /// The stderr report for `fid check`.
@@ -120,7 +129,7 @@ pub fn report(stamped: &Stamped, result: &CheckResult) -> String {
         lines.push("  integrity mismatch: content changed since last stamp".to_string());
     }
     lines.push(match a.source {
-        Some(s) => format!("  source      {:.4}  {} ({})", s, class, env.source_id),
+        Some(s) => format!("  source      {:.4}  {}{} ({})", s, class, measured_note(env), env.source_id),
         None => format!("  source      ?       {} ({})", class, env.source_id),
     });
     lines.push(format!(
@@ -159,6 +168,8 @@ mod tests {
                 measured_at: t0(),
                 half_life: half_life.map(str::to_string),
                 baseline: None,
+                source_fidelity: None,
+                echo: None,
                 info_type: None,
                 state: None,
                 transforms: noise
@@ -229,6 +240,33 @@ mod tests {
         s.fid.baseline = Some(0.03);
         let r = assess(&s, 0.5, t0()).unwrap();
         assert!(report(&s, &r).contains("half-life 2.3m (vessel_position/underway), baseline 0.03"));
+    }
+
+    #[test]
+    fn test_measured_source_fidelity_is_used_and_reported() {
+        let mut s = stamped(SourceClass::Database, None, &[]);
+        s.fid.source_fidelity = Some(0.62);
+        let r = assess(&s, 0.70, t0()).unwrap();
+        assert_eq!(r.assessment.source, Some(0.62));
+        assert_eq!(r.assessment.status, FidStatus::Noise);
+        assert!(report(&s, &r).contains("source      0.6200  database, measured (src)"));
+    }
+
+    #[test]
+    fn test_echo_brings_a_periodic_fact_back() {
+        let mut s = stamped(SourceClass::Instrument, Some("2.42h"), &[]);
+        s.fid.baseline = Some(0.13);
+        s.fid.echo = Some(crate::compute::Echo {
+            period: "24h".into(),
+            strength: 0.31,
+            width: "3.75h".into(),
+            fade: "345h".into(),
+        });
+        let at = |hours: i64| assess(&s, 0.30, t0() + Duration::hours(hours)).unwrap();
+        assert_eq!(at(12).assessment.status, FidStatus::Noise);
+        assert_eq!(at(24).assessment.status, FidStatus::Signal);
+        assert!(at(24).assessment.fidelity.unwrap() > 2.0 * at(12).assessment.fidelity.unwrap());
+        assert!(report(&s, &at(24)).contains("echo every 24h (strength 0.31)"));
     }
 
     #[test]

@@ -10,6 +10,13 @@
 //! airport_flight_category:              # decays toward a baseline
 //!   half_life: 2.9h
 //!   baseline: 0.73
+//! policy_clause:                        # measured fidelity when fresh
+//!   half_life: 90d
+//!   source_fidelity: 0.94
+//! airport_temperature:                  # comes back once a day
+//!   half_life: 2.42h
+//!   baseline: 0.13
+//!   echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h }
 //! vessel_position:                      # depends on state
 //!   states:
 //!     underway: 2.3m
@@ -34,14 +41,14 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::compute::parse_half_life;
+use crate::compute::{decay_curve, Echo};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum HalfLifeEntry {
     /// `type: 3y`
     Simple(String),
-    /// `type: { half_life, baseline, states }`
+    /// `type: { half_life, baseline, source_fidelity, states }`
     Spec(HalfLifeSpec),
 }
 
@@ -50,6 +57,10 @@ pub enum HalfLifeEntry {
 pub struct HalfLifeSpec {
     pub half_life: Option<String>,
     pub baseline: Option<f64>,
+    /// Measured fraction correct when fresh; replaces the source class constant
+    pub source_fidelity: Option<f64>,
+    /// Periodic return, for facts that come back (temperature, load)
+    pub echo: Option<Echo>,
     #[serde(default)]
     pub states: BTreeMap<String, HalfLifeEntry>,
 }
@@ -68,6 +79,8 @@ impl HalfLifeEntry {
 pub struct DecaySpec {
     pub half_life: String,
     pub baseline: Option<f64>,
+    pub source_fidelity: Option<f64>,
+    pub echo: Option<Echo>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,16 +125,21 @@ impl HalfLives {
             }
             spec.half_life = child.half_life.or(spec.half_life);
             spec.baseline = child.baseline.or(spec.baseline);
+            spec.source_fidelity = child.source_fidelity.or(spec.source_fidelity);
+            spec.echo = child.echo.or(spec.echo);
         }
 
         let half_life = spec.half_life.ok_or_else(|| {
             format!("information type '{}' needs a state (one of: {})", info_type, names(spec.states.keys()))
         })?;
-        parse_half_life(&half_life).map_err(|e| format!("'{}': {}", info_type, e))?;
+        decay_curve(Some(&half_life), spec.echo.as_ref()).map_err(|e| format!("'{}': {}", info_type, e))?;
         if let Some(b) = spec.baseline {
             check_unit(b, "baseline").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
-        Ok(DecaySpec { half_life, baseline: spec.baseline })
+        if let Some(s) = spec.source_fidelity {
+            check_unit(s, "source fidelity").map_err(|e| format!("'{}': {}", info_type, e))?;
+        }
+        Ok(DecaySpec { half_life, baseline: spec.baseline, source_fidelity: spec.source_fidelity, echo: spec.echo })
     }
 }
 
@@ -219,8 +237,10 @@ vessel_position:
 with_default:
   half_life: 1d
   baseline: 0.2
+  source_fidelity: 0.9
   states:
     fast: 1h
+    checked: { half_life: 2h, source_fidelity: 0.75 }
 ";
 
     const NOISE: &str = "
@@ -245,7 +265,7 @@ conditional_only:
     #[test]
     fn test_simple_half_life() {
         let spec = half_lives().lookup("employee_role", None).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None });
+        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None });
     }
 
     #[test]
@@ -267,8 +287,37 @@ conditional_only:
     #[test]
     fn test_state_inherits_type_baseline() {
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2) });
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9), echo: None });
         assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
+    }
+
+    #[test]
+    fn test_state_overrides_source_fidelity() {
+        let spec = half_lives().lookup("with_default", Some("checked")).unwrap();
+        assert_eq!(spec.source_fidelity, Some(0.75));
+        assert_eq!(spec.baseline, Some(0.2));
+    }
+
+    #[test]
+    fn test_echo_lookup_and_validation() {
+        let h = HalfLives::from_yaml(
+            "temp: { half_life: 2.4h, baseline: 0.13, echo: { period: 24h, strength: 0.31, width: 3.75h, fade: 345h } }\n\
+             wide: { half_life: 2.4h, echo: { period: 24h, strength: 0.31, width: 13h, fade: 345h } }\n\
+             flat: { half_life: infinite, echo: { period: 24h, strength: 0.31, width: 3h, fade: 345h } }",
+        )
+        .unwrap();
+        let echo = h.lookup("temp", None).unwrap().echo.unwrap();
+        assert_eq!(echo.period, "24h");
+        assert_eq!(echo.strength, 0.31);
+        assert!(h.lookup("wide", None).unwrap_err().contains("half the period"));
+        assert!(h.lookup("flat", None).unwrap_err().contains("finite half-life"));
+        assert!(HalfLives::from_yaml("x: { half_life: 1h, echo: { period: 24h, strength: 0.3, width: 3h } }").is_err());
+    }
+
+    #[test]
+    fn test_bad_source_fidelity_is_error() {
+        let h = HalfLives::from_yaml("x: { half_life: 1d, source_fidelity: 1.2 }").unwrap();
+        assert!(h.lookup("x", None).unwrap_err().contains("source fidelity"));
     }
 
     #[test]

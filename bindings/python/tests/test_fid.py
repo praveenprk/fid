@@ -2,6 +2,7 @@
 
 import math
 import os
+import tempfile
 import unittest
 import warnings
 from datetime import datetime, timedelta, timezone
@@ -124,6 +125,42 @@ class Calibration(unittest.TestCase):
         self.assertAlmostEqual(cal.fits[0]["half_life_seconds"] / 86400, 10, delta=1)
         self.assertIn("policy_claim:", cal.yaml)
         self.assertIn("held-out Brier", cal.report)
+
+    def test_measured_source_fidelity_reaches_the_label(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        self.assertEqual(cal.fits[0]["fresh_checks"], 100)
+        self.assertEqual(cal.fits[0]["source_fidelity"], 1.0)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "half-lives.yaml")
+            with open(path, "w") as f:
+                f.write(cal.yaml)
+            entry = fid.registry(path, "policy_claim")
+        self.assertEqual(entry["source_fidelity"], 1.0)
+        stamped = fid.stamp({"clause": 1}, source="crm", source_class="database", **entry)
+        self.assertEqual(stamped["fid"]["source_fidelity"], 1.0)
+        self.assertEqual(fid.check(stamped, 0.95).source, 1.0)
+
+    def test_calibrate_ranges(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        lo, hi = cal.fits[0]["half_life_range_seconds"]
+        self.assertLessEqual(lo, cal.fits[0]["half_life_seconds"])
+        self.assertGreaterEqual(hi, cal.fits[0]["half_life_seconds"])
+        self.assertIn("# 95% range", cal.yaml)
+        with self.assertRaises(ValueError):
+            fid.calibrate(self.ledger(), "policy_claim", max_spread=1.0)
+
+    def test_drift(self):
+        cal = fid.calibrate(self.ledger(), "policy_claim")
+        faster = [(f"n-{d}-{i}", f"{d}d", i < k) for d, k in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)] for i in range(100)]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "half-lives.yaml")
+            with open(path, "w") as f:
+                f.write(cal.yaml)
+            self.assertEqual(fid.drift(self.ledger(), "policy_claim", path).verdict, "CURRENT")
+            result = fid.drift(faster, "policy_claim", path)
+        self.assertEqual(result.verdict, "DRIFTED")
+        self.assertLess(result.states[0]["p_value"], 0.05)
+        self.assertIn("recalibrate", result.report)
 
     def test_calibrate_states_and_mappings(self):
         rows = [{"entity": e, "age": a, "correct": c, "state": "draft"} for e, a, c in self.ledger()]

@@ -1,0 +1,722 @@
+{
+  "model": "claude-opus-5-5",
+  "effort": "low",
+  "hard": true,
+  "documents": 200,
+  "refused": 0,
+  "breakdown": {
+    "all": {
+      "extract": 0.0,
+      "summarize": 0.019166666666666665,
+      "rewrite": 0.0,
+      "accuracy": {
+        "extract": 1.0,
+        "summarize": 0.9808333333333333,
+        "rewrite": 1.0
+      },
+      "n": 1200,
+      "range": {
+        "extract": [
+          0.0,
+          0.0
+        ],
+        "summarize": [
+          0.011666666666666714,
+          0.026666666666666616
+        ],
+        "rewrite": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "field": {
+      "ceo": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "founded": {
+        "extract": 0.0,
+        "summarize": 0.04500000000000004,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.955,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.020000000000000018,
+            0.07499999999999996
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "hq_city": {
+        "extract": 0.0,
+        "summarize": 0.015000000000000013,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.985,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.03500000000000003
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "employees": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "revenue_musd": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "fiscal_year_end": {
+        "extract": 0.0,
+        "summarize": 0.05500000000000005,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.945,
+          "rewrite": 1.0
+        },
+        "n": 200,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.025000000000000022,
+            0.08499999999999996
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "condition": {
+      "superseded=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 97,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "superseded=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 103,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 105,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "old_figure=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 95,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 133,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "unit=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 67,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "competitor=yes": {
+        "extract": 0.0,
+        "summarize": 0.010000000000000009,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.99,
+          "rewrite": 1.0
+        },
+        "n": 300,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.023333333333333317
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "competitor=no": {
+        "extract": 0.0,
+        "summarize": 0.022222222222222254,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9777777777777777,
+          "rewrite": 1.0
+        },
+        "n": 900,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.013333333333333308,
+            0.033333333333333326
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "buried=yes": {
+        "extract": 0.0,
+        "summarize": 0.03368794326241131,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9663120567375887,
+          "rewrite": 1.0
+        },
+        "n": 564,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.019503546099290725,
+            0.049645390070921946
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "buried=no": {
+        "extract": 0.0,
+        "summarize": 0.0062893081761006275,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9937106918238994,
+          "rewrite": 1.0
+        },
+        "n": 636,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0015723270440252124,
+            0.012578616352201255
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "correction=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 111,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "correction=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 89,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "forecast=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 174,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "forecast=no": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 226,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "subsidiary=yes": {
+        "extract": 0.0,
+        "summarize": 0.006472491909385147,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9935275080906149,
+          "rewrite": 1.0
+        },
+        "n": 309,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.016181229773462813
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "subsidiary=no": {
+        "extract": 0.0,
+        "summarize": 0.0034364261168384758,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9965635738831615,
+          "rewrite": 1.0
+        },
+        "n": 291,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.010309278350515427
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "relocated=yes": {
+        "extract": 0.0,
+        "summarize": 0.0,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 1.0,
+          "rewrite": 1.0
+        },
+        "n": 104,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.0
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "relocated=no": {
+        "extract": 0.0,
+        "summarize": 0.03125,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.96875,
+          "rewrite": 1.0
+        },
+        "n": 96,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.0,
+            0.07291666666666663
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "renamed=yes": {
+        "extract": 0.0,
+        "summarize": 0.04854368932038833,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9514563106796117,
+          "rewrite": 1.0
+        },
+        "n": 103,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.009708737864077666,
+            0.08737864077669899
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "renamed=no": {
+        "extract": 0.0,
+        "summarize": 0.04123711340206182,
+        "rewrite": 0.0,
+        "accuracy": {
+          "extract": 1.0,
+          "summarize": 0.9587628865979382,
+          "rewrite": 1.0
+        },
+        "n": 97,
+        "range": {
+          "extract": [
+            0.0,
+            0.0
+          ],
+          "summarize": [
+            0.010309278350515427,
+            0.08247422680412375
+          ],
+          "rewrite": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  },
+  "held_out": {
+    "extract": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    },
+    "summarize": {
+      "train": 0.018867924528301883,
+      "test": 0.019503546099290725,
+      "train_range": [
+        0.009433962264150941,
+        0.03144654088050314
+      ],
+      "test_inside": true
+    },
+    "rewrite": {
+      "train": 0.0,
+      "test": 0.0,
+      "train_range": [
+        0.0,
+        0.0
+      ],
+      "test_inside": true
+    }
+  },
+  "noise_model": "llm_extract:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\n    buried: 0.000\n    correction: 0.000\n    forecast: 0.000\n    subsidiary: 0.000\n    relocated: 0.000\n    renamed: 0.000\nllm_summarize:\n  noise: 0.019    # 95% range 0.012 to 0.027\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.010\n    buried: 0.034\n    correction: 0.000\n    forecast: 0.000\n    subsidiary: 0.006\n    relocated: 0.000\n    renamed: 0.049\nllm_rewrite:\n  noise: 0.000    # 95% range 0.000 to 0.000\n  conditions:\n    superseded: 0.000\n    old_figure: 0.000\n    unit: 0.000\n    competitor: 0.000\n    buried: 0.000\n    correction: 0.000\n    forecast: 0.000\n    subsidiary: 0.000\n    relocated: 0.000\n    renamed: 0.000\n",
+  "requests": {
+    "api": 1000,
+    "cached": 0
+  }
+}
