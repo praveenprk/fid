@@ -32,7 +32,11 @@ Noise, in fid's terms:
 No refusal fallback is configured: a fallback would answer on another
 model, and the noise is per model. Refusals are counted and left out.
 
-Needs the Anthropic SDK (pip install anthropic) and ANTHROPIC_API_KEY.
+Needs the Anthropic SDK (pip install anthropic) and an API key in
+FID_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY). Cloud sessions reserve
+ANTHROPIC_API_KEY for their own sign-in and do not pass it to commands,
+and network secrets are never attached to api.anthropic.com, so in a
+cloud environment set FID_ANTHROPIC_API_KEY as an environment variable.
 Responses are cached on disk (FID_CAL_CACHE, default calibration/.cache),
 so a rerun costs nothing.
 
@@ -55,6 +59,8 @@ from concurrent.futures import ThreadPoolExecutor
 import fidcal
 
 DEFAULT_MODEL = "claude-opus-5-5"
+API_URL = "https://api.anthropic.com"
+KEY_VARS = ("FID_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
 SEED = 20261018
 BOOTSTRAP = 1000
 
@@ -322,7 +328,8 @@ class Model:
     def client(self):
         if self._client is None:
             import anthropic  # only needed when something is not cached
-            self._client = anthropic.Anthropic()
+            # The key and host are explicit: a session's own ANTHROPIC_* settings are not this study's
+            self._client = anthropic.Anthropic(api_key=api_key(), base_url=API_URL)
         return self._client
 
     def ask(self, prompt, schema=None):
@@ -370,6 +377,10 @@ def run_doc(model, doc):
         out[name] = None if intermediate is None else extract(intermediate)
         out[name + "_text"] = intermediate
     return out
+
+
+def api_key():
+    return next((os.environ[v] for v in KEY_VARS if os.environ.get(v)), None)
 
 
 # ── statistics ───────────────────────────────────────────────────────────
@@ -510,8 +521,13 @@ def main(argv=None):
               f"{chars:,} characters of documents")
         return 0
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        fidcal.log("ANTHROPIC_API_KEY is not set (or use --dry-run)")
+    if not api_key():
+        fidcal.log("no API key: set FID_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY), or use --dry-run")
+        return 2
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        fidcal.log("the Anthropic SDK is not installed: pip install anthropic")
         return 2
     model = Model(args.model, args.effort, fidcal.default_cache_dir())
     with ThreadPoolExecutor(args.workers) as pool:
