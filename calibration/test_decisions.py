@@ -134,6 +134,16 @@ class Fid(unittest.TestCase):
         self.assertAlmostEqual(dc.parse_time("2026-10-20T10:00:00.123456789Z") - dc.parse_time("2026-10-20T10:00:00Z"),
                                0.123456, places=5)
 
+    def test_ledger_gives_calibrate_both_halves(self):
+        # Training entities all sit on one side of fidcal's split, which fid calibrate shares
+        import csv, os, tempfile
+        train = [f"vessel{i}" for i in range(200) if fidcal.split_train(f"vessel{i}")]
+        path = os.path.join(tempfile.mkdtemp(), "ledger.csv")
+        dc.write_ledger(path, ((e, 0, True, None) for e in train), with_state=False)
+        with open(path) as f:
+            halves = {fidcal.split_train(row["entity"]) for row in csv.DictReader(f)}
+        self.assertEqual(halves, {True, False})
+
     def test_ledger_rows(self):
         e = dc.Series("g", 3600.0, [1, 1, 2, None, 2], lambda a, b: a == b)
         rows = list(dc.ledger_rows(e, [0, 3600.0, 2 * 3600.0, 3 * 3600.0], 3600.0))
