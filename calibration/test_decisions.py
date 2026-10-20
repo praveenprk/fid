@@ -44,7 +44,7 @@ class Replay(unittest.TestCase):
         for _ in range(20):
             e = random_changes(rng)
             for ttl in (3 * 3600.0, 2 * DAY, 45 * DAY, 1000 * DAY, math.inf):
-                checks, stale, known, _ = dc.simulate(e, ttl)
+                checks, stale, known, _, _ = dc.simulate(e, ttl)
                 bc, bs = brute_changes(e, ttl)
                 self.assertEqual(checks, bc)
                 self.assertAlmostEqual(stale, bs, delta=1e-6 * known + 1)
@@ -60,7 +60,7 @@ class Replay(unittest.TestCase):
             bc, bs = brute_changes(e, ttl)
             for boundaries in (None, (20 * DAY,)):  # undeclared: every check replayed; declared: runs skipped
                 e.boundaries = boundaries
-                checks, stale, _, _ = dc.simulate(e, ttl, model=lambda s: (1.0, 10 * DAY, 0.0))
+                checks, stale, _, _, _ = dc.simulate(e, ttl, model=lambda s: (1.0, 10 * DAY, 0.0))
                 self.assertEqual(checks, bc)
                 self.assertAlmostEqual(stale, bs, delta=1)
 
@@ -71,18 +71,19 @@ class Replay(unittest.TestCase):
         e.state, e.boundaries = (lambda t, since: None), None  # forces every check to be replayed
         slow = dc.simulate(e, 3600.0, model=model)
         self.assertEqual(fast[:3], slow[:3])
+        self.assertEqual(fast[4], slow[4])
         self.assertAlmostEqual(fast[3], slow[3], delta=1e-6 * fast[3])
 
     def test_series(self):
         # 0..9 then 20..29: a check holding 0 is wrong from step 10 on
         e = dc.Series("g", 60.0, [0] * 10 + [20] * 10, lambda a, b: a == b)
-        self.assertEqual(dc.simulate(e, 60.0 * 20), (1, 600.0, 1200.0, 0.0))
-        self.assertEqual(dc.simulate(e, 60.0 * 5), (4, 0.0, 1200.0, 0.0))
+        self.assertEqual(dc.simulate(e, 60.0 * 20)[:4], (1, 600.0, 1200.0, 0.0))
+        self.assertEqual(dc.simulate(e, 60.0 * 5)[:4], (4, 0.0, 1200.0, 0.0))
         self.assertEqual(dc.simulate(e, 60.0 * 8)[:2], (3, 360.0))  # checks at 0, 8 (holds 0, wrong 10–15), 16
 
     def test_series_unknown_samples(self):
         e = dc.Series("g", 60.0, [1, None, None, 2, 2], lambda a, b: a == b)
-        checks, stale, known, _ = dc.simulate(e, math.inf)
+        checks, stale, known, _, _ = dc.simulate(e, math.inf)
         self.assertEqual((checks, stale, known), (1, 120.0, 180.0))
         # a check that lands on an unknown sample waits for the next known one
         self.assertEqual(dc.simulate(e, 60.0)[0], 3)
@@ -92,6 +93,36 @@ class Replay(unittest.TestCase):
         grid = dc.fixed_grid([e])
         for t in dc.T_GRID:
             self.assertEqual(grid[t][0], dc.simulate(e, t))
+
+
+class ByState(unittest.TestCase):
+    def test_states_add_up(self):
+        rng = random.Random(4)
+        state = lambda t, since: "fresh" if t - since < 20 * DAY else "old"
+        for _ in range(10):
+            e = random_changes(rng)
+            e.state, e.boundaries = state, (20 * DAY,)
+            for policy in (5 * DAY, (lambda s: 2 * DAY if s == "fresh" else 30 * DAY)):
+                checks, stale, known, _, by_state = dc.simulate(e, policy, model=lambda s: (1.0, DAY, 0.0))
+                self.assertAlmostEqual(sum(v[0] for v in by_state.values()), stale, delta=1e-6)
+                self.assertAlmostEqual(sum(v[1] for v in by_state.values()), known, delta=1e-6)
+            # time in each state does not depend on the policy
+            a = dc.simulate(e, 5 * DAY)[4]
+            b = dc.simulate(e, lambda s: DAY, model=lambda s: (1.0, DAY, 0.0))[4]
+            for st in a:
+                self.assertAlmostEqual(a[st][1], b[st][1], delta=1e-6)
+
+    def test_worst_state(self):
+        # moving ships are always stale, moored ones never: the average hides it, the worst state does not
+        rows = [(1, 10.0, 100.0, 0.0, {"underway": [10.0, 10.0], "moored": [0.0, 90.0]})]
+        s = dc.summarize(rows)
+        self.assertAlmostEqual(s["stale"], 0.1)
+        self.assertAlmostEqual(s["worst"], 1.0)
+
+    def test_series_state_is_the_current_one(self):
+        e = dc.Series("g", 60.0, [("m", 0)] * 3 + [("u", 5)] * 3, lambda a, b: a == b, lambda v: v[0])
+        by_state = dc.simulate(e, math.inf)[4]
+        self.assertEqual(by_state, {"m": [0.0, 180.0], "u": [180.0, 180.0]})
 
 
 class Prediction(unittest.TestCase):

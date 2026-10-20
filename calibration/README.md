@@ -104,6 +104,19 @@ steadier (68% still unchanged after five more years), but that state
 has 36 labels and its fit does not hold on the held-out half, so it
 is not in the registry.
 
+**7. Re-checking at a floor does not, by itself, save re-checks.**
+Replayed on six kinds of fact (`decisions.py`), a store that re-checks
+when fid's trust falls below a floor needs as many re-checks as one
+on the best fixed interval when the fact has one state (ratio 1.00).
+It needs more where state matters: ships 1.2–1.4×, PyPI 1.1–1.3×.
+Across all six kinds, one floor costs 4–12× more than intervals tuned
+per kind. A floor guards each decision; it does not spend a budget
+well. A single exponential reads PyPI's fast first drop as a source
+that is wrong when fresh (s0 = 0.945), so high floors force constant
+re-checks. State changes between checks (a moored ship leaving) are
+where errors gather. Details and diagnostics:
+[`results/decisions.md`](results/decisions.md).
+
 **6. LLM steps lose facts by leaving them out, not by getting them
 wrong.** The hand-picked 0.20 for extraction and 0.15 for summaries
 are 10× to 100× too high for short business documents. Extraction
@@ -166,7 +179,8 @@ python3 pypi_latest.py     # ~500 MB (1,000 package histories), PyPI JSON API
 FID_EIA_API_KEY=... python3 eia_demand.py  # ~5 MB, EIA API v2 (free key); the echo test, every lag to 14 days
 python3 openfda_labels.py  # checks whether openFDA keeps label versions (it does not)
 python3 dailymed_warnings.py  # ~2,300 label versions from DailyMed, ~1 MB each, read then deleted
-python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels test_dailymed_warnings  # no network
+cargo build --release && python3 decisions.py  # the decision benchmark: runs fid on the data above (~1 min after downloads)
+python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels test_dailymed_warnings test_decisions  # no network
 ```
 
 ### AI transform noise
