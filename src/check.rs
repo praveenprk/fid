@@ -3,13 +3,14 @@
 //! The exit code carries the epistemic state:
 //!   0 SIGNAL  — fidelity at or above the floor
 //!   1 NOISE   — fidelity below the floor
-//!   2 UNKNOWN — fidelity indeterminate (unknown source, or the content
-//!               no longer matches the envelope's integrity hash)
+//!   2 UNKNOWN — fidelity indeterminate: an unknown source, an unknown
+//!               decay (no half-life), content that no longer matches the
+//!               integrity hash, or an envelope this fid does not understand
 
 use chrono::{DateTime, Utc};
 
 use crate::compute::{apply_decay, transform_factor};
-use crate::envelope::{integrity_hash, FidAssessment, FidStatus, Stamped};
+use crate::envelope::{integrity_for, FidAssessment, FidStatus, Stamped};
 
 /// Result of checking one artifact.
 #[derive(Debug)]
@@ -39,9 +40,10 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     let temporal = curve.temporal(age_seconds);
     let transforms = transform_factor(&noise);
     let baseline = env.baseline.unwrap_or(0.0);
-    let fidelity = source.map(|s| apply_decay(s * transforms, temporal, baseline));
+    // No half-life: the decay is unknown, so is the fidelity
+    let fidelity = source.filter(|_| env.decay_known()).map(|s| apply_decay(s * transforms, temporal, baseline));
 
-    let integrity_ok = integrity_hash(&stamped.content) == env.integrity;
+    let integrity_ok = integrity_for(&env.fid_version, &stamped.content) == env.integrity;
     let status = match fidelity {
         _ if !integrity_ok => FidStatus::Unknown,
         None => FidStatus::Unknown,
@@ -80,7 +82,7 @@ pub fn format_age(seconds: f64) -> String {
 
 /// "half-life 2.3m (vessel_position/underway), baseline 0.73"
 pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> String {
-    let mut out = format!("half-life {}", env.half_life.as_deref().unwrap_or("none"));
+    let mut out = format!("half-life {}", env.half_life.as_deref().unwrap_or("unknown (none given)"));
     match (&env.info_type, &env.state) {
         (Some(t), Some(s)) => out.push_str(&format!(" ({}/{})", t, s)),
         (Some(t), None) => out.push_str(&format!(" ({})", t)),
@@ -175,6 +177,7 @@ mod tests {
                 half_life: half_life.map(str::to_string),
                 baseline: None,
                 source_fidelity: None,
+                ext: None,
                 echo: None,
                 fast: None,
                 shape: None,
@@ -186,7 +189,7 @@ mod tests {
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
-                integrity: integrity_hash(&content),
+                integrity: integrity_for(FID_VERSION, &content),
             },
             content,
         }
@@ -213,7 +216,7 @@ mod tests {
     #[test]
     fn test_transforms_push_below_floor() {
         // 0.90 × 0.70 × 0.70 = 0.441, no temporal decay
-        let s = stamped(SourceClass::Database, None, &[0.30, 0.30]);
+        let s = stamped(SourceClass::Database, Some("infinite"), &[0.30, 0.30]);
         let r = assess(&s, 0.50, t0() + Duration::days(9999)).unwrap();
         assert_eq!(r.assessment.status, FidStatus::Noise);
         assert!((r.assessment.transforms - 0.49).abs() < 1e-10);
@@ -221,9 +224,21 @@ mod tests {
 
     #[test]
     fn test_exactly_at_floor_is_signal() {
-        let s = stamped(SourceClass::Database, None, &[]);
+        let s = stamped(SourceClass::Database, Some("infinite"), &[]);
         let r = assess(&s, 0.90, t0()).unwrap();
         assert_eq!(r.assessment.status, FidStatus::Signal);
+    }
+
+    // spec: check, envelope-fields
+    #[test]
+    fn test_no_half_life_is_unknown() {
+        // a null half-life is unknown decay, not "never decays": even fresh, fidelity is indeterminate
+        let s = stamped(SourceClass::Database, None, &[]);
+        let r = assess(&s, 0.10, t0()).unwrap();
+        assert_eq!(r.assessment.status, FidStatus::Unknown);
+        assert_eq!(r.assessment.fidelity, None);
+        assert_eq!(s.fid.expires_at(0.10).unwrap(), None);
+        assert!(report(&s, &r).contains("half-life unknown"));
     }
 
     #[test]
@@ -252,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_measured_source_fidelity_is_used_and_reported() {
-        let mut s = stamped(SourceClass::Database, None, &[]);
+        let mut s = stamped(SourceClass::Database, Some("infinite"), &[]);
         s.fid.source_fidelity = Some(0.62);
         let r = assess(&s, 0.70, t0()).unwrap();
         assert_eq!(r.assessment.source, Some(0.62));

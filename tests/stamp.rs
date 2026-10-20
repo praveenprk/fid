@@ -44,7 +44,7 @@ fn stamp_root_wraps_content() {
 // spec: stamping, cli
 #[test]
 fn stamp_pipeline_composes() {
-    let first = fid(&["stamp", "--source", "db", "--source-class", "database"], "{}");
+    let first = fid(&["stamp", "--source", "db", "--source-class", "database", "--half-life", "infinite"], "{}");
     let first = String::from_utf8(first.stdout).unwrap();
     let second = fid(&["stamp", "--source", "normalize.py", "--noise", "0.05"], &first);
     let second = String::from_utf8(second.stdout).unwrap();
@@ -201,5 +201,5 @@ fn stamp_carries_a_fast_share_from_the_registry() {
     let v = stdout_json(&out);
     assert_eq!(v["fid"]["fast"]["share"], 0.3);
     assert_eq!(v["fid"]["fast"]["half_life"], "3d");
-    assert_eq!(v["fid"]["fid_version"], "0.4");
+    assert_eq!(v["fid"]["fid_version"], "1.0");
 }
