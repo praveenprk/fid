@@ -11,7 +11,7 @@ use fid::calibrate;
 use fid::check::assess;
 use fid::compute::{
     apply_decay, parse_duration, parse_half_life, temporal_factor, time_to_floor, time_to_floor_echo, total_fidelity,
-    transform_factor, Echo, TimeToFloor,
+    transform_factor, Curve, Echo, Fast, Recheck, TimeToFloor,
 };
 use fid::envelope::{integrity_hash, Expiry, FidStatus, SourceClass, Stamped};
 
@@ -142,6 +142,76 @@ fn echoes() {
     for c in cases(&v, "echo_errors") {
         let e: Echo = serde_json::from_value(c["echo"].clone()).unwrap();
         assert!(e.params().is_err(), "{}", c["error"]);
+    }
+}
+
+/// The case's curve: half-life, fast share and echo (each may be null).
+fn case_curve(c: &Value) -> Curve {
+    let fast: Option<Fast> = serde_json::from_value(c["fast"].clone()).unwrap();
+    let echo: Option<Echo> = serde_json::from_value(c["echo"].clone()).unwrap();
+    let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+    fid::compute::curve(h.as_deref(), fast.as_ref(), echo.as_ref()).unwrap()
+}
+
+#[test]
+fn fast_shares() {
+    let v = vectors();
+    let tol = v["tolerance"].as_f64().unwrap();
+    for c in cases(&v, "fast") {
+        let got = apply_decay(
+            c["fidelity_at_measurement"].as_f64().unwrap(),
+            case_curve(c).temporal(c["age_seconds"].as_f64().unwrap()),
+            c["baseline"].as_f64().unwrap(),
+        );
+        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+    }
+    for c in cases(&v, "fast_time_to_floor") {
+        let name = c["name"].as_str().unwrap();
+        let got = case_curve(c).time_to_floor(
+            c["fidelity"].as_f64().unwrap(),
+            c["baseline"].as_f64().unwrap(),
+            c["floor"].as_f64().unwrap(),
+        );
+        match (got, c["seconds"].as_f64()) {
+            (TimeToFloor::After(s), Some(want)) => close(s, want, 1e-6, name),
+            (TimeToFloor::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+    for c in cases(&v, "fast_errors") {
+        let fast: Fast = serde_json::from_value(c["fast"].clone()).unwrap();
+        let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+        assert!(fid::compute::curve(h.as_deref(), Some(&fast), None).is_err(), "{}", c["error"]);
+    }
+}
+
+#[test]
+fn schedules() {
+    let v = vectors();
+    for c in cases(&v, "schedule") {
+        let name = c["name"].as_str().unwrap();
+        let curve = case_curve(c);
+        let (f, b, price) = (c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["price"].as_f64().unwrap());
+        let cost = |t: f64| curve.mean_staleness(f, b, t) + price * 86_400.0 / t;
+        match (fid::compute::best_interval(&curve, f, b, price).unwrap(), c["seconds"].as_f64()) {
+            (Recheck::Every(t), Some(want)) => {
+                // The same staleness at the spec's interval, and fid's interval at least as cheap
+                close(cost(want), c["cost"].as_f64().unwrap(), 1e-7, name);
+                assert!(cost(t) <= c["cost"].as_f64().unwrap() + 1e-7, "{}: {} at {} vs {} at {}", name, cost(t), t, c["cost"], want);
+            }
+            (Recheck::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+    for c in cases(&v, "staleness_target") {
+        let name = c["name"].as_str().unwrap();
+        let curve = case_curve(c);
+        let got = fid::compute::interval_for_staleness(&curve, c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["target"].as_f64().unwrap()).unwrap();
+        match (got, c["seconds"].as_f64()) {
+            (Recheck::Every(t), Some(want)) => assert!((t / want - 1.0).abs() < 1e-6, "{}: {} vs {}", name, t, want),
+            (Recheck::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
     }
 }
 

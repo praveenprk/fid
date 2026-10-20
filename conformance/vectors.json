@@ -663,6 +663,329 @@
    "error": "zero fade"
   }
  ],
+ "fast": [
+  {
+   "name": "fresh",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 0.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "fidelity": 1.0
+  },
+  {
+   "name": "three days: the fast share half gone",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 259200.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "fidelity": 0.8488353914570754
+  },
+  {
+   "name": "a year: only the slow clock",
+   "fidelity_at_measurement": 0.97,
+   "age_seconds": 31536000.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "fidelity": 0.12577317587764275
+  },
+  {
+   "name": "zero share is plain decay",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 864000.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.0,
+   "fast": {
+    "share": 0.0,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "fidelity": 0.9170040432046712
+  },
+  {
+   "name": "whole share is the fast clock",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 864000.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.0,
+   "fast": {
+    "share": 1.0,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "fidelity": 0.09921256574801246
+  },
+  {
+   "name": "with an echo",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "fidelity": 0.3906568243881969
+  }
+ ],
+ "fast_time_to_floor": [
+  {
+   "name": "package to 0.9",
+   "fidelity": 1.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "floor": 0.9,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 152530.85080758715
+  },
+  {
+   "name": "package to 0.5",
+   "fidelity": 1.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "floor": 0.5,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 4529828.756258252
+  },
+  {
+   "name": "floor under the baseline",
+   "fidelity": 1.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "floor": 0.05,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": null
+  },
+  {
+   "name": "already below",
+   "fidelity": 0.8,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "floor": 0.9,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 0.0
+  },
+  {
+   "name": "with an echo",
+   "fidelity": 1.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "floor": 0.5,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": 8346.071571763187
+  }
+ ],
+ "fast_errors": [
+  {
+   "fast": {
+    "share": 1.5,
+    "half_life": "3d"
+   },
+   "half_life_seconds": 6912000.0,
+   "error": "share above 1"
+  },
+  {
+   "fast": {
+    "share": -0.1,
+    "half_life": "3d"
+   },
+   "half_life_seconds": 6912000.0,
+   "error": "negative share"
+  },
+  {
+   "fast": {
+    "share": 0.3,
+    "half_life": "infinite"
+   },
+   "half_life_seconds": 6912000.0,
+   "error": "infinite fast half-life"
+  },
+  {
+   "fast": {
+    "share": 0.3,
+    "half_life": "90d"
+   },
+   "half_life_seconds": 6912000.0,
+   "error": "fast half-life not shorter"
+  },
+  {
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "half_life_seconds": null,
+   "error": "no finite half-life"
+  }
+ ],
+ "schedule": [
+  {
+   "name": "one day half-life, cheap re-checks",
+   "fidelity": 1.0,
+   "half_life_seconds": 86400.0,
+   "baseline": 0.1,
+   "price": 0.0001,
+   "fast": null,
+   "echo": null,
+   "seconds": 1553.4523859422802,
+   "cost": 0.011146763351484481
+  },
+  {
+   "name": "one day half-life, dear re-checks",
+   "fidelity": 1.0,
+   "half_life_seconds": 86400.0,
+   "baseline": 0.1,
+   "price": 0.01,
+   "fast": null,
+   "echo": null,
+   "seconds": 16149.095432978627,
+   "cost": 0.10936370740476353
+  },
+  {
+   "name": "too dear: never",
+   "fidelity": 1.0,
+   "half_life_seconds": 86400.0,
+   "baseline": 0.1,
+   "price": 100.0,
+   "fast": null,
+   "echo": null,
+   "seconds": null,
+   "cost": 0.9
+  },
+  {
+   "name": "two clocks",
+   "fidelity": 1.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "price": 0.001,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 15018.605982397303,
+   "cost": 0.01157711128374447
+  },
+  {
+   "name": "source below 1",
+   "fidelity": 0.95,
+   "half_life_seconds": 604800.0,
+   "baseline": 0.0,
+   "price": 0.001,
+   "fast": null,
+   "echo": null,
+   "seconds": 12659.082576931312,
+   "cost": 0.0636833647905159
+  },
+  {
+   "name": "temperature with its echo",
+   "fidelity": 1.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "price": 0.001,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "seconds": 1653.264538293901,
+   "cost": 0.10387973362532948
+  }
+ ],
+ "staleness_target": [
+  {
+   "name": "one day half-life, 5%",
+   "fidelity": 1.0,
+   "half_life_seconds": 86400.0,
+   "baseline": 0.1,
+   "target": 0.05,
+   "fast": null,
+   "echo": null,
+   "seconds": 14387.841349840426
+  },
+  {
+   "name": "two clocks, 5%",
+   "fidelity": 1.0,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "target": 0.05,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 142602.94331361173
+  },
+  {
+   "name": "two clocks, 20%",
+   "fidelity": 0.99,
+   "half_life_seconds": 6912000.0,
+   "baseline": 0.1,
+   "target": 0.2,
+   "fast": {
+    "share": 0.3,
+    "half_life": "3d"
+   },
+   "echo": null,
+   "seconds": 871306.5213439886
+  },
+  {
+   "name": "baseline already under the target: never",
+   "fidelity": 1.0,
+   "half_life_seconds": 86400.0,
+   "baseline": 0.9,
+   "target": 0.2,
+   "fast": null,
+   "echo": null,
+   "seconds": null
+  }
+ ],
  "integrity": [
   {
    "content": {
@@ -1252,6 +1575,70 @@
    "fidelity": null,
    "integrity_ok": true,
    "expires_at": "unknown"
+  },
+  {
+   "name": "fast share: a week-old release",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "80d",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:9ed3ea28c5d6a5a9039d0adc67dbba9957c8e1578401207c4a4a83565532ed2f",
+     "baseline": 0.1,
+     "source_fidelity": 1.0,
+     "fast": {
+      "share": 0.3,
+      "half_life": "3d"
+     }
+    },
+    "content": {
+     "package": "requests",
+     "latest": "2.32.3"
+    }
+   },
+   "now": "2026-01-08T00:00:00Z",
+   "floor": 0.8,
+   "status": "NOISE",
+   "fidelity": 0.7465006900921197,
+   "integrity_ok": true,
+   "expires_at": "2026-01-05T13:12:31.394Z"
+  },
+  {
+   "name": "fast share: three months old",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "80d",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:9ed3ea28c5d6a5a9039d0adc67dbba9957c8e1578401207c4a4a83565532ed2f",
+     "baseline": 0.1,
+     "source_fidelity": 1.0,
+     "fast": {
+      "share": 0.3,
+      "half_life": "3d"
+     }
+    },
+    "content": {
+     "package": "requests",
+     "latest": "2.32.3"
+    }
+   },
+   "now": "2026-04-01T00:00:00Z",
+   "floor": 0.5,
+   "status": "NOISE",
+   "fidelity": 0.38885627386092847,
+   "integrity_ok": true,
+   "expires_at": "2026-02-22T10:17:08.756Z"
   }
  ],
  "ledger_csv": [

@@ -41,7 +41,10 @@ __all__ = [
     "fidelity",
     "half_life",
     "noise",
+    "mean_staleness",
     "parse_half_life",
+    "recheck_at",
+    "recheck_interval",
     "registry",
     "source_fidelity",
     "stamp",
@@ -143,6 +146,15 @@ def _echo(echo: Optional[Mapping[str, Any]]) -> Optional[str]:
     return None if echo is None else json.dumps(dict(echo))
 
 
+def _fast(fast: Optional[Mapping[str, Any]]) -> Optional[str]:
+    return None if fast is None else json.dumps(dict(fast))
+
+
+def _hl(half_life: Optional[Duration]) -> Optional[float]:
+    h = _seconds(half_life)
+    return None if h is None or math.isinf(h) else h
+
+
 def _json(stamped: Union[Mapping[str, Any], str]) -> str:
     return stamped if isinstance(stamped, str) else json.dumps(stamped)
 
@@ -168,14 +180,15 @@ def fidelity(
     noise: Sequence[float] = (),
     baseline: float = 0.0,
     echo: Optional[Mapping[str, Any]] = None,
+    fast: Optional[Mapping[str, Any]] = None,
 ) -> float:
     """Fidelity of a fact `age` after measurement. half_life None = no decay.
 
     `echo` is a periodic return, {"period", "strength", "width", "fade"},
     as in a registry: e.g. {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}.
+    `fast` is a share that goes stale on a faster clock: e.g. {"share": 0.3, "half_life": "3d"}.
     """
-    h = _seconds(half_life)
-    return _fid.fidelity(source, _age(age), None if h is None or math.isinf(h) else h, list(noise), baseline, _echo(echo))
+    return _fid.fidelity(source, _age(age), _hl(half_life), list(noise), baseline, _echo(echo), _fast(fast))
 
 
 def time_to_floor(
@@ -185,6 +198,7 @@ def time_to_floor(
     *,
     baseline: float = 0.0,
     echo: Optional[Mapping[str, Any]] = None,
+    fast: Optional[Mapping[str, Any]] = None,
 ) -> timedelta | None:
     """Time after measurement until fidelity first falls below floor; None if it never does.
 
@@ -192,9 +206,43 @@ def time_to_floor(
     measured decay: half_life × log2((fidelity − b) / (floor − b)). With an
     echo the fact comes back later; this is still the first crossing.
     """
-    h = _seconds(half_life)
-    seconds = _fid.time_to_floor(fidelity, None if h is None or math.isinf(h) else h, baseline, floor, _echo(echo))
+    seconds = _fid.time_to_floor(fidelity, _hl(half_life), baseline, floor, _echo(echo), _fast(fast))
     return None if seconds is None else timedelta(seconds=seconds)
+
+
+def recheck_interval(
+    fidelity: float,
+    half_life: Optional[Duration],
+    *,
+    baseline: float = 0.0,
+    price: Optional[float] = None,
+    staleness: Optional[float] = None,
+    echo: Optional[Mapping[str, Any]] = None,
+    fast: Optional[Mapping[str, Any]] = None,
+) -> timedelta | None:
+    """How often to re-check a fact; None for never.
+
+    With `price` (what one more re-check a day is worth, in staleness): the
+    interval that minimizes mean staleness + price × re-checks per day. One
+    price across every kind of fact spends a re-check budget where it
+    removes the most staleness. With `staleness`: the longest interval that
+    keeps mean staleness at or below it.
+    """
+    seconds = _fid.recheck_interval(fidelity, _hl(half_life), baseline, price, staleness, _echo(echo), _fast(fast))
+    return None if seconds is None else timedelta(seconds=seconds)
+
+
+def mean_staleness(
+    fidelity: float,
+    half_life: Optional[Duration],
+    every: Duration,
+    *,
+    baseline: float = 0.0,
+    echo: Optional[Mapping[str, Any]] = None,
+    fast: Optional[Mapping[str, Any]] = None,
+) -> float:
+    """Fraction of the time a fact re-checked every `every` is served wrong."""
+    return _fid.mean_staleness(fidelity, _hl(half_life), baseline, _age(every), _echo(echo), _fast(fast))
 
 
 # ── envelopes ────────────────────────────────────────────────────────────
@@ -209,6 +257,7 @@ def stamp(
     baseline: Optional[float] = None,
     source_fidelity: Optional[float] = None,
     echo: Optional[Mapping[str, Any]] = None,
+    fast: Optional[Mapping[str, Any]] = None,
     type: Optional[str] = None,
     state: Optional[str] = None,
     condition: Optional[str] = None,
@@ -226,7 +275,7 @@ def stamp(
     raw = content if isinstance(content, str) and _looks_stamped(content) else json.dumps(content)
     result, notes = _fid.stamp(
         raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity, _echo(echo),
-        type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now),
+        type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now), _fast(fast),
     )
     for note in notes:
         warnings.warn(note, stacklevel=2)
@@ -270,6 +319,26 @@ def expires_at(stamped: Union[Mapping[str, Any], str], floor: float) -> Optional
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def recheck_at(
+    stamped: Union[Mapping[str, Any], str],
+    *,
+    price: Optional[float] = None,
+    staleness: Optional[float] = None,
+    floor: Optional[float] = None,
+) -> Optional[datetime]:
+    """When to re-check a stamped artifact (see `recheck_interval`), never later
+    than its time to `floor` when one is given; None for never.
+
+    Raises IndeterminateError when the source class is unknown.
+    """
+    value = _fid.recheck_at(_json(stamped), price, staleness, floor)
+    if value == "never":
+        return None
+    if value == "unknown":
+        raise IndeterminateError("source fidelity indeterminate; no schedule")
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 def chain(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Optional[datetime] = None) -> str:
     """The `fid chain` report: each step's contribution to fidelity."""
     return _fid.chain(_json(stamped), floor, _now(now))
@@ -284,9 +353,10 @@ def half_life(registry_path: str, type: str, state: Optional[str] = None) -> tup
 
 def registry(registry_path: str, type: str, state: Optional[str] = None) -> dict:
     """Everything a half-life registry holds for a type and state, ready to pass to `stamp`:
-    {"half_life", "baseline", "source_fidelity", "echo"}; absent values are None."""
-    h, b, s, e = _fid.half_lives_lookup(registry_path, type, state)
-    return {"half_life": h, "baseline": b, "source_fidelity": s, "echo": None if e is None else json.loads(e)}
+    {"half_life", "baseline", "source_fidelity", "echo", "fast"}; absent values are None."""
+    h, b, s, e, f = _fid.half_lives_lookup(registry_path, type, state)
+    return {"half_life": h, "baseline": b, "source_fidelity": s, "echo": None if e is None else json.loads(e),
+            "fast": None if f is None else json.loads(f)}
 
 
 def noise(model_path: str, transform: str, condition: Optional[str] = None) -> float:

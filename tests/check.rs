@@ -193,3 +193,45 @@ fn ttl_never_and_unknown() {
     assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "unknown");
     assert_eq!(out.status.code(), Some(2));
 }
+
+#[test]
+fn schedule_prints_recheck_time_and_exit_code() {
+    let artifact = stamped(&["--source", "s", "--source-class", "instrument", "--source-fidelity", "1", "--half-life", "1d", "--baseline", "0.1"]);
+    let v: Value = serde_json::from_str(&artifact).unwrap();
+    let measured = chrono::DateTime::parse_from_rfc3339(v["fid"]["measured_at"].as_str().unwrap()).unwrap();
+    let at = |args: &[&str]| {
+        let mut full = vec!["schedule", "-"];
+        full.extend_from_slice(args);
+        let out = fid(&full, &artifact);
+        assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+        let printed = String::from_utf8(out.stdout).unwrap();
+        if printed.trim() == "never" {
+            return f64::INFINITY;
+        }
+        (chrono::DateTime::parse_from_rfc3339(printed.trim()).unwrap() - measured).num_milliseconds() as f64 / 1000.0
+    };
+    let cheap = at(&["--price", "0.0001"]);
+    let dear = at(&["--price", "0.01"]);
+    assert!(cheap > 0.0 && cheap < dear && dear < f64::INFINITY, "{} {}", cheap, dear);
+    assert_eq!(at(&["--price", "1000"]), f64::INFINITY);
+    // the floor guard caps the interval at the TTL: 1d × log2(0.9 / 0.8) for floor 0.9
+    let guarded = at(&["--price", "0.01", "--floor", "0.9"]);
+    assert!((guarded - 86_400.0 * (0.9_f64 / 0.8).log2()).abs() < 1.0, "{}", guarded);
+    // staleness target
+    let s = at(&["--staleness", "0.05"]);
+    assert!(s > 0.0 && s < f64::INFINITY);
+}
+
+#[test]
+fn schedule_errors_exit_3() {
+    let artifact = stamped(&["--source", "s", "--source-class", "instrument", "--half-life", "1d"]);
+    for args in [vec!["schedule", "-"], vec!["schedule", "-", "--price", "0"], vec!["schedule", "-", "--price", "1", "--staleness", "0.1"],
+                 vec!["schedule", "-", "--price", "0.001", "--floor", "2"], vec!["schedule", "-", "--staleness", "0.01"]] {
+        let out = fid(&args, &artifact);
+        assert_eq!(out.status.code(), Some(3), "{:?}: {}", args, stderr(&out));
+    }
+    let unknown = stamped(&["--source", "mystery", "--half-life", "1d"]);
+    let out = fid(&["schedule", "-", "--price", "0.001"], &unknown);
+    assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "unknown");
+    assert_eq!(out.status.code(), Some(2));
+}

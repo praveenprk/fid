@@ -150,6 +150,7 @@ mod tests {
                 baseline: None,
                 source_fidelity: None,
                 echo: None,
+                fast: None,
                 info_type: None,
                 state: None,
                 transforms: steps
