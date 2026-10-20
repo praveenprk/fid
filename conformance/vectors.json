@@ -81,6 +81,69 @@
    ]
   },
   {
+   "input": "PT5M",
+   "seconds": 300.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1D",
+   "seconds": 86400.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P2W",
+   "seconds": 1209600.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1Y2M3DT4H5M6.5S",
+   "seconds": 37091538.5,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "pt90s",
+   "seconds": 90.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P0D",
+   "seconds": 0.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "PT0.5H",
+   "seconds": 1800.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1M",
+   "seconds": 2630016.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "PT1M",
+   "seconds": 60.0,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
    "input": "7days",
    "error": true,
    "sections": [
@@ -138,6 +201,104 @@
   },
   {
    "input": "1e400d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "1e3d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "+5d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": ".5d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "5.d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "1,5d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "5 d",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "PT",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1H",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "PT1D",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1W2D",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1DT",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "P1D1Y",
+   "error": true,
+   "sections": [
+    "durations"
+   ]
+  },
+  {
+   "input": "1P",
    "error": true,
    "sections": [
     "durations"
@@ -202,6 +363,20 @@
    ]
   },
   {
+   "input": "P1D",
+   "seconds": 86400.0,
+   "sections": [
+    "half-lives"
+   ]
+  },
+  {
+   "input": "PT2.4H",
+   "seconds": 8640.0,
+   "sections": [
+    "half-lives"
+   ]
+  },
+  {
    "input": "0d",
    "error": true,
    "sections": [
@@ -238,6 +413,20 @@
   },
   {
    "input": "",
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
+  },
+  {
+   "input": "PT0S",
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
+  },
+  {
+   "input": "1e3d",
    "error": true,
    "sections": [
     "half-lives"
