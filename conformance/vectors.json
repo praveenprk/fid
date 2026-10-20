@@ -1,195 +1,333 @@
 {
  "fid_conformance": "1",
- "spec": "conformance/README.md",
+ "spec": "spec/draft-kumar-fid-00.md",
  "tolerance": 1e-09,
  "parse_duration": [
   {
    "input": "30s",
-   "seconds": 30.0
+   "seconds": 30.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "5m",
-   "seconds": 300.0
+   "seconds": 300.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "6h",
-   "seconds": 21600.0
+   "seconds": 21600.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "7d",
-   "seconds": 604800.0
+   "seconds": 604800.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "3mo",
-   "seconds": 7890048.0
+   "seconds": 7890048.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "3y",
-   "seconds": 94672800.0
+   "seconds": 94672800.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "1.5d",
-   "seconds": 129600.0
+   "seconds": 129600.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "90",
-   "seconds": 90.0
+   "seconds": 90.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "0d",
-   "seconds": 0.0
+   "seconds": 0.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": " 2H ",
-   "seconds": 7200.0
+   "seconds": 7200.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "0.25y",
-   "seconds": 7889400.0
+   "seconds": 7889400.0,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "7days",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "30ms",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "abc",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "-1d",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "inf",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "nan",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "infd",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   },
   {
    "input": "1e400d",
-   "error": true
+   "error": true,
+   "sections": [
+    "durations"
+   ]
   }
  ],
  "parse_half_life": [
   {
    "input": "30s",
-   "seconds": 30.0
+   "seconds": 30.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "6h",
-   "seconds": 21600.0
+   "seconds": 21600.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "7d",
-   "seconds": 604800.0
+   "seconds": 604800.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "3mo",
-   "seconds": 7890048.0
+   "seconds": 7890048.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "5.8y",
-   "seconds": 183034080.0
+   "seconds": 183034080.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "infinite",
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "INF",
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "90",
-   "seconds": 90.0
+   "seconds": 90.0,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "0d",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "0",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "-5h",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "7days",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "nan",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   },
   {
    "input": "",
-   "error": true
+   "error": true,
+   "sections": [
+    "half-lives"
+   ]
   }
  ],
  "source_fidelity": [
   {
    "class": "instrument",
-   "fidelity": 0.97
+   "fidelity": 0.97,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "human_observation",
-   "fidelity": 0.87
+   "fidelity": 0.87,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "human_attestation",
-   "fidelity": 0.8
+   "fidelity": 0.8,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "database",
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "llm_grounded",
-   "fidelity": 0.55
+   "fidelity": 0.55,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "llm_ungrounded",
-   "fidelity": 0.25
+   "fidelity": 0.25,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "hearsay",
-   "fidelity": 0.17
+   "fidelity": 0.17,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "unknown",
-   "fidelity": null
+   "fidelity": null,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "human-observation",
-   "fidelity": 0.87
+   "fidelity": 0.87,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": " Database ",
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "human",
-   "error": true
+   "error": true,
+   "sections": [
+    "source-classes"
+   ]
   },
   {
    "class": "",
-   "error": true
+   "error": true,
+   "sections": [
+    "source-classes"
+   ]
   }
  ],
  "fidelity": [
@@ -200,7 +338,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": 0.0,
-   "fidelity": 0.97
+   "fidelity": 0.97,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "one half-life",
@@ -209,7 +353,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": 0.0,
-   "fidelity": 0.45
+   "fidelity": 0.45,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "two half-lives",
@@ -218,7 +368,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": 0.0,
-   "fidelity": 0.225
+   "fidelity": 0.225,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "noise chain",
@@ -231,7 +387,13 @@
     0.1
    ],
    "baseline": 0.0,
-   "fidelity": 0.70794
+   "fidelity": 0.70794,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "noise and decay",
@@ -242,7 +404,13 @@
     0.1
    ],
    "baseline": 0.0,
-   "fidelity": 0.405
+   "fidelity": 0.405,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline",
@@ -251,7 +419,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": 0.7,
-   "fidelity": 0.8
+   "fidelity": 0.8,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline is the long-run limit",
@@ -260,7 +434,13 @@
    "half_life_seconds": 60.0,
    "noise": [],
    "baseline": 0.73,
-   "fidelity": 0.73
+   "fidelity": 0.73,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline above fidelity is clamped",
@@ -271,7 +451,13 @@
     0.5
    ],
    "baseline": 0.7,
-   "fidelity": 0.25
+   "fidelity": 0.25,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "negative baseline is clamped to 0",
@@ -280,7 +466,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": -0.2,
-   "fidelity": 0.45
+   "fidelity": 0.45,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "negative age does not raise fidelity",
@@ -289,7 +481,13 @@
    "half_life_seconds": 86400.0,
    "noise": [],
    "baseline": 0.0,
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "infinite half-life",
@@ -298,7 +496,13 @@
    "half_life_seconds": null,
    "noise": [],
    "baseline": 0.5,
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "noise above 1 is clamped",
@@ -309,7 +513,13 @@
     1.5
    ],
    "baseline": 0.0,
-   "fidelity": 0.0
+   "fidelity": 0.0,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "negative noise is clamped",
@@ -320,7 +530,13 @@
     -0.3
    ],
    "baseline": 0.0,
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "ceo, 5.8y half-life, 2y old",
@@ -329,7 +545,13 @@
    "half_life_seconds": 183034079.99999997,
    "noise": [],
    "baseline": 0.0,
-   "fidelity": 0.7086618647093603
+   "fidelity": 0.7086618647093603,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "vessel underway, 2.3m",
@@ -338,7 +560,13 @@
    "half_life_seconds": 138.0,
    "noise": [],
    "baseline": 0.73,
-   "fidelity": 0.7417865084965755
+   "fidelity": 0.7417865084965755,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "fractional exponent",
@@ -350,7 +578,13 @@
     0.03
    ],
    "baseline": 0.15,
-   "fidelity": 0.3297974554009331
+   "fidelity": 0.3297974554009331,
+   "sections": [
+    "at-measurement",
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   }
  ],
  "time_to_floor": [
@@ -360,7 +594,11 @@
    "half_life_seconds": 100.0,
    "baseline": 0.0,
    "floor": 0.4,
-   "seconds": 100.0
+   "seconds": 100.0,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "with baseline",
@@ -368,7 +606,11 @@
    "half_life_seconds": 604800.0,
    "baseline": 0.2,
    "floor": 0.7,
-   "seconds": 376748.276236523
+   "seconds": 376748.276236523,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "already below",
@@ -376,7 +618,11 @@
    "half_life_seconds": 3600.0,
    "baseline": 0.0,
    "floor": 0.7,
-   "seconds": 0.0
+   "seconds": 0.0,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "exactly at floor",
@@ -384,7 +630,11 @@
    "half_life_seconds": 3600.0,
    "baseline": 0.0,
    "floor": 0.7,
-   "seconds": 0.0
+   "seconds": 0.0,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "no decay",
@@ -392,7 +642,11 @@
    "half_life_seconds": null,
    "baseline": 0.0,
    "floor": 0.7,
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline above floor",
@@ -400,7 +654,11 @@
    "half_life_seconds": 3600.0,
    "baseline": 0.73,
    "floor": 0.7,
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline equal to floor",
@@ -408,7 +666,11 @@
    "half_life_seconds": 3600.0,
    "baseline": 0.7,
    "floor": 0.7,
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "ceo 5.8y to 0.5",
@@ -416,7 +678,11 @@
    "half_life_seconds": 183034079.99999997,
    "baseline": 0.0,
    "floor": 0.5,
-   "seconds": 155212333.63413122
+   "seconds": 155212333.63413122,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   }
  ],
  "echo": [
@@ -433,7 +699,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 1.0
+   "fidelity": 1.0,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "half a day: trough",
@@ -448,7 +719,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.18626352061295315
+   "fidelity": 0.18626352061295315,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "one day: first return",
@@ -463,7 +739,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.39083676442446563
+   "fidelity": 0.39083676442446563,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "between returns",
@@ -478,7 +759,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.22383267623170994
+   "fidelity": 0.22383267623170994,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "a week: faded returns",
@@ -493,7 +779,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.3270564173069617
+   "fidelity": 0.3270564173069617,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "with source and noise",
@@ -510,7 +801,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.36730149315168337
+   "fidelity": 0.36730149315168337,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "never fades",
@@ -525,7 +821,12 @@
     "width": "2h",
     "fade": "infinite"
    },
-   "fidelity": 0.4502197802066803
+   "fidelity": 0.4502197802066803,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "strong echo is capped at 1",
@@ -540,7 +841,12 @@
     "width": "0.5h",
     "fade": "infinite"
    },
-   "fidelity": 1.0
+   "fidelity": 1.0,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "negative age counts as zero",
@@ -555,7 +861,12 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "fidelity": 0.9
+   "fidelity": 0.9,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   }
  ],
  "echo_time_to_floor": [
@@ -571,7 +882,11 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "seconds": 10930.792164843422
+   "seconds": 10930.792164843422,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "temperature to 0.3",
@@ -585,7 +900,11 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "seconds": 21216.23979019633
+   "seconds": 21216.23979019633,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "floor under the baseline",
@@ -599,7 +918,11 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "already below",
@@ -613,7 +936,11 @@
     "width": "3.75h",
     "fade": "345h"
    },
-   "seconds": 0.0
+   "seconds": 0.0,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   }
  ],
  "echo_errors": [
@@ -624,7 +951,10 @@
     "width": "12h",
     "fade": "10d"
    },
-   "error": "width not under half the period"
+   "error": "width not under half the period",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "echo": {
@@ -633,7 +963,10 @@
     "width": "3h",
     "fade": "10d"
    },
-   "error": "negative strength"
+   "error": "negative strength",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "echo": {
@@ -642,7 +975,10 @@
     "width": "3h",
     "fade": "10d"
    },
-   "error": "infinite period"
+   "error": "infinite period",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "echo": {
@@ -651,7 +987,10 @@
     "width": "0h",
     "fade": "10d"
    },
-   "error": "zero width"
+   "error": "zero width",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "echo": {
@@ -660,7 +999,10 @@
     "width": "3h",
     "fade": "0h"
    },
-   "error": "zero fade"
+   "error": "zero fade",
+   "sections": [
+    "temporal"
+   ]
   }
  ],
  "fast": [
@@ -676,7 +1018,12 @@
    },
    "echo": null,
    "shape": null,
-   "fidelity": 1.0
+   "fidelity": 1.0,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "three days: the fast share half gone",
@@ -690,7 +1037,12 @@
    },
    "echo": null,
    "shape": null,
-   "fidelity": 0.8488353914570754
+   "fidelity": 0.8488353914570754,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "a year: only the slow clock",
@@ -704,7 +1056,12 @@
    },
    "echo": null,
    "shape": null,
-   "fidelity": 0.12577317587764275
+   "fidelity": 0.12577317587764275,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "zero share is plain decay",
@@ -718,7 +1075,12 @@
    },
    "echo": null,
    "shape": null,
-   "fidelity": 0.9170040432046712
+   "fidelity": 0.9170040432046712,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "whole share is the fast clock",
@@ -732,7 +1094,12 @@
    },
    "echo": null,
    "shape": null,
-   "fidelity": 0.09921256574801246
+   "fidelity": 0.09921256574801246,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "with an echo",
@@ -751,7 +1118,12 @@
     "fade": "345h"
    },
    "shape": null,
-   "fidelity": 0.3906568243881969
+   "fidelity": 0.3906568243881969,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "shape: a moving ship, one minute",
@@ -762,7 +1134,12 @@
    "fast": null,
    "echo": null,
    "shape": 3.0,
-   "fidelity": 0.9754149708487582
+   "fidelity": 0.9754149708487582,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "shape: a moving ship, five minutes",
@@ -773,7 +1150,12 @@
    "fast": null,
    "echo": null,
    "shape": 3.0,
-   "fidelity": 0.06918450337943348
+   "fidelity": 0.06918450337943348,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "shape below 1: falls fast, lingers",
@@ -784,7 +1166,12 @@
    "fast": null,
    "echo": null,
    "shape": 0.5,
-   "fidelity": 0.6567896897935249
+   "fidelity": 0.6567896897935249,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "shape with two clocks",
@@ -798,7 +1185,12 @@
    },
    "echo": null,
    "shape": 2.5,
-   "fidelity": 0.5085107567974743
+   "fidelity": 0.5085107567974743,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   },
   {
    "name": "shape with an echo",
@@ -814,7 +1206,12 @@
     "fade": "345h"
    },
    "shape": 1.7,
-   "fidelity": 0.38993706424311997
+   "fidelity": 0.38993706424311997,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
   }
  ],
  "fast_time_to_floor": [
@@ -830,7 +1227,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": 152530.85080758715
+   "seconds": 152530.85080758715,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "package to 0.5",
@@ -844,7 +1245,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": 4529828.756258252
+   "seconds": 4529828.756258252,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "floor under the baseline",
@@ -858,7 +1263,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "already below",
@@ -872,7 +1281,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": 0.0
+   "seconds": 0.0,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "with an echo",
@@ -891,7 +1304,11 @@
     "fade": "345h"
    },
    "shape": null,
-   "seconds": 8346.071571763187
+   "seconds": 8346.071571763187,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "shape: a moving ship to 0.9",
@@ -902,7 +1319,11 @@
    "fast": null,
    "echo": null,
    "shape": 3.0,
-   "seconds": 97.09811264776397
+   "seconds": 97.09811264776397,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "shape below 1 to 0.5",
@@ -913,7 +1334,11 @@
    "fast": null,
    "echo": null,
    "shape": 0.5,
-   "seconds": 2443107.2726351353
+   "seconds": 2443107.2726351353,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   },
   {
    "name": "shape with two clocks to 0.7",
@@ -927,7 +1352,11 @@
    },
    "echo": null,
    "shape": 2.5,
-   "seconds": 174.67446683090864
+   "seconds": 174.67446683090864,
+   "sections": [
+    "time-to-floor",
+    "tolerances"
+   ]
   }
  ],
  "fast_errors": [
@@ -937,7 +1366,10 @@
     "half_life": "3d"
    },
    "half_life_seconds": 6912000.0,
-   "error": "share above 1"
+   "error": "share above 1",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "fast": {
@@ -945,7 +1377,10 @@
     "half_life": "3d"
    },
    "half_life_seconds": 6912000.0,
-   "error": "negative share"
+   "error": "negative share",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "fast": {
@@ -953,7 +1388,10 @@
     "half_life": "infinite"
    },
    "half_life_seconds": 6912000.0,
-   "error": "infinite fast half-life"
+   "error": "infinite fast half-life",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "fast": {
@@ -961,7 +1399,10 @@
     "half_life": "90d"
    },
    "half_life_seconds": 6912000.0,
-   "error": "fast half-life not shorter"
+   "error": "fast half-life not shorter",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "fast": {
@@ -969,29 +1410,44 @@
     "half_life": "3d"
    },
    "half_life_seconds": null,
-   "error": "no finite half-life"
+   "error": "no finite half-life",
+   "sections": [
+    "temporal"
+   ]
   }
  ],
  "shape_errors": [
   {
    "shape": 0.0,
    "half_life_seconds": 3600.0,
-   "error": "zero shape"
+   "error": "zero shape",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "shape": -1.0,
    "half_life_seconds": 3600.0,
-   "error": "negative shape"
+   "error": "negative shape",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "shape": 11.0,
    "half_life_seconds": 3600.0,
-   "error": "shape above 10"
+   "error": "shape above 10",
+   "sections": [
+    "temporal"
+   ]
   },
   {
    "shape": 2.0,
    "half_life_seconds": null,
-   "error": "no finite half-life"
+   "error": "no finite half-life",
+   "sections": [
+    "temporal"
+   ]
   }
  ],
  "schedule": [
@@ -1005,7 +1461,11 @@
    "echo": null,
    "shape": null,
    "seconds": 1553.4523859422802,
-   "cost": 0.011146763351484481
+   "cost": 0.011146763351484481,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "one day half-life, dear re-checks",
@@ -1017,7 +1477,11 @@
    "echo": null,
    "shape": null,
    "seconds": 16149.095432978627,
-   "cost": 0.10936370740476353
+   "cost": 0.10936370740476353,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "too dear: never",
@@ -1029,7 +1493,11 @@
    "echo": null,
    "shape": null,
    "seconds": null,
-   "cost": 0.9
+   "cost": 0.9,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "two clocks",
@@ -1044,7 +1512,11 @@
    "echo": null,
    "shape": null,
    "seconds": 15018.605982397303,
-   "cost": 0.01157711128374447
+   "cost": 0.01157711128374447,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "source below 1",
@@ -1056,7 +1528,11 @@
    "echo": null,
    "shape": null,
    "seconds": 12659.082576931312,
-   "cost": 0.0636833647905159
+   "cost": 0.0636833647905159,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "temperature with its echo",
@@ -1073,7 +1549,11 @@
    },
    "shape": null,
    "seconds": 1653.264538293901,
-   "cost": 0.10387973362532948
+   "cost": 0.10387973362532948,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "a moving ship, shape 3",
@@ -1085,7 +1565,11 @@
    "echo": null,
    "shape": 3.0,
    "seconds": 101.7719894134881,
-   "cost": 0.11422036717650745
+   "cost": 0.11422036717650745,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "shape with two clocks",
@@ -1100,7 +1584,11 @@
    "echo": null,
    "shape": 2.5,
    "seconds": 109.17903135323104,
-   "cost": 0.1125620797227266
+   "cost": 0.1125620797227266,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   }
  ],
  "staleness_target": [
@@ -1113,7 +1601,11 @@
    "fast": null,
    "echo": null,
    "shape": null,
-   "seconds": 14387.841349840426
+   "seconds": 14387.841349840426,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "two clocks, 5%",
@@ -1127,7 +1619,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": 142602.94331361173
+   "seconds": 142602.94331361173,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "two clocks, 20%",
@@ -1141,7 +1637,11 @@
    },
    "echo": null,
    "shape": null,
-   "seconds": 871306.5213439886
+   "seconds": 871306.5213439886,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "baseline already under the target: never",
@@ -1152,7 +1652,11 @@
    "fast": null,
    "echo": null,
    "shape": null,
-   "seconds": null
+   "seconds": null,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   },
   {
    "name": "a moving ship, shape 3, 5%",
@@ -1163,7 +1667,11 @@
    "fast": null,
    "echo": null,
    "shape": 3.0,
-   "seconds": 122.64246894390956
+   "seconds": 122.64246894390956,
+   "sections": [
+    "staleness",
+    "tolerances"
+   ]
   }
  ],
  "integrity": [
@@ -1172,7 +1680,11 @@
     "reading": 42
    },
    "canonical": "{\"reading\":42}",
-   "hash": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+   "hash": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": {
@@ -1180,7 +1692,11 @@
     "a": 2
    },
    "canonical": "{\"a\":2,\"b\":1}",
-   "hash": "sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"
+   "hash": "sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": {
@@ -1195,7 +1711,11 @@
     "flag": true
    },
    "canonical": "{\"flag\":true,\"nested\":{\"a\":null,\"z\":[3,2,1]}}",
-   "hash": "sha256:897c6e964d74d321e36518a76d71c51dc051d7a0643711044606974c347a5b88"
+   "hash": "sha256:897c6e964d74d321e36518a76d71c51dc051d7a0643711044606974c347a5b88",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": {
@@ -1203,12 +1723,20 @@
     "city": "München"
    },
    "canonical": "{\"city\":\"München\",\"name\":\"Zoë\"}",
-   "hash": "sha256:f70756f801f81748663b3671b07b623c6573c69c0667f473bdbe84a292d653eb"
+   "hash": "sha256:f70756f801f81748663b3671b07b623c6573c69c0667f473bdbe84a292d653eb",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": "plain text",
    "canonical": "\"plain text\"",
-   "hash": "sha256:86696ae0a7dd4789bb5a8256f0a58a13243fe65bafb37c44f3c73e2228fd78b7"
+   "hash": "sha256:86696ae0a7dd4789bb5a8256f0a58a13243fe65bafb37c44f3c73e2228fd78b7",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": [
@@ -1217,7 +1745,11 @@
     3.5
    ],
    "canonical": "[1,\"two\",3.5]",
-   "hash": "sha256:0e4641b18f79b78ebc38cec3afc14cfb23bc9a4e1fc9465b45e0d99ec90ea980"
+   "hash": "sha256:0e4641b18f79b78ebc38cec3afc14cfb23bc9a4e1fc9465b45e0d99ec90ea980",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": {
@@ -1225,7 +1757,11 @@
     "y": -2.5e-07
    },
    "canonical": "{\"x\":0.1,\"y\":-2.5e-7}",
-   "hash": "sha256:953ccd26ffe0ca76776f5cbe5bbed35109838444d400334a866f45339651c83b"
+   "hash": "sha256:953ccd26ffe0ca76776f5cbe5bbed35109838444d400334a866f45339651c83b",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": [
@@ -1238,7 +1774,11 @@
     5e-324
    ],
    "canonical": "[0.0001,0.00001,0.000015,-0.00003,9.99e-6,1e-7,5e-324]",
-   "hash": "sha256:8434b79d4b750b88f0bc7a9c0cde1fc076c3b1631b666f9a80f59f8f21db62c1"
+   "hash": "sha256:8434b79d4b750b88f0bc7a9c0cde1fc076c3b1631b666f9a80f59f8f21db62c1",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": [
@@ -1251,7 +1791,11 @@
     100.0
    ],
    "canonical": "[1000000000000000.0,1e+16,2e+16,1.2345678901234567e+20,1.7976931348623157e+308,1.0,100.0]",
-   "hash": "sha256:ece107a775ad8b94486c04bdba0600f3f9650f1bfe7a58493926564b75a1d83c"
+   "hash": "sha256:ece107a775ad8b94486c04bdba0600f3f9650f1bfe7a58493926564b75a1d83c",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   },
   {
    "content": {
@@ -1260,7 +1804,11 @@
     "ctrl": "\u0001"
    },
    "canonical": "{\"ctrl\":\"\\u0001\",\"quote\":\"a \\\"b\\\" \\\\ c\",\"tab\":\"\\t\"}",
-   "hash": "sha256:37c96aaae5b9cb74600515b3d3d0dac833f5e93b12dfbffd59c77b3ce270d291"
+   "hash": "sha256:37c96aaae5b9cb74600515b3d3d0dac833f5e93b12dfbffd59c77b3ce270d291",
+   "sections": [
+    "integrity",
+    "legacy-canonical"
+   ]
   }
  ],
  "envelope": [
@@ -1287,7 +1835,14 @@
    "status": "SIGNAL",
    "fidelity": 0.97,
    "integrity_ok": true,
-   "expires_at": "2026-01-04T07:03:56.918Z"
+   "expires_at": "2026-01-04T07:03:56.918Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "instrument, 7 days",
@@ -1312,7 +1867,14 @@
    "status": "NOISE",
    "fidelity": 0.485,
    "integrity_ok": true,
-   "expires_at": "2026-01-04T07:03:56.918Z"
+   "expires_at": "2026-01-04T07:03:56.918Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "database ceo, 3 years",
@@ -1338,7 +1900,14 @@
    "status": "SIGNAL",
    "fidelity": 0.6289902502398111,
    "integrity_ok": true,
-   "expires_at": "2030-12-02T10:32:13.634Z"
+   "expires_at": "2030-12-02T10:32:13.634Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "baseline keeps it above the floor",
@@ -1367,7 +1936,14 @@
    "status": "SIGNAL",
    "fidelity": 0.73,
    "integrity_ok": true,
-   "expires_at": "never"
+   "expires_at": "never",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "transform chain",
@@ -1403,7 +1979,15 @@
    "status": "SIGNAL",
    "fidelity": 0.5071165790380155,
    "integrity_ok": true,
-   "expires_at": "2026-01-19T14:40:49.185Z"
+   "expires_at": "2026-01-19T14:40:49.185Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "at-measurement"
+   ]
   },
   {
    "name": "conditioned transform",
@@ -1435,7 +2019,15 @@
    "status": "NOISE",
    "fidelity": 0.5946408169894669,
    "integrity_ok": true,
-   "expires_at": "2026-01-01T01:41:21.638Z"
+   "expires_at": "2026-01-01T01:41:21.638Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "at-measurement"
+   ]
   },
   {
    "name": "no half-life never decays",
@@ -1460,7 +2052,15 @@
    "status": "SIGNAL",
    "fidelity": 0.9,
    "integrity_ok": true,
-   "expires_at": "never"
+   "expires_at": "never",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ],
+   "deviation_issue": 9
   },
   {
    "name": "exactly at the floor is SIGNAL",
@@ -1485,7 +2085,15 @@
    "status": "SIGNAL",
    "fidelity": 0.485,
    "integrity_ok": true,
-   "expires_at": "2026-01-02T00:00:00.000Z"
+   "expires_at": "2026-01-02T00:00:00.000Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "time-to-floor"
+   ]
   },
   {
    "name": "unknown source",
@@ -1510,7 +2118,15 @@
    "status": "UNKNOWN",
    "fidelity": null,
    "integrity_ok": true,
-   "expires_at": "unknown"
+   "expires_at": "unknown",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "source-classes"
+   ]
   },
   {
    "name": "content changed since stamp",
@@ -1535,7 +2151,15 @@
    "status": "UNKNOWN",
    "fidelity": 0.97,
    "integrity_ok": false,
-   "expires_at": "2026-01-07T16:37:03.063Z"
+   "expires_at": "2026-01-07T16:37:03.063Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "integrity"
+   ]
   },
   {
    "name": "clock skew: now before measured_at",
@@ -1560,7 +2184,14 @@
    "status": "SIGNAL",
    "fidelity": 0.97,
    "integrity_ok": true,
-   "expires_at": "2026-01-01T00:06:29.015Z"
+   "expires_at": "2026-01-01T00:06:29.015Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "version 0.1 envelope (no baseline field)",
@@ -1585,7 +2216,15 @@
    "status": "SIGNAL",
    "fidelity": 0.45,
    "integrity_ok": true,
-   "expires_at": "2026-02-05T02:20:45.604Z"
+   "expires_at": "2026-02-05T02:20:45.604Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
   },
   {
    "name": "already below at measurement",
@@ -1610,7 +2249,14 @@
    "status": "NOISE",
    "fidelity": 0.25,
    "integrity_ok": true,
-   "expires_at": "2026-01-01T00:00:00.000Z"
+   "expires_at": "2026-01-01T00:00:00.000Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "hearsay, months",
@@ -1635,7 +2281,14 @@
    "status": "SIGNAL",
    "fidelity": 0.1208118590814183,
    "integrity_ok": true,
-   "expires_at": "2026-03-11T21:48:25.894Z"
+   "expires_at": "2026-03-11T21:48:25.894Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "measured source fidelity replaces the class constant",
@@ -1662,7 +2315,15 @@
    "status": "NOISE",
    "fidelity": 0.45999999999999996,
    "integrity_ok": true,
-   "expires_at": "2026-01-21T08:12:42.378Z"
+   "expires_at": "2026-01-21T08:12:42.378Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "source-classes"
+   ]
   },
   {
    "name": "echo: a day-old temperature is back above the floor",
@@ -1695,7 +2356,14 @@
    "status": "SIGNAL",
    "fidelity": 0.3818423932374151,
    "integrity_ok": true,
-   "expires_at": "2026-01-01T05:45:33.712Z"
+   "expires_at": "2026-01-01T05:45:33.712Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "echo: half a day old it is not",
@@ -1728,7 +2396,14 @@
    "status": "NOISE",
    "fidelity": 0.18432339921250648,
    "integrity_ok": true,
-   "expires_at": "2026-01-01T05:45:33.712Z"
+   "expires_at": "2026-01-01T05:45:33.712Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "measured source fidelity, unknown class stays unknown",
@@ -1754,7 +2429,15 @@
    "status": "UNKNOWN",
    "fidelity": null,
    "integrity_ok": true,
-   "expires_at": "unknown"
+   "expires_at": "unknown",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "source-classes"
+   ]
   },
   {
    "name": "fast share: a week-old release",
@@ -1786,7 +2469,14 @@
    "status": "NOISE",
    "fidelity": 0.7465006900921197,
    "integrity_ok": true,
-   "expires_at": "2026-01-05T13:12:31.394Z"
+   "expires_at": "2026-01-05T13:12:31.394Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   },
   {
    "name": "fast share: three months old",
@@ -1818,7 +2508,14 @@
    "status": "NOISE",
    "fidelity": 0.38885627386092847,
    "integrity_ok": true,
-   "expires_at": "2026-02-22T10:17:08.756Z"
+   "expires_at": "2026-02-22T10:17:08.756Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry"
+   ]
   }
  ],
  "ledger_csv": [
@@ -1837,6 +2534,9 @@
      "correct": false,
      "state": null
     }
+   ],
+   "sections": [
+    "ledger"
    ]
   },
   {
@@ -1854,6 +2554,9 @@
      "correct": false,
      "state": "moored"
     }
+   ],
+   "sections": [
+    "ledger"
    ]
   },
   {
@@ -1871,6 +2574,9 @@
      "correct": false,
      "state": null
     }
+   ],
+   "sections": [
+    "ledger"
    ]
   },
   {
@@ -1888,43 +2594,73 @@
      "correct": false,
      "state": null
     }
+   ],
+   "sections": [
+    "ledger"
    ]
   },
   {
    "csv": "entity,correct\nq1,true\n",
-   "error": "no age column"
+   "error": "no age column",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,age\nq1,1d\n",
-   "error": "no correct column"
+   "error": "no correct column",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "age,correct\n1d,true\n",
-   "error": "no entity column"
+   "error": "no entity column",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,age,observed_at,checked_at,correct\nq1,1d,2026-01-01T00:00:00Z,2026-01-02T00:00:00Z,true\n",
-   "error": "both age and times"
+   "error": "both age and times",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,age,correct\nq1,1d,maybe\n",
-   "error": "correct not a boolean"
+   "error": "correct not a boolean",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,age,correct\n,1d,true\n",
-   "error": "empty entity"
+   "error": "empty entity",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,age,correct\nq1,-1d,true\n",
-   "error": "negative age"
+   "error": "negative age",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,observed_at,checked_at,correct\nq1,2026-01-02T00:00:00Z,2026-01-01T00:00:00Z,true\n",
-   "error": "checked before observed"
+   "error": "checked before observed",
+   "sections": [
+    "ledger"
+   ]
   },
   {
    "csv": "entity,observed_at,checked_at,correct\nq1,2026-01-01,2026-01-02,true\n",
-   "error": "dates without times"
+   "error": "dates without times",
+   "sections": [
+    "ledger"
+   ]
   }
  ],
  "ledger_example": {
@@ -1936,6 +2672,9 @@
    "half_life_days": 30.0
   },
   "half_life_within": 0.1,
-  "baseline_within": 0.05
+  "baseline_within": 0.05,
+  "sections": [
+   "calibrator"
+  ]
  }
 }

@@ -216,6 +216,7 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_fast_share_is_stamped_and_inherited() {
         let mut o = opts("pypi");
@@ -234,6 +235,7 @@ mod tests {
         serde_json::to_string(&out.stamped).unwrap()
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_json_content() {
         let o = StampOptions {
@@ -253,12 +255,14 @@ mod tests {
         assert!(out.warnings.is_empty());
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_text_content_is_string() {
         let out = stamp("hello\n", &opts("x"), None, t0()).unwrap();
         assert_eq!(out.stamped.content, Value::String("hello\n".to_string()));
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_with_noise_records_step() {
         let o = StampOptions {
@@ -273,6 +277,7 @@ mod tests {
         assert!((f - 0.90 * 0.90).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_unknown_source_is_indeterminate() {
         let out = stamp("{}", &opts("mystery"), None, t0()).unwrap();
@@ -280,6 +285,7 @@ mod tests {
         assert_eq!(out.stamped.fid.fid_at_stamp, None);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_appends_to_chain() {
         let root = StampOptions {
@@ -306,6 +312,7 @@ mod tests {
         assert!((f - 0.97 * 0.5 * 0.90).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_ignores_source_class_with_warning() {
         let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Instrument), ..opts("s") }, None, t0()).unwrap();
@@ -315,6 +322,7 @@ mod tests {
         assert_eq!(second.warnings.len(), 1);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_half_life_override() {
         let first = stamp("{}", &StampOptions { half_life: Some("1d".into()), ..opts("s") }, None, t0()).unwrap();
@@ -323,6 +331,7 @@ mod tests {
         assert_eq!(second.stamped.fid.half_life.as_deref(), Some("1y"));
     }
 
+    // spec: stamping
     #[test]
     fn test_derived_from_file_is_upstream() {
         let upstream = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("db") }, None, t0()).unwrap();
@@ -339,6 +348,7 @@ mod tests {
         assert_eq!(out.stamped.content, Value::String("plain text".into()));
     }
 
+    // spec: stamping
     #[test]
     fn test_stdin_envelope_beats_derived_from() {
         let a = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("a") }, None, t0()).unwrap();
@@ -348,12 +358,14 @@ mod tests {
         assert_eq!(out.warnings.len(), 1);
     }
 
+    // spec: stamping
     #[test]
     fn test_malformed_envelope_is_error() {
         let err = stamp(r#"{"fid": {"oops": 1}, "content": 1}"#, &opts("x"), None, t0()).unwrap_err();
         assert!(err.contains("not a valid fid-stamped artifact"));
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_noise_is_error() {
         for noise in [-0.1, 1.5, f64::NAN] {
@@ -361,12 +373,14 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_half_life_is_error() {
         let o = StampOptions { half_life: Some("7days".into()), ..opts("x") };
         assert!(stamp("{}", &o, None, t0()).is_err());
     }
 
+    // spec: stamping
     #[test]
     fn test_root_records_type_state_baseline() {
         let o = StampOptions {
@@ -384,6 +398,7 @@ mod tests {
         assert_eq!(env.state.as_deref(), Some("vfr"));
     }
 
+    // spec: stamping
     #[test]
     fn test_baseline_slows_decay_at_stamp() {
         let root = StampOptions {
@@ -398,6 +413,7 @@ mod tests {
         assert!((later.stamped.fid.fid_at_stamp.unwrap() - 0.80).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_inherits_and_overrides_state() {
         let root = StampOptions { state: Some("underway".into()), baseline: Some(0.1), ..opts("ais") };
@@ -410,6 +426,7 @@ mod tests {
         assert_eq!(second.stamped.fid.state.as_deref(), Some("moored"));
     }
 
+    // spec: stamping
     #[test]
     fn test_condition_recorded_on_step() {
         let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("schedule") }, None, t0()).unwrap();
@@ -418,6 +435,7 @@ mod tests {
         assert_eq!(second.stamped.fid.transforms[0].condition.as_deref(), Some("previous_leg_late"));
     }
 
+    // spec: stamping
     #[test]
     fn test_root_records_measured_source_fidelity() {
         let o = StampOptions {
@@ -431,6 +449,7 @@ mod tests {
         assert!(out.warnings.is_empty());
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_keeps_upstream_source_fidelity() {
         let root = StampOptions { source_class: Some(SourceClass::Database), source_fidelity: Some(0.62), ..opts("crm") };
@@ -445,6 +464,7 @@ mod tests {
         assert_eq!(ignored.warnings.len(), 1);
     }
 
+    // spec: stamping
     #[test]
     fn test_measured_source_fidelity_with_unknown_class_warns() {
         let o = StampOptions { source_fidelity: Some(0.9), ..opts("x") };
@@ -453,6 +473,7 @@ mod tests {
         assert!(out.warnings[0].contains("source class is unknown"));
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_source_fidelity_is_error() {
         for f in [-0.1, 1.1, f64::NAN] {
@@ -461,6 +482,7 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_baseline_is_error() {
         for baseline in [-0.1, 1.1, f64::NAN] {
@@ -469,6 +491,7 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_integrity_tracks_new_content() {
         let first = stamp(r#"{"v": 1}"#, &opts("s"), None, t0()).unwrap();

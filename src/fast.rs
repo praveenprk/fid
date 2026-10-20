@@ -483,6 +483,7 @@ mod tests {
         }
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_recovers_two_clocks() {
         let truth = release();
@@ -547,6 +548,7 @@ mod tests {
         out
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_recovers_a_shape() {
         let truth = ship();
@@ -563,6 +565,7 @@ mod tests {
         );
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_one_clock_is_not_kept() {
         let truth = Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY };

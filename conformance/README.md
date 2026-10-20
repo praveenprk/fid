@@ -18,7 +18,8 @@ Python, JavaScript — instead of calling fid.
 fid's Rust tests (`tests/conformance.rs`) and Python tests
 (`bindings/python/tests/test_conformance.py`) run every vector, so fid
 and `generate.py` have to agree. CI regenerates the file and fails if it
-changes. Change the draft, then `generate.py`, then fid.
+changes. Change the draft, then `generate.py`, then fid. Every vector
+carries `sections`, the draft anchors it tests; `spec/trace.py` checks them.
 
 Floating-point results must match within `tolerance` (1e-9); durations
 within 1e-6 s.

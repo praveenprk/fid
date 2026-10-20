@@ -16,6 +16,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Conformance vectors match the spec
         run: python3 conformance/generate.py && git diff --exit-code conformance/
+      - name: Every requirement in the draft is tested or a listed gap
+        run: python3 spec/trace.py && git diff --exit-code spec/TRACEABILITY.md
       - run: cargo test
 
   python:

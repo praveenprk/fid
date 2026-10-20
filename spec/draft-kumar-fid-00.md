@@ -399,7 +399,7 @@ states a different bound.
 
 # The Fidelity Envelope {#envelope}
 
-## Structure
+## Structure {#structure}
 
 A stamped artifact is a JSON object {{RFC8259}} with exactly two
 members:
@@ -535,7 +535,7 @@ recheck_at(artifact, price p \| staleness S, floor F?) is
 
 # Registries {#registries}
 
-## Half-life registry
+## Half-life registry {#half-life-registry}
 
 A half-life registry is a YAML 1.2 {{YAML}} mapping from information
 type to an entry. An entry is either a half-life string, or a mapping
@@ -566,7 +566,7 @@ fail closed: an unknown type, an unknown state, a state requested for a
 type without states, or no state requested for a type whose own entry
 has no half-life MUST be errors, never defaults.
 
-## Noise model
+## Noise model {#noise-model}
 
 A noise model is a YAML mapping from transform name to either a unit
 number, or `{noise, conditions}` with `conditions` mapping a condition
@@ -596,7 +596,7 @@ SHOULD sample re-checks at random rather than by suspicion
 
 # Calibration {#calibration}
 
-## Requirements on any calibrator
+## Requirements on any calibrator {#calibrator}
 
 A calibrator reads a ledger and writes a registry entry per state.
 
@@ -623,7 +623,7 @@ A calibrator reads a ledger and writes a registry entry per state.
 How the likelihood is maximized (grid, simplex, starting points) is not
 specified; the acceptance tests judge the outcome.
 
-## Reference procedure
+## Reference procedure {#reference-procedure}
 
 The procedure of the reference implementation. A calibrator MAY use
 other estimators and settings if it meets the requirements above.
@@ -696,7 +696,7 @@ kept on one-clock truths in 1 of 40 ledgers, a shape in 20 of 20, two
 clocks in 20 of 20 (fid 0.4). They bind every later change. The "right
 curve" test has not yet been run in this form ({{deviations}}).
 
-## Drift
+## Drift {#drift}
 
 A drift test compares a registry entry with recent re-checks by a
 likelihood ratio on the raw checks, with degrees of freedom equal to
