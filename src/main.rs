@@ -190,6 +190,12 @@ enum Commands {
         /// echo is written only if it beats plain decay on held-out data
         #[arg(long)]
         period: Option<String>,
+
+        /// Also write each entity's own baseline to this CSV (entity, state,
+        /// baseline, raw, stale_checks), shrunk toward the type's; pass it to
+        /// `fid stamp --baseline` for that entity's facts
+        #[arg(long)]
+        entity_baselines: Option<String>,
     },
 
     /// Test a registry against recent re-checks; exit 0 current, 1 drifted, 2 unknown
@@ -288,8 +294,8 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Calibrate { path, info_type, max_spread, period }) => {
-            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref()) {
+        Some(Commands::Calibrate { path, info_type, max_spread, period, entity_baselines }) => {
+            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref(), entity_baselines.as_deref()) {
                 eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
@@ -422,12 +428,28 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
 }
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
-fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>) -> Result<(), String> {
+fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>, entity_baselines: Option<&str>) -> Result<(), String> {
     let period = period
         .map(|p| fid::compute::parse_half_life(p)?.ok_or_else(|| "--period cannot be infinite".to_string()))
         .transpose()?;
-    let fits = fid::calibrate::calibrate_periodic(&read_ledger(path)?, max_spread, period)?;
+    let obs = read_ledger(path)?;
+    let fits = fid::calibrate::calibrate_periodic(&obs, max_spread, period)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
+    if let Some(out) = entity_baselines {
+        let (rows, spreads) = fid::calibrate::entity_baselines(&obs, &fits);
+        std::fs::write(out, fid::calibrate::entity_baselines_csv(&rows)).map_err(|e| format!("cannot write {}: {}", out, e))?;
+        for s in spreads {
+            eprintln!(
+                "{}{}: baseline {:.2}, spread between entities {:.3} (sd, {} entities with stale checks) → {}",
+                info_type,
+                s.state.map(|st| format!(" / {}", st)).unwrap_or_default(),
+                s.baseline,
+                s.between,
+                s.entities,
+                out
+            );
+        }
+    }
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
 }

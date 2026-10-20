@@ -561,6 +561,123 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
     })
 }
 
+// ── baselines per entity ───────────────────────────────────────────────
+
+/// A check is stale while the decay factor is at most this.
+pub const STALE_DECAY: f64 = 0.1;
+
+/// One entity's own baseline: the chance its stale facts are right anyway.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityBaseline {
+    pub entity: String,
+    pub state: Option<String>,
+    /// Shrunk toward the state's baseline by how much entities differ
+    pub baseline: f64,
+    /// The entity's own estimate, before shrinking
+    pub raw: f64,
+    /// Its stale checks
+    pub stale_checks: usize,
+}
+
+/// How much baselines differ between entities, for one state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BaselineSpread {
+    pub state: Option<String>,
+    /// The state's baseline, from its fit
+    pub baseline: f64,
+    /// Standard deviation of true baselines across entities; 0 when the data show none
+    pub between: f64,
+    /// Entities with stale checks
+    pub entities: usize,
+}
+
+/// The decay factor the fit uses at `age`: the kept fast share or echo's curve, else one clock.
+fn decay_factor(f: &StateFit, age: f64) -> f64 {
+    if let Some(e) = f.kept_echo() {
+        let m = &e.model;
+        return crate::compute::temporal_factor(age, Some(m.half_life), Some(&m.echo));
+    }
+    if let Some(fast) = f.kept_fast() {
+        return fast.model.decay(age);
+    }
+    if f.model.half_life.is_infinite() {
+        1.0
+    } else {
+        0.5_f64.powf(age.max(0.0) / f.model.half_life)
+    }
+}
+
+/// Each entity's baseline from its own stale checks, shrunk toward the
+/// state's (empirical Bayes, beta-binomial).
+///
+/// A stale check (decay factor d ≤ 0.1) is right with chance
+/// b_e + (s0 − b_e) × d, so b_e is estimated as (k − s0 Σd) / Σ(1 − d).
+/// The spread of true baselines, τ², is the variance of those estimates
+/// less their sampling variance; shrinking weights an entity's estimate by
+/// n / (n + κ) with κ = b(1 − b) / τ² − 1. With no spread in the data
+/// (τ² ≤ 0) every entity gets the state's baseline.
+pub fn entity_baselines(obs: &[Observation], fits: &[StateFit]) -> (Vec<EntityBaseline>, Vec<BaselineSpread>) {
+    let mut out = Vec::new();
+    let mut spreads = Vec::new();
+    for f in fits {
+        let (s0, b) = match (f.kept_echo(), f.kept_fast()) {
+            (Some(e), _) => (e.model.s0, e.model.baseline),
+            (None, Some(fast)) => (fast.model.s0, fast.model.baseline),
+            _ => (f.model.s0, f.model.baseline),
+        };
+        // (k, Σd, Σ(1 − d), n) per entity
+        let mut per: BTreeMap<&str, (f64, f64, f64, usize)> = BTreeMap::new();
+        for o in obs.iter().filter(|o| o.state == f.state) {
+            let d = decay_factor(f, o.age);
+            if d > STALE_DECAY {
+                continue;
+            }
+            let e = per.entry(o.entity.as_str()).or_insert((0.0, 0.0, 0.0, 0));
+            e.0 += o.correct as u8 as f64;
+            e.1 += d;
+            e.2 += 1.0 - d;
+            e.3 += 1;
+        }
+        let raw: Vec<(&str, f64, usize)> = per
+            .iter()
+            .map(|(e, &(k, sd, s1d, n))| (*e, ((k - s0 * sd) / s1d).clamp(0.0, 1.0), n))
+            .collect();
+        let m = raw.len() as f64;
+        let between = if raw.len() < 2 {
+            0.0
+        } else {
+            let mean = raw.iter().map(|r| r.1).sum::<f64>() / m;
+            let var = raw.iter().map(|r| (r.1 - mean).powi(2)).sum::<f64>() / (m - 1.0);
+            let sampling = raw.iter().map(|r| b * (1.0 - b) / r.2 as f64).sum::<f64>() / m;
+            (var - sampling).max(0.0)
+        };
+        let kappa = if between > 0.0 { (b * (1.0 - b) / between - 1.0).max(0.0) } else { f64::INFINITY };
+        for (entity, r, n) in raw {
+            let w = if kappa.is_infinite() { 0.0 } else { n as f64 / (n as f64 + kappa) };
+            out.push(EntityBaseline { entity: entity.to_string(), state: f.state.clone(), baseline: w * r + (1.0 - w) * b, raw: r, stale_checks: n });
+        }
+        spreads.push(BaselineSpread { state: f.state.clone(), baseline: b, between: between.sqrt(), entities: m as usize });
+    }
+    (out, spreads)
+}
+
+/// The per-entity baselines as CSV: entity, state, baseline, raw, stale_checks.
+pub fn entity_baselines_csv(rows: &[EntityBaseline]) -> String {
+    let mut w = csv::Writer::from_writer(Vec::new());
+    w.write_record(["entity", "state", "baseline", "raw", "stale_checks"]).expect("writing to memory");
+    for r in rows {
+        w.write_record([
+            r.entity.as_str(),
+            r.state.as_deref().unwrap_or(""),
+            &format!("{:.4}", r.baseline),
+            &format!("{:.4}", r.raw),
+            &r.stale_checks.to_string(),
+        ])
+        .expect("writing to memory");
+    }
+    String::from_utf8(w.into_inner().expect("writing to memory")).expect("CSV is UTF-8")
+}
+
 // ── input ──────────────────────────────────────────────────────────────
 
 fn parse_bool(s: &str) -> Option<bool> {
@@ -907,6 +1024,51 @@ mod tests {
 
     fn days(v: &[f64]) -> Vec<f64> {
         v.iter().map(|d| d * DAY).collect()
+    }
+
+    /// Entities whose stale facts are right with their own chance; each checked at `ages`, `per` times.
+    fn varied_baselines(baselines: &[f64], per: usize, seed: u64) -> Vec<Observation> {
+        let mut rng = Rng(seed);
+        let mut out = Vec::new();
+        for (e, &b) in baselines.iter().enumerate() {
+            let m = Model { s0: 1.0, baseline: b, half_life: DAY };
+            for i in 0..per {
+                let age = (i % 20) as f64 * DAY; // 0 to 19 days: most checks are fully stale
+                out.push(Observation { entity: format!("site-{}", e), age, correct: rng.unit() < m.predict(age), state: None });
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_entity_baselines_follow_the_entity() {
+        let truth: Vec<f64> = (0..40).map(|i| if i % 2 == 0 { 0.2 } else { 0.8 }).collect();
+        let obs = varied_baselines(&truth, 400, 11);
+        let fits = calibrate(&obs).unwrap();
+        let (rows, spreads) = entity_baselines(&obs, &fits);
+        assert_eq!(rows.len(), 40);
+        assert!(spreads[0].between > 0.2, "{:?}", spreads);
+        for r in &rows {
+            let i: usize = r.entity.trim_start_matches("site-").parse().unwrap();
+            assert!((r.baseline - truth[i]).abs() < 0.08, "{:?} vs {}", r, truth[i]);
+            // shrinking moves it toward the pooled baseline, never past it
+            let pooled = spreads[0].baseline;
+            assert!((r.baseline - pooled).abs() <= (r.raw - pooled).abs() + 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_entity_baselines_pool_when_entities_agree() {
+        let obs = varied_baselines(&[0.5; 30], 200, 12);
+        let fits = calibrate(&obs).unwrap();
+        let (rows, spreads) = entity_baselines(&obs, &fits);
+        let pooled = spreads[0].baseline;
+        // no real spread: estimates sit close to the pooled value
+        assert!(spreads[0].between < 0.05, "{:?}", spreads);
+        assert!(rows.iter().all(|r| (r.baseline - pooled).abs() < 0.03), "{:?}", rows);
+        let csv = entity_baselines_csv(&rows);
+        assert!(csv.starts_with("entity,state,baseline,raw,stale_checks\n"));
+        assert_eq!(csv.lines().count(), 31);
     }
 
     #[test]

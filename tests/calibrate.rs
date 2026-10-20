@@ -189,3 +189,29 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     let schedule = fid(&["schedule", "-", "--price", "0.001"], &String::from_utf8(stamped.stdout).unwrap());
     assert_eq!(schedule.status.code(), Some(0), "{}", String::from_utf8_lossy(&schedule.stderr));
 }
+
+#[test]
+fn calibrate_writes_entity_baselines() {
+    let dir = std::env::temp_dir().join(format!("fid-calibrate-entities-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let out_path = dir.join("baselines.csv");
+    // 30 airports: stale facts right 80% of the time at the dry ones, 20% at the wet ones
+    let mut csv = String::from("entity,age,correct\n");
+    for a in 0..30 {
+        let (site, b) = if a % 2 == 0 { (format!("dry{}", a), 0.8_f64) } else { (format!("wet{}", a), 0.2) };
+        for day in 0..20 {
+            let p = b + (1.0 - b) * 0.5_f64.powf(day as f64);
+            for i in 0..50 {
+                csv.push_str(&format!("{},{}d,{}\n", site, day, (i as f64) < p * 50.0));
+            }
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "flight_category", "--entity-baselines", out_path.to_str().unwrap()], &csv);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("spread between entities"));
+    let text = std::fs::read_to_string(&out_path).unwrap();
+    let get = |site: &str| -> f64 {
+        text.lines().find(|l| l.starts_with(&format!("{},", site))).unwrap().split(',').nth(2).unwrap().parse().unwrap()
+    };
+    assert!(get("dry0") > 0.7 && get("wet1") < 0.3, "{}", text);
+}
