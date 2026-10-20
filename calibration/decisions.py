@@ -7,7 +7,7 @@ per day, and staleness, the fraction of time the served value is wrong
 fact). Six kinds of fact, replayed on real histories:
 
   ship_position            AIS cargo ships and tankers, ±1 km; state at the check:
-                           underway, at anchor or moored (navigational status)
+                           underway or stationary
   airport_temperature      METAR, ±2 °F
   airport_flight_category  METAR; state: the stored category (a stale VFR is
                            usually right, a stale IFR is not)
@@ -453,9 +453,9 @@ class FidPolicy:
 # ── the data ─────────────────────────────────────────────────────────────
 
 def ship_state(v):
-    if v[2] >= 1.0:
-        return "underway"
-    return "at_anchor" if v[3] == "1" else "moored"
+    # At anchor and moored were tried as separate states on the dev set: fid calibrate refused
+    # at anchor (half-life 1.8 to 5.9 days, beyond 24-hour tracks), so they stay one state
+    return "underway" if v[2] >= 1.0 else "stationary"
 
 
 def ship_entities(cache, days, per_day):
