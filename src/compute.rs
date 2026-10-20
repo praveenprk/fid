@@ -24,6 +24,20 @@
 //! to the temporal factor: strength r, period P, width w, fading with
 //! half-life h_r over periods. The temporal factor stays at most 1.
 //! Measured on airport temperature, see docs/FINDINGS.md, Finding 5.
+//!
+//! Some facts go stale on two clocks: most PyPI releases stay the latest
+//! for months, but a share is replaced by a patch within days. A fast
+//! share m with its own half-life h_f makes the temporal factor
+//!
+//!   (1 − m) × 0.5^(age / h) + m × 0.5^(age / h_f)
+//!
+//! so a quick first drop is not read as a source that is wrong when fresh.
+//!
+//! A store that re-checks a fact every T seconds serves it wrong a
+//! fraction 1 − (1/T) ∫₀ᵀ fidelity of the time. `best_interval` picks
+//! the T that minimizes that staleness plus a price per re-check, so one
+//! price spends a re-check budget where it buys the most; a floor stays
+//! a separate, per-decision guard (calibration/decisions.py).
 
 use serde::{Deserialize, Serialize};
 
@@ -167,11 +181,7 @@ pub fn echo_sum(age_seconds: f64, e: &EchoParams) -> f64 {
 
 /// The temporal factor with an optional echo, at most 1.
 pub fn temporal_factor(age_seconds: f64, half_life_seconds: Option<f64>, echo: Option<&EchoParams>) -> f64 {
-    let base = temporal_decay(age_seconds, half_life_seconds);
-    match echo {
-        None => base,
-        Some(e) => (base + e.strength * echo_sum(age_seconds, e)).min(1.0),
-    }
+    Curve { half_life: half_life_seconds, fast: None, echo: echo.copied() }.temporal(age_seconds)
 }
 
 /// Compute transformation noise factor.
@@ -251,7 +261,234 @@ pub fn time_to_floor_echo(fidelity: f64, half_life_seconds: f64, baseline: f64, 
     };
     let at = |t: f64| apply_decay(fidelity, temporal_factor(t, Some(half_life_seconds), Some(echo)), baseline);
     let step = half_life_seconds.min(echo.width) / 50.0;
-    let end = start + 10_000.0 * echo.period;
+    first_below(&at, floor, start, step, start + 10_000.0 * echo.period)
+}
+
+/// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
+pub fn apply_decay(fidelity: f64, temporal: f64, baseline: f64) -> f64 {
+    let b = baseline.clamp(0.0, fidelity.max(0.0));
+    b + (fidelity - b) * temporal
+}
+
+// ── two clocks ─────────────────────────────────────────────────────────
+
+/// A share of facts that go stale on a faster clock, as written in
+/// registries and envelopes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Fast {
+    /// Fraction of facts on the fast clock, 0 to 1
+    pub share: f64,
+    /// Their half-life, e.g. "2d"; shorter than the main half-life
+    pub half_life: String,
+}
+
+/// A fast share in seconds, validated.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FastParams {
+    pub share: f64,
+    pub half_life: f64,
+}
+
+impl Fast {
+    pub fn params(&self) -> Result<FastParams, String> {
+        if !self.share.is_finite() || !(0.0..=1.0).contains(&self.share) {
+            return Err(format!("invalid fast share {} (must be between 0.0 and 1.0)", self.share));
+        }
+        let half_life = parse_half_life(&self.half_life)?.ok_or_else(|| "fast half-life cannot be infinite".to_string())?;
+        Ok(FastParams { share: self.share, half_life })
+    }
+}
+
+/// The temporal curve: main half-life (None: no decay), fast share, echo.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Curve {
+    pub half_life: Option<f64>,
+    pub fast: Option<FastParams>,
+    pub echo: Option<EchoParams>,
+}
+
+/// Parse and validate a whole curve. A fast share and an echo need a
+/// finite half-life; the fast half-life must be shorter than it.
+pub fn curve(half_life: Option<&str>, fast: Option<&Fast>, echo: Option<&Echo>) -> Result<Curve, String> {
+    let (h, e) = decay_curve(half_life, echo)?;
+    let f = fast.map(Fast::params).transpose()?;
+    if let Some(f) = f {
+        match h {
+            None => return Err("a fast share needs a finite half-life".to_string()),
+            Some(h) if f.half_life >= h => {
+                return Err(format!(
+                    "fast half-life {}s must be shorter than the half-life {}s",
+                    f.half_life, h
+                ))
+            }
+            _ => {}
+        }
+    }
+    Ok(Curve { half_life: h, fast: f, echo: e })
+}
+
+/// ∫₀ᵗ 0.5^(u / h) du; t when there is no decay.
+fn decay_integral(t: f64, h: Option<f64>) -> f64 {
+    match h {
+        None => t,
+        // −expm1 keeps precision when t ≪ h, where 1 − 0.5^(t/h) cancels
+        Some(h) => h / std::f64::consts::LN_2 * -(-t * std::f64::consts::LN_2 / h).exp_m1(),
+    }
+}
+
+impl Curve {
+    /// The temporal factor at `age`: two clocks, plus the echo, at most 1.
+    pub fn temporal(&self, age: f64) -> f64 {
+        let slow = temporal_decay(age, self.half_life);
+        let base = match self.fast {
+            None => slow,
+            Some(f) => (1.0 - f.share) * slow + f.share * temporal_decay(age, Some(f.half_life)),
+        };
+        match &self.echo {
+            None => base,
+            Some(e) => (base + e.strength * echo_sum(age, e)).min(1.0),
+        }
+    }
+
+    /// ∫₀ᵗ temporal, in closed form. With an echo, each return integrates
+    /// exactly; only where the cap at 1 binds (young ages, where the main
+    /// clock is still near 1) is the excess integrated numerically.
+    pub fn integral(&self, t: f64) -> f64 {
+        if t <= 0.0 {
+            return 0.0;
+        }
+        let base = |t: f64| match self.fast {
+            None => decay_integral(t, self.half_life),
+            Some(f) => (1.0 - f.share) * decay_integral(t, self.half_life) + f.share * decay_integral(t, Some(f.half_life)),
+        };
+        let Some(e) = self.echo else {
+            return base(t);
+        };
+        // Σₙ fadeⁿ ∫₀ᵗ 0.5^(|u − nP| / w) du
+        let k = std::f64::consts::LN_2 / e.width;
+        let one = |c: f64| {
+            if t <= c {
+                (-k * (c - t)).exp() * -(-k * t).exp_m1() / k
+            } else {
+                (-(-k * c).exp_m1() - (-k * (t - c)).exp_m1()) / k
+            }
+        };
+        let last = ((t + 30.0 * e.width) / e.period).ceil() as u64;
+        let mut returns = 0.0;
+        for n in 1..=last.max(1) {
+            let at = n as f64 * e.period;
+            returns += e.fade.map_or(1.0, |hr| 0.5_f64.powf(at / hr)) * one(at);
+        }
+        let uncapped = base(t) + e.strength * returns;
+        // The cap binds only while plain decay + strength × (largest possible echo sum) > 1
+        let plain = Curve { echo: None, ..*self };
+        let largest = 2.0 / (1.0 - 0.5_f64.powf(e.period / e.width));
+        let reach = if e.strength * largest >= 1.0 {
+            t
+        } else {
+            let level = 1.0 - e.strength * largest;
+            if plain.temporal(t) > level {
+                t
+            } else {
+                let (mut lo, mut hi) = (0.0, t);
+                for _ in 0..100 {
+                    let mid = 0.5 * (lo + hi);
+                    if plain.temporal(mid) > level {
+                        lo = mid;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                hi
+            }
+        };
+        let excess = |u: f64| (plain.temporal(u) + e.strength * echo_sum(u, &e) - 1.0).max(0.0);
+        let n = 1000;
+        let step = reach / n as f64;
+        let mut sum = excess(0.0) + excess(reach);
+        for i in 1..n {
+            sum += excess(i as f64 * step) * if i % 2 == 1 { 4.0 } else { 2.0 };
+        }
+        uncapped - sum * step / 3.0
+    }
+
+    /// When fidelity, `fidelity` at measurement, first falls below `floor`.
+    pub fn time_to_floor(&self, fidelity: f64, baseline: f64, floor: f64) -> TimeToFloor {
+        match (self.fast, self.echo) {
+            (None, None) => time_to_floor(fidelity, self.half_life, baseline, floor),
+            (None, Some(e)) => match self.half_life {
+                Some(h) => time_to_floor_echo(fidelity, h, baseline, floor, &e),
+                None => TimeToFloor::Never,
+            },
+            (Some(_), echo) => {
+                // Without the echo the curve falls monotonically and lies under the
+                // main clock alone, so the main clock's crossing brackets it
+                let start = match time_to_floor(fidelity, self.half_life, baseline, floor) {
+                    TimeToFloor::After(t) if t > 0.0 => t,
+                    other => return other,
+                };
+                let plain = Curve { echo: None, ..*self };
+                let below = |t: f64| apply_decay(fidelity, plain.temporal(t), baseline) < floor;
+                let (mut lo, mut hi) = (0.0, start);
+                if !below(hi) {
+                    return TimeToFloor::After(hi); // exactly at the floor at the bracket's end
+                }
+                for _ in 0..200 {
+                    let mid = 0.5 * (lo + hi);
+                    if below(mid) {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                    }
+                }
+                match echo {
+                    None => TimeToFloor::After(hi),
+                    Some(e) => {
+                        let at = |t: f64| apply_decay(fidelity, self.temporal(t), baseline);
+                        let shortest = self.fast.map_or(e.width, |f| f.half_life.min(e.width));
+                        first_below(&at, floor, hi, shortest / 50.0, hi + 10_000.0 * e.period)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Mean fraction of the time a fact re-checked every `interval`
+    /// seconds is served wrong: 1 − (1/T) ∫₀ᵀ fidelity.
+    pub fn mean_staleness(&self, fidelity: f64, baseline: f64, interval: f64) -> f64 {
+        let b = baseline.clamp(0.0, fidelity.max(0.0));
+        if interval <= 0.0 {
+            return 1.0 - fidelity;
+        }
+        1.0 - (b + (fidelity - b) * self.integral(interval) / interval)
+    }
+
+    /// Staleness when never re-checked: the long-run limit.
+    fn staleness_never(&self, fidelity: f64, baseline: f64) -> Option<f64> {
+        let b = baseline.clamp(0.0, fidelity.max(0.0));
+        self.half_life?;
+        match self.echo {
+            Some(e) if e.fade.is_none() => None, // returns forever: no limit
+            _ => Some(1.0 - b),
+        }
+    }
+
+    /// A span that holds every timescale of the curve, for searches.
+    fn scale(&self) -> f64 {
+        let mut s = self.half_life.unwrap_or(DAY);
+        if let Some(e) = self.echo {
+            s = s.max(e.period).max(e.fade.unwrap_or(e.period));
+        }
+        s
+    }
+}
+
+const DAY: f64 = 86_400.0;
+
+/// First time `at` falls below `floor`, scanning from `start` in `step`
+/// until `end`, refined by bisection. Never if it does not.
+fn first_below(at: &dyn Fn(f64) -> f64, floor: f64, start: f64, step: f64, end: f64) -> TimeToFloor {
     let (mut lo, mut t) = (start, start);
     while t <= end {
         if at(t) < floor {
@@ -272,10 +509,106 @@ pub fn time_to_floor_echo(fidelity: f64, half_life_seconds: f64, baseline: f64, 
     TimeToFloor::Never
 }
 
-/// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
-pub fn apply_decay(fidelity: f64, temporal: f64, baseline: f64) -> f64 {
-    let b = baseline.clamp(0.0, fidelity.max(0.0));
-    b + (fidelity - b) * temporal
+/// How often to re-check a fact.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Recheck {
+    /// Every this many seconds
+    Every(f64),
+    /// Never: a re-check costs more than the staleness it removes
+    Never,
+}
+
+/// Golden-section search for a minimum of `f` on [lo, hi].
+fn golden(f: &dyn Fn(f64) -> f64, mut lo: f64, mut hi: f64) -> f64 {
+    let r = (5.0_f64.sqrt() - 1.0) / 2.0;
+    let (mut a, mut b) = (hi - r * (hi - lo), lo + r * (hi - lo));
+    let (mut fa, mut fb) = (f(a), f(b));
+    for _ in 0..200 {
+        if fa < fb {
+            hi = b;
+            b = a;
+            fb = fa;
+            a = hi - r * (hi - lo);
+            fa = f(a);
+        } else {
+            lo = a;
+            a = b;
+            fa = fb;
+            b = lo + r * (hi - lo);
+            fb = f(b);
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+/// The re-check interval that minimizes mean staleness + `price` × re-checks per day.
+///
+/// `price` is how much staleness one more re-check a day is worth (e.g.
+/// 0.001: a daily re-check must cut staleness by 0.1 percentage points).
+/// One price across every kind of fact and state is the efficient way to
+/// spend a re-check budget: each re-check goes where it removes the most
+/// staleness. Searched on a log grid from one second to 10,000 times the
+/// curve's longest timescale, then refined; Never when not re-checking
+/// costs no more than the best interval.
+pub fn best_interval(curve: &Curve, fidelity: f64, baseline: f64, price: f64) -> Result<Recheck, String> {
+    if !(price.is_finite() && price > 0.0) {
+        return Err(format!("invalid price {} (must be a positive number)", price));
+    }
+    if curve.half_life.is_none() && curve.echo.is_none() {
+        return Ok(Recheck::Never); // no decay: a re-check never changes anything
+    }
+    let cost = |t: f64| curve.mean_staleness(fidelity, baseline, t) + price * DAY / t;
+    let (lo, hi) = (1.0_f64.ln(), (10_000.0 * curve.scale()).ln());
+    let grid: Vec<f64> = (0..=600).map(|i| (lo + (hi - lo) * i as f64 / 600.0).exp()).collect();
+    let costs: Vec<f64> = grid.iter().map(|&t| cost(t)).collect();
+    let i = (0..grid.len()).min_by(|&a, &b| costs[a].total_cmp(&costs[b])).expect("grid is not empty");
+    let t = golden(&cost, grid[i.saturating_sub(1)], grid[(i + 1).min(grid.len() - 1)]);
+    let best = cost(t).min(costs[i]);
+    let t = if cost(t) <= costs[i] { t } else { grid[i] };
+    match curve.staleness_never(fidelity, baseline) {
+        Some(never) if never <= best => Ok(Recheck::Never),
+        None if i == grid.len() - 1 => Ok(Recheck::Never),
+        _ => Ok(Recheck::Every(t)),
+    }
+}
+
+/// The longest interval that keeps mean staleness at or below `target`
+/// (the first crossing, for a curve with an echo). An error when the fact
+/// is staler than that even fresh.
+pub fn interval_for_staleness(curve: &Curve, fidelity: f64, baseline: f64, target: f64) -> Result<Recheck, String> {
+    if !(target.is_finite() && (0.0..=1.0).contains(&target)) {
+        return Err(format!("invalid staleness target {} (must be between 0.0 and 1.0)", target));
+    }
+    if 1.0 - fidelity > target {
+        return Err(format!(
+            "staleness target {} is below the staleness of a fresh fact ({:.4})",
+            target,
+            1.0 - fidelity
+        ));
+    }
+    let stale = |t: f64| curve.mean_staleness(fidelity, baseline, t);
+    if curve.half_life.is_none() && curve.echo.is_none() {
+        return Ok(Recheck::Never);
+    }
+    let (lo, hi) = (1e-3_f64.ln(), (10_000.0 * curve.scale()).ln());
+    let mut prev = 1e-3;
+    for i in 0..=2000 {
+        let t = (lo + (hi - lo) * i as f64 / 2000.0).exp();
+        if stale(t) > target {
+            let (mut a, mut b) = (prev, t);
+            for _ in 0..100 {
+                let mid = 0.5 * (a + b);
+                if stale(mid) > target {
+                    b = mid;
+                } else {
+                    a = mid;
+                }
+            }
+            return Ok(Recheck::Every(a));
+        }
+        prev = t;
+    }
+    Ok(Recheck::Never)
 }
 
 #[cfg(test)]
@@ -523,6 +856,160 @@ mod tests {
         assert!((0..1000).all(|i| at(t * i as f64 / 1000.0) >= 0.5));
         assert_eq!(time_to_floor_echo(1.0, h, b, 0.1, &e), TimeToFloor::Never);
         assert_eq!(time_to_floor_echo(0.4, h, b, 0.5, &e), TimeToFloor::After(0.0));
+    }
+
+    fn fast(share: f64, half_life: &str) -> Fast {
+        Fast { share, half_life: half_life.into() }
+    }
+
+    fn two_clocks() -> Curve {
+        curve(Some("80d"), Some(&fast(0.3, "3d")), None).unwrap()
+    }
+
+    #[test]
+    fn test_fast_share_temporal() {
+        let c = two_clocks();
+        let day = 86_400.0;
+        assert!((c.temporal(0.0) - 1.0).abs() < 1e-12);
+        let want = 0.7 * 0.5_f64.powf(10.0 / 80.0) + 0.3 * 0.5_f64.powf(10.0 / 3.0);
+        assert!((c.temporal(10.0 * day) - want).abs() < 1e-12);
+        // long after, only the slow clock is left
+        assert!((c.temporal(200.0 * day) / (0.7 * 0.5_f64.powf(200.0 / 80.0)) - 1.0).abs() < 1e-6);
+        // a zero share is the plain curve
+        let plain = curve(Some("80d"), Some(&fast(0.0, "3d")), None).unwrap();
+        assert_eq!(plain.temporal(5.0 * day), temporal_decay(5.0 * day, Some(80.0 * day)));
+    }
+
+    #[test]
+    fn test_fast_share_validation() {
+        assert!(curve(Some("80d"), Some(&fast(1.2, "3d")), None).unwrap_err().contains("share"));
+        assert!(curve(Some("80d"), Some(&fast(f64::NAN, "3d")), None).is_err());
+        assert!(curve(Some("80d"), Some(&fast(0.3, "infinite")), None).unwrap_err().contains("infinite"));
+        assert!(curve(Some("80d"), Some(&fast(0.3, "90d")), None).unwrap_err().contains("shorter"));
+        assert!(curve(None, Some(&fast(0.3, "3d")), None).unwrap_err().contains("finite half-life"));
+        assert!(curve(Some("infinite"), Some(&fast(0.3, "3d")), None).is_err());
+    }
+
+    #[test]
+    fn test_time_to_floor_with_a_fast_share() {
+        let c = two_clocks();
+        let (f, b) = (0.99, 0.1);
+        for floor in [0.95, 0.9, 0.7, 0.5, 0.2] {
+            let TimeToFloor::After(t) = c.time_to_floor(f, b, floor) else { panic!("{}", floor) };
+            let at = |t: f64| apply_decay(f, c.temporal(t), b);
+            assert!((at(t) - floor).abs() < 1e-9, "{}: {}", floor, at(t));
+            // earlier than the slow clock alone
+            let TimeToFloor::After(slow) = time_to_floor(f, c.half_life, b, floor) else { panic!() };
+            assert!(t < slow);
+        }
+        assert_eq!(c.time_to_floor(f, b, 0.1), TimeToFloor::Never);
+        assert_eq!(c.time_to_floor(0.5, b, 0.7), TimeToFloor::After(0.0));
+        // zero share: the closed form
+        let plain = curve(Some("80d"), Some(&fast(0.0, "3d")), None).unwrap();
+        let (TimeToFloor::After(a), TimeToFloor::After(c2)) = (plain.time_to_floor(f, b, 0.6), time_to_floor(f, plain.half_life, b, 0.6)) else { panic!() };
+        assert!((a - c2).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_time_to_floor_fast_share_and_echo() {
+        let e = Echo { period: "24h".into(), strength: 0.31, width: "3.75h".into(), fade: "345h".into() };
+        let c = curve(Some("2.4h"), Some(&fast(0.2, "0.5h")), Some(&e)).unwrap();
+        let TimeToFloor::After(t) = c.time_to_floor(1.0, 0.13, 0.5) else { panic!() };
+        let at = |t: f64| apply_decay(1.0, c.temporal(t), 0.13);
+        assert!((at(t) - 0.5).abs() < 1e-9);
+        assert!((0..2000).all(|i| at(t * i as f64 / 2000.0) >= 0.5));
+    }
+
+    fn riemann(c: &Curve, t: f64) -> f64 {
+        let n = 100_000;
+        (0..n).map(|i| c.temporal((i as f64 + 0.5) * t / n as f64)).sum::<f64>() * t / n as f64
+    }
+
+    #[test]
+    fn test_integral() {
+        let day = 86_400.0;
+        let c = two_clocks();
+        for t in [0.5 * day, 3.0 * day, 40.0 * day, 400.0 * day] {
+            assert!((c.integral(t) - riemann(&c, t)).abs() < 1e-6 * t, "{}", t);
+        }
+        let e = temperature();
+        let echo = Curve { half_life: Some(2.4 * HOUR), fast: None, echo: Some(e) };
+        for t in [6.0 * HOUR, 30.0 * HOUR, 100.0 * HOUR] {
+            assert!((echo.integral(t) - riemann(&echo, t)).abs() < 1e-5 * t, "{}", t);
+        }
+        assert_eq!(Curve::default().integral(10.0), 10.0);
+    }
+
+    #[test]
+    fn test_mean_staleness_limits() {
+        let c = two_clocks();
+        assert!((c.mean_staleness(0.98, 0.1, 1e-6) - 0.02).abs() < 1e-6);
+        assert!((c.mean_staleness(0.98, 0.1, 1e12) - 0.9).abs() < 1e-3);
+        // it only grows with the interval
+        let mut prev = 0.0;
+        for k in 0..60 {
+            let s = c.mean_staleness(0.98, 0.1, 60.0 * 1.4_f64.powi(k));
+            assert!(s >= prev - 1e-12);
+            prev = s;
+        }
+    }
+
+    fn brute_best(c: &Curve, f: f64, b: f64, price: f64) -> (f64, f64) {
+        (0..5_000)
+            .map(|i| {
+                let t = (60.0_f64.ln() + (1e9_f64.ln() - 60.0_f64.ln()) * i as f64 / 5_000.0).exp();
+                (t, c.mean_staleness(f, b, t) + price * 86_400.0 / t)
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .unwrap()
+    }
+
+    #[test]
+    fn test_best_interval_matches_brute_force() {
+        let e = temperature();
+        let curves = [
+            curve(Some("1d"), None, None).unwrap(),
+            two_clocks(),
+            Curve { half_life: Some(2.4 * HOUR), fast: None, echo: Some(e) },
+        ];
+        for c in curves {
+            for price in [1e-5, 1e-4, 1e-3] {
+                let (f, b) = (1.0, 0.1);
+                let Recheck::Every(t) = best_interval(&c, f, b, price).unwrap() else { panic!("{:?} {}", c, price) };
+                let (bt, bc) = brute_best(&c, f, b, price);
+                let got = c.mean_staleness(f, b, t) + price * 86_400.0 / t;
+                assert!(got <= bc + 1e-9, "{:?} price {}: {} at {} vs {} at {}", c, price, got, t, bc, bt);
+            }
+        }
+    }
+
+    #[test]
+    fn test_best_interval_behaviour() {
+        let c = two_clocks();
+        // a cheaper re-check means re-checking sooner
+        let every = |p: f64| match best_interval(&c, 1.0, 0.1, p).unwrap() {
+            Recheck::Every(t) => t,
+            Recheck::Never => f64::INFINITY,
+        };
+        assert!(every(1e-5) < every(1e-4) && every(1e-4) < every(1e-3));
+        // too dear: never
+        assert_eq!(best_interval(&c, 1.0, 0.1, 1e6).unwrap(), Recheck::Never);
+        // no decay: never
+        assert_eq!(best_interval(&Curve::default(), 1.0, 0.0, 1e-3).unwrap(), Recheck::Never);
+        assert!(best_interval(&c, 1.0, 0.1, 0.0).is_err());
+        assert!(best_interval(&c, 1.0, 0.1, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn test_interval_for_staleness() {
+        let c = two_clocks();
+        for target in [0.02, 0.05, 0.1, 0.3] {
+            let Recheck::Every(t) = interval_for_staleness(&c, 0.99, 0.1, target).unwrap() else { panic!() };
+            assert!((c.mean_staleness(0.99, 0.1, t) - target).abs() < 1e-6, "{}", target);
+        }
+        assert_eq!(interval_for_staleness(&c, 0.99, 0.1, 0.95).unwrap(), Recheck::Never);
+        assert!(interval_for_staleness(&c, 0.9, 0.1, 0.05).unwrap_err().contains("fresh"));
+        assert!(interval_for_staleness(&c, 0.99, 0.1, 1.5).is_err());
     }
 
     #[test]

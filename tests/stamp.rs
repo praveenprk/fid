@@ -177,3 +177,19 @@ fn stamp_registry_errors_exit_3() {
         assert!(out.stdout.is_empty());
     }
 }
+
+#[test]
+fn stamp_carries_a_fast_share_from_the_registry() {
+    let dir = std::env::temp_dir().join(format!("fid-stamp-fast-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let registry = dir.join("half-lives.yaml");
+    std::fs::write(&registry, "pkg:\n  half_life: 80d\n  baseline: 0.1\n  fast: { share: 0.3, half_life: 3d }\n").unwrap();
+    let out = fid(
+        &["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"],
+        "{}",
+    );
+    let v = stdout_json(&out);
+    assert_eq!(v["fid"]["fast"]["share"], 0.3);
+    assert_eq!(v["fid"]["fast"]["half_life"], "3d");
+    assert_eq!(v["fid"]["fid_version"], "0.4");
+}

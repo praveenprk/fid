@@ -91,6 +91,7 @@ otherwise                    → half_life × log2((f − b) / (floor − b))
 
 An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
 `source_class`, `source_fidelity` (optional; see Source classes),
+`echo` and `fast` (optional; see Echo and Fast share),
 `measured_at` (RFC 3339), `half_life` (a duration string or null),
 `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 `transforms[].noise`, `integrity`.
@@ -131,6 +132,49 @@ floor (`never` if not within 10,000 periods, or floor ≤ b). It has no
 closed form; any search is fine that finds the first crossing within
 1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
 after `expires_at`.
+
+## Fast share
+
+Some facts go stale on two clocks (`fid_version` 0.4 envelopes and
+registries): `fast: {share, half_life}`. `share` is between 0 and 1;
+`half_life` is a finite duration, shorter than the envelope's finite
+`half_life`. Anything else is invalid.
+
+```
+temporal = (1 − share) × 0.5^(age / half_life) + share × 0.5^(age / fast.half_life)
+           (+ strength × echoes, capped at 1, when there is also an echo)
+fidelity = b + (f − b) × temporal                 (b clamped as above)
+```
+
+Time to floor is the first time fidelity falls below the floor (`never`
+if floor ≤ b); with no echo the curve only falls, so any search that
+finds the crossing within 1e-6 s is fine.
+
+## Re-check schedule
+
+A fact re-checked every `T` seconds is served wrong, on average,
+
+```
+staleness(T) = 1 − (1 / T) × ∫₀ᵀ fidelity(t) dt          (1 − f when T is 0)
+```
+
+with fidelity as above (`f` at measurement). For the exponentials the
+integral has a closed form; each echo return integrates as
+`∫₀ᵀ 0.5^(|t − nP| / w) dt`, and where the cap at 1 binds the excess is
+subtracted.
+
+**best interval(price)** minimizes `staleness(T) + price × 86400 / T`
+over `T` from 1 s to 10,000 × the longest timescale (half-life, period,
+fade). It is `never` when not re-checking (staleness `1 − b`) costs no
+more than the minimum, and when there is no decay. `price` must be a
+positive number. Any search is fine whose cost is within 1e-7 of the
+minimum.
+
+**interval for staleness(target)** is the longest `T` before staleness
+first exceeds `target` (`never` if it does not); an error when
+`1 − f > target` or the target is outside 0 to 1.
+
+A floor, when given, caps either interval at the time to floor.
 
 ## Integrity
 

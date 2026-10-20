@@ -131,6 +131,186 @@ def echo_time_to_floor(f, half_life, baseline, floor, echo):
     return None
 
 
+def fast_seconds(fast, half_life):
+    """(share, fast half-life) in seconds; ValueError if invalid. Needs a finite, longer main half-life."""
+    share = fast["share"]
+    if not isinstance(share, (int, float)) or not math.isfinite(share) or not 0 <= share <= 1:
+        raise ValueError("share")
+    h = parse_half_life(fast["half_life"])
+    if h is None:
+        raise ValueError("fast half-life must be finite")
+    if half_life is None or not h < half_life:
+        raise ValueError("fast half-life must be shorter than a finite half-life")
+    return share, h
+
+
+def curve_temporal(age, half_life, fast=None, echo=None):
+    """(1 − m) 0.5^(t/h) + m 0.5^(t/h_f), plus the echo's returns, at most 1."""
+    t = max(age, 0.0)
+    slow = 1.0 if half_life is None else 0.5 ** (t / half_life)
+    if fast is None:
+        base = slow
+    else:
+        share, hf = fast_seconds(fast, half_life)
+        base = (1 - share) * slow + share * 0.5 ** (t / hf)
+    if echo is None:
+        return base
+    period, strength, width, fade = echo_seconds(echo)
+    total = 0.0
+    n = max(1, math.ceil((t - 30 * width) / period))
+    while n * period <= t + 30 * width:
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        n += 1
+    return min(1.0, base + strength * total)
+
+
+def curve_fidelity(f, age, half_life, baseline, fast=None, echo=None):
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    return b + (f - b) * curve_temporal(age, half_life, fast, echo)
+
+
+def shortest(half_life, fast, echo):
+    scales = [x for x in (half_life,) if x is not None]
+    if fast is not None:
+        scales.append(fast_seconds(fast, half_life)[1])
+    if echo is not None:
+        scales.append(echo_seconds(echo)[2])
+    return min(scales)
+
+
+def curve_time_to_floor(f, half_life, baseline, floor, fast=None, echo=None):
+    """First time below floor, by scanning in steps of a hundredth of the shortest timescale; None for never."""
+    if f < floor:
+        return 0.0
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    if half_life is None or floor <= b:
+        return None
+    below = lambda t: curve_fidelity(f, t, half_life, baseline, fast, echo) < floor
+    step = shortest(half_life, fast, echo) / 100.0
+    end = 10_000 * (echo_seconds(echo)[0] if echo else half_life)
+    t = 0.0
+    while t <= end:
+        if below(t + step):
+            lo, hi = t, t + step
+            for _ in range(100):
+                mid = (lo + hi) / 2
+                lo, hi = (lo, mid) if below(mid) else (mid, hi)
+            return hi
+        t += step
+    return None
+
+
+def exp_integral(t, h):
+    """∫₀ᵗ 0.5^(u / h) du."""
+    if h is None:
+        return t
+    return -h / math.log(2) * math.expm1(-t * math.log(2) / h)
+
+
+def uncapped_echo(t, period, strength, width, fade):
+    """strength × the echo's returns within 30 widths of t."""
+    total = 0.0
+    n = max(1, math.ceil((t - 30 * width) / period))
+    while n * period <= t + 30 * width:
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        n += 1
+    return strength * total
+
+
+def temporal_integral(t, half_life, fast=None, echo=None):
+    """∫₀ᵗ temporal. The exponentials and each echo return integrate in closed form;
+    the cap at 1 is subtracted by Simpson's rule where it can bind."""
+    if t <= 0:
+        return 0.0
+    if fast is None:
+        total = exp_integral(t, half_life)
+    else:
+        share, hf = fast_seconds(fast, half_life)
+        total = (1 - share) * exp_integral(t, half_life) + share * exp_integral(t, hf)
+    if echo is None:
+        return total
+    period, strength, width, fade = echo_seconds(echo)
+    lam = math.log(2) / width
+    n = 1
+    while n * period <= t + 30 * width:
+        c = n * period
+        weight = 1.0 if fade is None else 0.5 ** (c / fade)
+        if t <= c:  # ∫₀ᵗ exp(−λ|u − c|) du
+            part = (math.exp(-lam * (c - t)) - math.exp(-lam * c)) / lam
+        else:
+            part = (1 - math.exp(-lam * c)) / lam + (1 - math.exp(-lam * (t - c))) / lam
+        total += strength * weight * part
+        n += 1
+    # The cap can bind only while plain decay is above 1 − strength × 2 / (1 − 0.5^(P/w))
+    plain = lambda u: curve_temporal(u, half_life, fast, None)
+    bound = 1 - strength * 2 / (1 - 0.5 ** (period / width))
+    reach = t
+    if bound > 0 and plain(t) <= bound:
+        lo, hi = 0.0, t
+        for _ in range(100):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if plain(mid) > bound else (lo, mid)
+        reach = hi
+    excess = lambda u: max(0.0, plain(u) + uncapped_echo(u, period, strength, width, fade) - 1)
+    m = 4000
+    h = reach / m
+    cap = excess(0.0) + excess(reach) + sum(excess(i * h) * (4 if i % 2 else 2) for i in range(1, m))
+    return total - cap * h / 3
+
+
+def mean_staleness(f, half_life, baseline, interval, fast=None, echo=None):
+    """1 − (1/T) ∫₀ᵀ fidelity."""
+    if interval <= 0:
+        return 1 - f
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    return 1 - (b + (f - b) * temporal_integral(interval, half_life, fast, echo) / interval)
+
+
+def recheck_cost(f, half_life, baseline, price, interval, fast=None, echo=None):
+    return mean_staleness(f, half_life, baseline, interval, fast, echo) + price * 86400.0 / interval
+
+
+def best_interval(f, half_life, baseline, price, fast=None, echo=None):
+    """(seconds, cost) minimizing staleness + price × 86400 / T on [1 s, 10,000 × longest scale]; None for never."""
+    scale = half_life
+    if echo is not None:
+        period, _, _, fade = echo_seconds(echo)
+        scale = max(scale, period, fade or period)
+    cost = lambda t: recheck_cost(f, half_life, baseline, price, t, fast, echo)
+    lo, hi = 0.0, math.log(10_000 * scale)
+    grid = [math.exp(lo + (hi - lo) * i / 400) for i in range(401)]
+    costs = [cost(t) for t in grid]
+    i = min(range(len(grid)), key=costs.__getitem__)
+    a, c = math.log(grid[max(i - 1, 0)]), math.log(grid[min(i + 1, len(grid) - 1)])
+    for _ in range(100):  # ternary search in log T
+        m1, m2 = a + (c - a) / 3, c - (c - a) / 3
+        if cost(math.exp(m1)) < cost(math.exp(m2)):
+            c = m2
+        else:
+            a = m1
+    t = math.exp((a + c) / 2)
+    best = min(cost(t), costs[i])
+    b = min(max(baseline, 0.0), max(f, 0.0))
+    if 1 - b <= best:
+        return None, 1 - b
+    return t, best
+
+
+def interval_for_staleness(f, half_life, baseline, target, fast=None, echo=None):
+    """Seconds until mean staleness first exceeds target (bisection); None for never."""
+    stale = lambda t: mean_staleness(f, half_life, baseline, t, fast, echo)
+    t, prev = 1.0, 0.0
+    while t < 10_000 * half_life:
+        if stale(t) > target:
+            lo, hi = prev, t
+            for _ in range(60):
+                mid = (lo + hi) / 2
+                lo, hi = (mid, hi) if stale(mid) <= target else (lo, mid)
+            return lo
+        prev, t = t, t * 1.5
+    return None
+
+
 def canonical_number(x):
     """Shortest round-trip digits (as repr), exponent unpadded, decimal down to 1e-5."""
     text = repr(x)
@@ -241,7 +421,8 @@ def envelope(content, source_class, half_life, baseline=None, transforms=(), mea
         "half_life": half_life,
         "transforms": steps,
         "fid_at_stamp": None if source is None else (
-            echo_fidelity(source, 0.0, hl, noise, baseline or 0.0, extra["echo"]) if "echo" in extra
+            curve_fidelity(fidelity(source, 0.0, None, noise, 0.0), 0.0, hl, baseline or 0.0, extra.get("fast"), extra.get("echo"))
+            if "echo" in extra or "fast" in extra
             else fidelity(source, 0.0, hl, noise, baseline or 0.0)),
         "derived_from": None,
         "integrity": integrity(content),
@@ -271,10 +452,13 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     baseline = env.get("baseline") or 0.0
     source = envelope_source(env["source_class"], env.get("source_fidelity"))
     echo = env.get("echo")
+    fast = env.get("fast")
     ok = integrity(stamped["content"]) == env["integrity"]
 
     if source is None:
         f = None
+    elif fast is not None:
+        f = curve_fidelity(fidelity(source, 0.0, None, noise, 0.0), age, hl, baseline, fast, echo)
     elif echo is not None:
         f = echo_fidelity(source, age, hl, noise, baseline, echo)
     else:
@@ -288,7 +472,9 @@ def envelope_case(name, stamped, now, floor, tamper=None):
         expires = "unknown"
     else:
         at_measurement = fidelity(source, 0.0, None, noise, 0.0)
-        if echo is not None:
+        if fast is not None:
+            ttl = curve_time_to_floor(at_measurement, hl, baseline, floor, fast, echo)
+        elif echo is not None:
             ttl = echo_time_to_floor(at_measurement, hl, baseline, floor, echo)
         else:
             ttl = time_to_floor(at_measurement, hl, baseline, floor)
@@ -361,6 +547,18 @@ def envelope_cases():
             "measured source fidelity, unknown class stays unknown",
             envelope({"clause": 7}, "unknown", "30d", version="0.3", source_fidelity=0.95),
             T0, 0.50,
+        ),
+        envelope_case(
+            "fast share: a week-old release",
+            envelope({"package": "requests", "latest": "2.32.3"}, "instrument", "80d", baseline=0.1, version="0.4",
+                     source_fidelity=1.0, fast={"share": 0.3, "half_life": "3d"}),
+            T0 + timedelta(days=7), 0.80,
+        ),
+        envelope_case(
+            "fast share: three months old",
+            envelope({"package": "requests", "latest": "2.32.3"}, "instrument", "80d", baseline=0.1, version="0.4",
+                     source_fidelity=1.0, fast={"share": 0.3, "half_life": "3d"}),
+            T0 + timedelta(days=90), 0.50,
         ),
     ]
 
@@ -481,6 +679,56 @@ def write_ledger(path):
         f.write("\n".join(rows) + "\n")
 
 
+# A PyPI-like release: 30% replaced within days, the rest over months
+PACKAGE = {"share": 0.3, "half_life": "3d"}
+DAY = 86400.0
+
+FAST = [
+    # name, fidelity, age, half_life, baseline, fast, echo
+    ("fresh", 1.0, 0.0, 80 * DAY, 0.1, PACKAGE, None),
+    ("three days: the fast share half gone", 1.0, 3 * DAY, 80 * DAY, 0.1, PACKAGE, None),
+    ("a year: only the slow clock", 0.97, 365 * DAY, 80 * DAY, 0.1, PACKAGE, None),
+    ("zero share is plain decay", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 0.0, "half_life": "3d"}, None),
+    ("whole share is the fast clock", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 1.0, "half_life": "3d"}, None),
+    ("with an echo", 1.0, 24 * 3600.0, 2.42 * 3600, 0.13, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+]
+
+FAST_TTL = [
+    # name, fidelity, half_life, baseline, floor, fast, echo
+    ("package to 0.9", 1.0, 80 * DAY, 0.1, 0.9, PACKAGE, None),
+    ("package to 0.5", 1.0, 80 * DAY, 0.1, 0.5, PACKAGE, None),
+    ("floor under the baseline", 1.0, 80 * DAY, 0.1, 0.05, PACKAGE, None),
+    ("already below", 0.8, 80 * DAY, 0.1, 0.9, PACKAGE, None),
+    ("with an echo", 1.0, 2.42 * 3600, 0.13, 0.5, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+]
+
+FAST_ERRORS = [
+    ({"share": 1.5, "half_life": "3d"}, 80 * DAY, "share above 1"),
+    ({"share": -0.1, "half_life": "3d"}, 80 * DAY, "negative share"),
+    ({"share": 0.3, "half_life": "infinite"}, 80 * DAY, "infinite fast half-life"),
+    ({"share": 0.3, "half_life": "90d"}, 80 * DAY, "fast half-life not shorter"),
+    ({"share": 0.3, "half_life": "3d"}, None, "no finite half-life"),
+]
+
+SCHEDULE = [
+    # name, fidelity, half_life, baseline, price, fast, echo
+    ("one day half-life, cheap re-checks", 1.0, DAY, 0.1, 1e-4, None, None),
+    ("one day half-life, dear re-checks", 1.0, DAY, 0.1, 1e-2, None, None),
+    ("too dear: never", 1.0, DAY, 0.1, 100.0, None, None),
+    ("two clocks", 1.0, 80 * DAY, 0.1, 1e-3, PACKAGE, None),
+    ("source below 1", 0.95, 7 * DAY, 0.0, 1e-3, None, None),
+    ("temperature with its echo", 1.0, 2.42 * 3600, 0.13, 1e-3, None, TEMPERATURE),
+]
+
+STALENESS = [
+    # name, fidelity, half_life, baseline, target, fast, echo
+    ("one day half-life, 5%", 1.0, DAY, 0.1, 0.05, None, None),
+    ("two clocks, 5%", 1.0, 80 * DAY, 0.1, 0.05, PACKAGE, None),
+    ("two clocks, 20%", 0.99, 80 * DAY, 0.1, 0.20, PACKAGE, None),
+    ("baseline already under the target: never", 1.0, DAY, 0.9, 0.2, None, None),
+]
+
+
 def main():
     vectors = {
         "fid_conformance": "1",
@@ -510,6 +758,27 @@ def main():
             for n, f, h, b, fl, e in ECHO_TTL
         ],
         "echo_errors": [{"echo": e, "error": reason} for e, reason in ECHO_ERRORS],
+        "fast": [
+            {"name": n, "fidelity_at_measurement": f, "age_seconds": a, "half_life_seconds": h, "baseline": b,
+             "fast": fa, "echo": e, "fidelity": curve_fidelity(f, a, h, b, fa, e)}
+            for n, f, a, h, b, fa, e in FAST
+        ],
+        "fast_time_to_floor": [
+            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl, "fast": fa, "echo": e,
+             "seconds": curve_time_to_floor(f, h, b, fl, fa, e)}
+            for n, f, h, b, fl, fa, e in FAST_TTL
+        ],
+        "fast_errors": [{"fast": fa, "half_life_seconds": h, "error": reason} for fa, h, reason in FAST_ERRORS],
+        "schedule": [
+            dict(zip(("name", "fidelity", "half_life_seconds", "baseline", "price", "fast", "echo"), case),
+                 **dict(zip(("seconds", "cost"), best_interval(*case[1:]))))
+            for case in SCHEDULE
+        ],
+        "staleness_target": [
+            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "target": t, "fast": fa, "echo": e,
+             "seconds": interval_for_staleness(f, h, b, t, fa, e)}
+            for n, f, h, b, t, fa, e in STALENESS
+        ],
         "integrity": integrity_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
