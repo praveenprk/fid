@@ -57,10 +57,21 @@ class Replay(unittest.TestCase):
         for _ in range(20):
             e = random_changes(rng)
             e.state = state
-            checks, stale, _, _ = dc.simulate(e, ttl, model=lambda s: (1.0, 10 * DAY, 0.0))
             bc, bs = brute_changes(e, ttl)
-            self.assertEqual(checks, bc)
-            self.assertAlmostEqual(stale, bs, delta=1)
+            for boundaries in (None, (20 * DAY,)):  # undeclared: every check replayed; declared: runs skipped
+                e.boundaries = boundaries
+                checks, stale, _, _ = dc.simulate(e, ttl, model=lambda s: (1.0, 10 * DAY, 0.0))
+                self.assertEqual(checks, bc)
+                self.assertAlmostEqual(stale, bs, delta=1)
+
+    def test_skipped_checks_keep_the_prediction(self):
+        e = dc.Changes("g", [0.0, 100 * DAY], ["a", "b"], 0.0, 200 * DAY)
+        model = lambda s: (0.9, 5 * DAY, 0.1)
+        fast = dc.simulate(e, 3600.0, model=model)
+        e.state, e.boundaries = (lambda t, since: None), None  # forces every check to be replayed
+        slow = dc.simulate(e, 3600.0, model=model)
+        self.assertEqual(fast[:3], slow[:3])
+        self.assertAlmostEqual(fast[3], slow[3], delta=1e-6 * fast[3])
 
     def test_series(self):
         # 0..9 then 20..29: a check holding 0 is wrong from step 10 on
