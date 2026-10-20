@@ -51,10 +51,19 @@ impl FastModel {
 
     /// Oldest age at which a check still counts as fresh: the decay factor is at least `FRESH_DECAY`.
     pub fn fresh_age(&self) -> f64 {
+        self.age_at(FRESH_DECAY)
+    }
+
+    /// When the decay factor falls to one half: the curve's own half-life, what one clock's half-life is.
+    pub fn halfway(&self) -> f64 {
+        self.age_at(0.5)
+    }
+
+    fn age_at(&self, level: f64) -> f64 {
         let (mut lo, mut hi) = (0.0, self.half_life);
         for _ in 0..100 {
             let mid = 0.5 * (lo + hi);
-            if self.decay(mid) >= FRESH_DECAY {
+            if self.decay(mid) >= level {
                 lo = mid;
             } else {
                 hi = mid;
@@ -75,8 +84,10 @@ pub struct FastFit {
     /// Largest gap from the fine-binned curve, all data
     pub gap_fast: f64,
     pub gap_plain: f64,
-    /// Did the fast share pass on the held-out half?
+    /// Did the fast share pass on the held-out half (and, in calibrate, is its curve pinned down)?
     pub kept: bool,
+    /// Passed on the held-out half, but its curve was too uncertain to write
+    pub too_uncertain: Option<String>,
     /// Checks in bins young enough to measure s0
     pub fresh_checks: usize,
     pub source_fidelity: Option<f64>,
@@ -224,6 +235,7 @@ pub fn test_fast(group: &[&Observation], train: &[&Observation], test: &[&Observ
         gap_fast,
         gap_plain,
         kept: brier_fast < brier_plain * (1.0 - MIN_GAIN) && gap_fast < gap_plain,
+        too_uncertain: None,
         fresh_checks,
         source_fidelity: (fresh_checks >= MIN_FRESH).then_some(model.s0),
     }
@@ -285,6 +297,14 @@ mod tests {
         let f = run(&ledger(|a| truth.predict(a), 2000, 2));
         eprintln!("ONE CLOCK Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}", f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain);
         assert!(!f.kept, "fast share kept on one clock: {:?}", f);
+    }
+
+    #[test]
+    fn test_halfway_is_the_curve_half_life() {
+        let m = release();
+        assert!((m.decay(m.halfway()) - 0.5).abs() < 1e-9);
+        let one = FastModel { share: 0.0, ..m };
+        assert!((one.halfway() / one.half_life - 1.0).abs() < 1e-9);
     }
 
     #[test]

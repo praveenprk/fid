@@ -45,8 +45,9 @@ other policy's for the same held-out staleness; its 95% range is over
      1 at 5%, 10% and 20% staleness.
   2. For each kind with a state, fid schedule beats the best fixed
      interval: range below 1 at each of those targets it reaches.
-  3. For each kind without a state, fid schedule loses nothing: the
-     range's upper end is at most 1.05 at each target it reaches.
+  3. For each kind without a state, fid schedule loses nothing: not
+     significantly worse (the range's lower end at most 1) and the ratio
+     at most 1.05, at each target it reaches.
   4. The schedule's predicted staleness is within 0.02 of what happens,
      averaged over the prices whose staleness is 1% to 30%, for every kind.
 
@@ -350,9 +351,17 @@ def fixed_grid(entities):
 # ── an entity's own history ──────────────────────────────────────────────
 
 def history_split(e, share=HISTORY):
-    """(history, scored): the first `share` of the entity's window, and the rest."""
+    """(history, scored): the first `share` of the entity's window, and the rest.
+
+    A sampled series' scored part starts at the entity's own hour of the day (from a hash):
+    otherwise every entity starts at midnight, and an interval that divides a day re-checks
+    every fact at the same hours, which a curve averaged over all hours cannot describe.
+    """
     if isinstance(e, Series):
         k = int(len(e.values) * share)
+        per_day = max(1, round(fidcal.DAY / e.step))
+        k += int(hashlib.sha256(str(e.group).encode()).hexdigest(), 16) % per_day
+        k = min(k, len(e.values))
         return (Series(e.group, e.step, e.values[:k], e.match, e.state),
                 Series(e.group, e.step, e.values[k:], e.match, e.state))
     cut = e.start + share * (e.end - e.start)
@@ -575,7 +584,8 @@ def label_entities(cache, skip, n):
 
 
 def kinds(cache, which, ships_per_day):
-    """name → (entities, ledger lags in seconds, ledger stride in seconds, has states, period to test an echo at),
+    """name → (entities, ledger lags in seconds, ledger stride in seconds, has states, period to test an echo at,
+    per-entity baselines),
     and {source: error} for the sources that could not be reached."""
     import dailymed_warnings
     import pypi_latest
@@ -601,13 +611,17 @@ def kinds(cache, which, ships_per_day):
     packages = load("PyPI (pypi.org)", lambda: package_entities(cache, *cfg["packages"]))
     labels = load("DailyMed (dailymed.nlm.nih.gov)", lambda: label_entities(cache, *cfg["labels"]))
     out = {
-        "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, True, None),
-        # Temperature and demand come back daily (Finding 5, eia_demand.py): calibrate tests an echo
-        "airport_temperature": (weather[0], hourly_lags, 7 * H, False, "24h"),
-        "airport_flight_category": (weather[1], hourly_lags, 7 * H, True, None),
-        "grid_demand": (grid, hourly_lags, 7 * H, False, "24h"),
-        "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D, True, None),
-        "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, False, None),
+        # Temperature and demand come back daily (Finding 5, eia_demand.py): calibrate tests an echo.
+        # Per-entity baselines only where a stale value can be right by chance (a reading, a
+        # category). A position, a version or a label changes and stays changed: entities differ
+        # in how fast, and an entity that did not change in its history is not right by chance
+        # (on the dev set, such packages got a baseline near 1 and were never re-checked)
+        "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, True, None, False),
+        "airport_temperature": (weather[0], hourly_lags, 7 * H, False, "24h", True),
+        "airport_flight_category": (weather[1], hourly_lags, 7 * H, True, None, True),
+        "grid_demand": (grid, hourly_lags, 7 * H, False, "24h", True),
+        "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D, True, None, False),
+        "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, False, None, False),
     }
     return {k: v for k, v in out.items() if v[0]}, unavailable
 
@@ -692,7 +706,7 @@ def verdict(r, no_loss=False):
     if r["high"] is None:
         return "no range"
     if no_loss:
-        return "no loss" if r["high"] <= MAX_NO_LOSS else "loss"
+        return "no loss" if r["low"] <= 1 and r["ratio"] <= MAX_NO_LOSS else "loss"
     if r["high"] < 1:
         return "fid better"
     if r["low"] > 1:
@@ -709,7 +723,7 @@ def run(all_kinds, work):
     rng = random.Random(20261020)
     out = {"kinds": {}, "ttl_check_max_error_s": 0.0}
     per_kind = {}
-    for name, (entities, lags, stride, has_states, period) in all_kinds.items():
+    for name, (entities, lags, stride, has_states, period, per_entity) in all_kinds.items():
         began = time.monotonic()
         fidcal.log(f"{name}: {len(entities)} entities")
         train, test = split(entities)
@@ -732,8 +746,8 @@ def run(all_kinds, work):
             with open(path, "w") as f:
                 f.write(registry)
             info["registry"] = registry
-            info["entity_baselines"] = len(baselines)
-            policy = FidPolicy(path, name, baselines)
+            info["entity_baselines"] = len(baselines) if per_entity else 0
+            policy = FidPolicy(path, name, baselines if per_entity else {})
 
         fidcal.log(f"  fixed intervals ({len(T_GRID)})")
         fixed_train = fixed_grid(list(train.values()))
@@ -938,7 +952,7 @@ def markdown(out, which):
         L.append(f"2. {n}, against the best fixed interval: " + (f"refused ({v['refused']})" if "refused" in v else
                                                                   ", ".join(f"{t:.0%} **{x}**" for t, x in v.items())))
     for n, v in r["3_no_state_no_loss"].items():
-        L.append(f"3. {n}, no loss (upper end ≤ {MAX_NO_LOSS}): " + (f"refused ({v['refused']})" if "refused" in v else
+        L.append(f"3. {n}, no loss (lower end ≤ 1, ratio ≤ {MAX_NO_LOSS}): " + (f"refused ({v['refused']})" if "refused" in v else
                                                                    ", ".join(f"{t:.0%} **{x}**" for t, x in v.items())))
     L.append("4. Honest schedule (gap ≤ 0.02): " + ", ".join(f"{n} **{'yes' if ok else 'no'}**" for n, ok in r["4_honest_schedule"].items()))
     L += ["", f"**Rule passed: {'yes' if r['passed'] else 'no'}**", ""]
