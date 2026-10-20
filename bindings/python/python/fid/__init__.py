@@ -57,7 +57,8 @@ Duration = Union[str, float, int, timedelta]
 
 
 class IndeterminateError(ValueError):
-    """The source class is unknown, so fidelity cannot be determined."""
+    """Fidelity cannot be determined: an unknown source, an unknown decay (no
+    half-life), or an envelope this fid does not understand."""
 
 
 class Status(enum.IntEnum):
@@ -73,12 +74,14 @@ class Assessment:
     status: Status
     fidelity: Optional[float]
     source: Optional[float]
-    temporal: float
-    transforms: float
-    baseline: float
+    temporal: Optional[float]
+    transforms: Optional[float]
+    baseline: Optional[float]
     floor: float
-    integrity_ok: bool
-    age: timedelta
+    integrity_ok: Optional[bool]
+    age: Optional[timedelta]
+    # Why the envelope was not understood (a version or member this fid does not read), if so
+    not_understood: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -308,20 +311,21 @@ def check(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Op
         baseline=r["baseline"],
         floor=r["floor"],
         integrity_ok=r["integrity_ok"],
-        age=timedelta(seconds=r["age_seconds"]),
+        age=None if r["age_seconds"] is None else timedelta(seconds=r["age_seconds"]),
+        not_understood=r.get("not_understood"),
     )
 
 
 def expires_at(stamped: Union[Mapping[str, Any], str], floor: float) -> Optional[datetime]:
     """When the artifact falls below floor; None if it never does.
 
-    Raises IndeterminateError when the source class is unknown.
+    Raises IndeterminateError when fidelity is indeterminate (see IndeterminateError).
     """
     value = _fid.expires_at(_json(stamped), floor)
     if value == "never":
         return None
     if value == "unknown":
-        raise IndeterminateError("source fidelity indeterminate; no expiry")
+        raise IndeterminateError("fidelity indeterminate; no expiry")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
@@ -335,13 +339,13 @@ def recheck_at(
     """When to re-check a stamped artifact (see `recheck_interval`), never later
     than its time to `floor` when one is given; None for never.
 
-    Raises IndeterminateError when the source class is unknown.
+    Raises IndeterminateError when fidelity is indeterminate (see IndeterminateError).
     """
     value = _fid.recheck_at(_json(stamped), price, staleness, floor)
     if value == "never":
         return None
     if value == "unknown":
-        raise IndeterminateError("source fidelity indeterminate; no schedule")
+        raise IndeterminateError("fidelity indeterminate; no schedule")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
