@@ -78,11 +78,14 @@ fn calibrated_registry_feeds_stamp() {
 // spec: calibrator, cli
 #[test]
 fn calibrate_refuses_an_uncertain_half_life() {
-    // 60 re-checks, a few at each age: the half-life cannot be pinned down
+    // 60 re-checks over five days of a fact that barely decays in that time: the
+    // half-life's range has no upper end. (A ledger at the edge of the limit is no
+    // test of refusal: the first fixture here gave ×2.66 by least squares, ×2.31 by
+    // maximum likelihood.)
     let mut csv = String::from("entity,age,correct\n");
-    for (i, (day, ok)) in [(0, 5), (2, 4), (4, 4), (6, 3), (8, 2), (10, 2)].iter().enumerate() {
+    for (i, (day, ok)) in [(0, 10), (1, 9), (2, 10), (3, 9), (4, 9), (5, 8)].iter().enumerate() {
         for j in 0..10 {
-            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok * 2));
+            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok));
         }
     }
     // a refusal is an answer about the evidence: exit 2, nothing written

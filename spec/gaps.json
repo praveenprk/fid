@@ -41,18 +41,6 @@
    "what": "no envelope-level vectors for recheck_at"
   }
  ],
- "calibrator": [
-  {
-   "issue": 12,
-   "what": "row-order invariance and maximum-likelihood estimation not implemented"
-  }
- ],
- "reference-procedure": [
-  {
-   "issue": 12,
-   "what": "fits are least squares, not maximum likelihood; ties in bins follow row order"
-  }
- ],
  "conformance": [
   {
    "exempt": "enforced by spec/traceability.py in CI",
