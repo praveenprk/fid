@@ -693,25 +693,32 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
     })
 }
 
-// ── baselines per entity ───────────────────────────────────────────────
+// ── baselines and speeds per entity ────────────────────────────────────
 
-/// A check is stale while the decay factor is at most this.
-pub const STALE_DECAY: f64 = 0.1;
+/// Speeds searched: 1/20 to 20 times the state's.
+const MAX_SPEED: f64 = 20.0;
+/// Entities count toward the spread between entities only when their own
+/// estimate is this certain (variance of the baseline, of ln speed).
+const SPREAD_VAR_LIMIT: (f64, f64) = (0.05, 1.0);
 
-/// One entity's own baseline: the chance its stale facts are right anyway.
+/// One entity's own curve: the state's, with its own baseline (the chance a
+/// stale fact is right anyway) and speed (its half-lives divided by it; an
+/// echo's period stays).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntityBaseline {
     pub entity: String,
     pub state: Option<String>,
     /// Shrunk toward the state's baseline by how much entities differ
     pub baseline: f64,
-    /// The entity's own estimate, before shrinking
-    pub raw: f64,
-    /// Its stale checks
-    pub stale_checks: usize,
+    /// Shrunk toward 1 (the state's curve) the same way
+    pub speed: f64,
+    /// The entity's own estimates, before shrinking
+    pub raw_baseline: f64,
+    pub raw_speed: f64,
+    pub checks: usize,
 }
 
-/// How much baselines differ between entities, for one state.
+/// How much entities differ, for one state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BaselineSpread {
     pub state: Option<String>,
@@ -719,35 +726,38 @@ pub struct BaselineSpread {
     pub baseline: f64,
     /// Standard deviation of true baselines across entities; 0 when the data show none
     pub between: f64,
-    /// Entities with stale checks
+    /// Standard deviation of true ln speeds across entities; 0 when the data show none
+    pub speed_between: f64,
+    /// Entities with checks
     pub entities: usize,
 }
 
-/// The decay factor the fit uses at `age`: the kept fast share or echo's curve, else one clock.
-fn decay_factor(f: &StateFit, age: f64) -> f64 {
+/// The decay factor the fit uses at `age`, for an entity `speed` times as fast:
+/// the kept fast share or echo's curve, else one clock.
+fn decay_at(f: &StateFit, age: f64, speed: f64) -> f64 {
     if let Some(e) = f.kept_echo() {
         let m = &e.model;
-        return crate::compute::temporal_factor(age, Some(m.half_life), Some(&m.echo));
+        return crate::compute::temporal_factor(age, Some(m.half_life / speed), Some(&m.echo));
     }
     if let Some(fast) = f.kept_fast() {
-        return fast.model.decay(age);
+        return fast.model.decay(age * speed);
     }
     if f.model.half_life.is_infinite() {
         1.0
     } else {
-        0.5_f64.powf(age.max(0.0) / f.model.half_life)
+        0.5_f64.powf(age.max(0.0) * speed / f.model.half_life)
     }
 }
 
-/// Each entity's baseline from its own stale checks, shrunk toward the
-/// state's (empirical Bayes, beta-binomial).
-///
-/// A stale check (decay factor d ≤ 0.1) is right with chance
-/// b_e + (s0 − b_e) × d, so b_e is estimated as (k − s0 Σd) / Σ(1 − d).
-/// The spread of true baselines, τ², is the variance of those estimates
-/// less their sampling variance; shrinking weights an entity's estimate by
-/// n / (n + κ) with κ = b(1 − b) / τ² − 1. With no spread in the data
-/// (τ² ≤ 0) every entity gets the state's baseline.
+/// Each entity's baseline and speed, fitted on all its checks by maximum
+/// likelihood with the state's curve otherwise fixed, then shrunk toward the
+/// state's (empirical Bayes). The estimate θ̂ = (b̂, ln r̂) has covariance V
+/// from the curvature of the likelihood; true values spread around the
+/// state's μ = (b, 0) with T = diag(τ_b², τ_r²), each τ² the mean squared
+/// distance of the estimates from μ less their mean variance. The entity
+/// gets (V⁻¹ + T⁻¹)⁻¹ (V⁻¹ θ̂ + T⁻¹ μ): where its checks cannot tell a
+/// higher baseline from a slower clock, it stays near the state's. With no
+/// spread in the data every entity gets the state's curve.
 pub fn entity_baselines(obs: &[Observation], fits: &[StateFit]) -> (Vec<EntityBaseline>, Vec<BaselineSpread>) {
     let mut out = Vec::new();
     let mut spreads = Vec::new();
@@ -757,53 +767,134 @@ pub fn entity_baselines(obs: &[Observation], fits: &[StateFit]) -> (Vec<EntityBa
             (None, Some(fast)) => (fast.model.s0, fast.model.baseline),
             _ => (f.model.s0, f.model.baseline),
         };
-        // (k, Σd, Σ(1 − d), n) per entity
-        let mut per: BTreeMap<&str, (f64, f64, f64, usize)> = BTreeMap::new();
+        let decays = !f.model.half_life.is_infinite() || f.kept_echo().is_some() || f.kept_fast().is_some();
+        // (age → (right, checks)) per entity
+        let mut per: BTreeMap<&str, BTreeMap<u64, (f64, f64)>> = BTreeMap::new();
         for o in obs.iter().filter(|o| o.state == f.state) {
-            let d = decay_factor(f, o.age);
-            if d > STALE_DECAY {
-                continue;
-            }
-            let e = per.entry(o.entity.as_str()).or_insert((0.0, 0.0, 0.0, 0));
+            let e = per.entry(o.entity.as_str()).or_default().entry(o.age.to_bits()).or_insert((0.0, 0.0));
             e.0 += o.correct as u8 as f64;
-            e.1 += d;
-            e.2 += 1.0 - d;
-            e.3 += 1;
+            e.1 += 1.0;
         }
-        let raw: Vec<(&str, f64, usize)> = per
+        // (entity, b̂, ln r̂, covariance, checks)
+        let raw: Vec<(&str, f64, f64, [f64; 3], usize)> = per
             .iter()
-            .map(|(e, &(k, sd, s1d, n))| (*e, ((k - s0 * sd) / s1d).clamp(0.0, 1.0), n))
+            .map(|(entity, ages)| {
+                let ages: Vec<(f64, f64, f64)> = ages.iter().map(|(a, &(k, n))| (f64::from_bits(*a), k, n)).collect();
+                let checks = ages.iter().map(|a| a.2).sum::<f64>() as usize;
+                let (bh, xh, cov) = fit_entity(&ages, f, s0, b, decays);
+                (*entity, bh, xh, cov, checks)
+            })
             .collect();
-        let m = raw.len() as f64;
-        let between = if raw.len() < 2 {
-            0.0
-        } else {
-            let mean = raw.iter().map(|r| r.1).sum::<f64>() / m;
-            let var = raw.iter().map(|r| (r.1 - mean).powi(2)).sum::<f64>() / (m - 1.0);
-            let sampling = raw.iter().map(|r| b * (1.0 - b) / r.2 as f64).sum::<f64>() / m;
-            (var - sampling).max(0.0)
+        let spread = |dev: &dyn Fn(&(&str, f64, f64, [f64; 3], usize)) -> (f64, f64), limit: f64| -> f64 {
+            let usable: Vec<(f64, f64)> = raw.iter().map(dev).filter(|&(_, v)| v.is_finite() && v <= limit).collect();
+            if usable.len() < 2 {
+                return 0.0;
+            }
+            let m = usable.len() as f64;
+            (usable.iter().map(|(d, _)| d * d).sum::<f64>() / m - usable.iter().map(|(_, v)| v).sum::<f64>() / m).max(0.0)
         };
-        let kappa = if between > 0.0 { (b * (1.0 - b) / between - 1.0).max(0.0) } else { f64::INFINITY };
-        for (entity, r, n) in raw {
-            let w = if kappa.is_infinite() { 0.0 } else { n as f64 / (n as f64 + kappa) };
-            out.push(EntityBaseline { entity: entity.to_string(), state: f.state.clone(), baseline: w * r + (1.0 - w) * b, raw: r, stale_checks: n });
+        let tau_b = spread(&|r| (r.1 - b, r.3[0]), SPREAD_VAR_LIMIT.0);
+        let tau_x = if decays { spread(&|r| (r.2, r.3[2]), SPREAD_VAR_LIMIT.1) } else { 0.0 };
+        for &(entity, bh, xh, cov, checks) in &raw {
+            let (db, dx) = shrink((bh - b, xh), cov, (tau_b, tau_x));
+            out.push(EntityBaseline {
+                entity: entity.to_string(),
+                state: f.state.clone(),
+                baseline: (b + db).clamp(0.0, s0),
+                speed: dx.exp(),
+                raw_baseline: bh,
+                raw_speed: xh.exp(),
+                checks,
+            });
         }
-        spreads.push(BaselineSpread { state: f.state.clone(), baseline: b, between: between.sqrt(), entities: m as usize });
+        spreads.push(BaselineSpread {
+            state: f.state.clone(),
+            baseline: b,
+            between: tau_b.sqrt(),
+            speed_between: tau_x.sqrt(),
+            entities: raw.len(),
+        });
     }
     (out, spreads)
 }
 
-/// The per-entity baselines as CSV: entity, state, baseline, raw, stale_checks.
+/// The posterior mean of a deviation `d` from the state's values, with covariance
+/// `cov` = [var b, cov, var ln r] and prior variances `tau` (0: no spread, so no deviation).
+fn shrink(d: (f64, f64), cov: [f64; 3], tau: (f64, f64)) -> (f64, f64) {
+    let [vb, c, vx] = cov;
+    let det = vb * vx - c * c;
+    if !(det.is_finite() && det > 0.0) {
+        return (0.0, 0.0);
+    }
+    // V⁻¹ and V⁻¹ d
+    let (pbb, pbx, pxx) = (vx / det, -c / det, vb / det);
+    let (gb, gx) = (pbb * d.0 + pbx * d.1, pbx * d.0 + pxx * d.1);
+    // (V⁻¹ + T⁻¹)⁻¹ V⁻¹ d; no spread in a parameter pins it at the state's value
+    match (tau.0 > 0.0, tau.1 > 0.0) {
+        (false, false) => (0.0, 0.0),
+        (true, false) => (gb / (pbb + 1.0 / tau.0), 0.0),
+        (false, true) => (0.0, gx / (pxx + 1.0 / tau.1)),
+        (true, true) => {
+            let (abb, abx, axx) = (pbb + 1.0 / tau.0, pbx, pxx + 1.0 / tau.1);
+            let a_det = abb * axx - abx * abx;
+            ((axx * gb - abx * gx) / a_det, (abb * gx - abx * gb) / a_det)
+        }
+    }
+}
+
+/// One entity's (b̂, ln r̂) by maximum likelihood on its checks, (age, right, checks),
+/// and their covariance [var b, cov, var ln r] from the curvature there
+/// (infinite where the checks do not pin them down).
+fn fit_entity(ages: &[(f64, f64, f64)], f: &StateFit, s0: f64, b: f64, decays: bool) -> (f64, f64, [f64; 3]) {
+    let x_max = MAX_SPEED.ln();
+    let nll = |bb: f64, x: f64| -> f64 {
+        if !(0.0..=s0).contains(&bb) || x.abs() > x_max {
+            return f64::INFINITY;
+        }
+        let r = x.exp();
+        ages.iter()
+            .map(|&(age, k, n)| {
+                let p = (bb + (s0 - bb) * decay_at(f, age, r)).clamp(1e-9, 1.0 - 1e-9);
+                -(k * p.ln() + (n - k) * (1.0 - p).ln())
+            })
+            .sum()
+    };
+    let (bh, xh) = if decays {
+        let (x, _) = crate::echo::nelder_mead(&|v: &[f64]| nll(v[0], v[1]), &[b.min(s0), 0.0], 0.2, 300);
+        let (x, _) = crate::echo::nelder_mead(&|v: &[f64]| nll(v[0], v[1]), &x, 0.02, 300);
+        (x[0], x[1])
+    } else {
+        // no decay: every check is fresh, nothing to fit
+        return (b, 0.0, [f64::INFINITY, 0.0, f64::INFINITY]);
+    };
+    // Observed information by central differences, kept inside the bounds
+    let (hb, hx) = (1e-3, 1e-2);
+    let cb = bh.clamp(hb, s0 - hb);
+    let cx = xh.clamp(-x_max + hx, x_max - hx);
+    let f0 = nll(cb, cx);
+    let fbb = (nll(cb + hb, cx) - 2.0 * f0 + nll(cb - hb, cx)) / (hb * hb);
+    let fxx = (nll(cb, cx + hx) - 2.0 * f0 + nll(cb, cx - hx)) / (hx * hx);
+    let fbx = (nll(cb + hb, cx + hx) - nll(cb + hb, cx - hx) - nll(cb - hb, cx + hx) + nll(cb - hb, cx - hx)) / (4.0 * hb * hx);
+    let det = fbb * fxx - fbx * fbx;
+    if !(det.is_finite() && det > 0.0 && fbb > 0.0 && fxx > 0.0) {
+        return (bh, xh, [f64::INFINITY, 0.0, f64::INFINITY]);
+    }
+    (bh, xh, [fxx / det, -fbx / det, fbb / det])
+}
+
+/// The per-entity curves as CSV: entity, state, baseline, speed, raw_baseline, raw_speed, checks.
 pub fn entity_baselines_csv(rows: &[EntityBaseline]) -> String {
     let mut w = csv::Writer::from_writer(Vec::new());
-    w.write_record(["entity", "state", "baseline", "raw", "stale_checks"]).expect("writing to memory");
+    w.write_record(["entity", "state", "baseline", "speed", "raw_baseline", "raw_speed", "checks"]).expect("writing to memory");
     for r in rows {
         w.write_record([
             r.entity.as_str(),
             r.state.as_deref().unwrap_or(""),
             &format!("{:.4}", r.baseline),
-            &format!("{:.4}", r.raw),
-            &r.stale_checks.to_string(),
+            &format!("{:.4}", r.speed),
+            &format!("{:.4}", r.raw_baseline),
+            &format!("{:.4}", r.raw_speed),
+            &r.checks.to_string(),
         ])
         .expect("writing to memory");
     }
@@ -1233,9 +1324,8 @@ mod tests {
         for r in &rows {
             let i: usize = r.entity.trim_start_matches("site-").parse().unwrap();
             assert!((r.baseline - truth[i]).abs() < 0.08, "{:?} vs {}", r, truth[i]);
-            // shrinking moves it toward the pooled baseline, never past it
-            let pooled = spreads[0].baseline;
-            assert!((r.baseline - pooled).abs() <= (r.raw - pooled).abs() + 1e-12);
+            // every site decays on the same clock
+            assert!((r.speed - 1.0).abs() < 0.25, "{:?}", r);
         }
     }
 
@@ -1249,8 +1339,38 @@ mod tests {
         assert!(spreads[0].between < 0.05, "{:?}", spreads);
         assert!(rows.iter().all(|r| (r.baseline - pooled).abs() < 0.03), "{:?}", rows);
         let csv = entity_baselines_csv(&rows);
-        assert!(csv.starts_with("entity,state,baseline,raw,stale_checks\n"));
+        assert!(csv.starts_with("entity,state,baseline,speed,raw_baseline,raw_speed,checks\n"));
         assert_eq!(csv.lines().count(), 31);
+        // nor in speed
+        assert!(spreads[0].speed_between < 0.1, "{:?}", spreads);
+        assert!(rows.iter().all(|r| (r.speed - 1.0).abs() < 0.1), "{:?}", rows);
+    }
+
+    #[test]
+    fn test_entity_speeds_follow_the_entity() {
+        // Same baseline, half-lives of 1 and 3 days, checked over 0 to 9 days
+        let mut rng = Rng(14);
+        let mut obs = Vec::new();
+        for e in 0..40 {
+            let m = Model { s0: 1.0, baseline: 0.2, half_life: if e % 2 == 0 { DAY } else { 3.0 * DAY } };
+            for i in 0..400 {
+                let age = (i % 10) as f64 * DAY;
+                obs.push(Observation { entity: format!("site-{}", e), age, correct: rng.unit() < m.predict(age), state: None });
+            }
+        }
+        let fits = calibrate_one_clock(&obs, f64::INFINITY).unwrap();
+        let (rows, spreads) = entity_baselines(&obs, &fits);
+        assert!(spreads[0].speed_between > 0.3, "{:?}", spreads);
+        let state = fits[0].model;
+        for r in &rows {
+            let i: usize = r.entity.trim_start_matches("site-").parse().unwrap();
+            let truth = Model { s0: 1.0, baseline: 0.2, half_life: if i % 2 == 0 { DAY } else { 3.0 * DAY } };
+            let own = Model { s0: state.s0, baseline: r.baseline, half_life: state.half_life / r.speed };
+            // the entity's own curve is far closer to its truth than the state's, over the checked ages
+            let miss = |m: &Model| (0..10).map(|d| (m.predict(d as f64 * DAY) - truth.predict(d as f64 * DAY)).abs()).fold(0.0, f64::max);
+            // (what remains is the pooled baseline: one clock fitted to a mix of two puts it at 0.25)
+            assert!(miss(&own) < 0.06 && miss(&own) < 0.4 * miss(&state), "{:?}: {} vs state {}", r, miss(&own), miss(&state));
+        }
     }
 
     #[test]

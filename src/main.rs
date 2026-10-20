@@ -442,11 +442,13 @@ fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&s
         std::fs::write(out, fid::calibrate::entity_baselines_csv(&rows)).map_err(|e| format!("cannot write {}: {}", out, e))?;
         for s in spreads {
             eprintln!(
-                "{}{}: baseline {:.2}, spread between entities {:.3} (sd, {} entities with stale checks) → {}",
+                "{}{}: spread between entities: baseline {:.3} (sd around {:.2}), speed ×{:.2} (sd of ln speed {:.3}); {} entities → {}",
                 info_type,
                 s.state.map(|st| format!(" / {}", st)).unwrap_or_default(),
-                s.baseline,
                 s.between,
+                s.baseline,
+                s.speed_between.exp(),
+                s.speed_between,
                 s.entities,
                 out
             );
