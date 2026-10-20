@@ -78,6 +78,43 @@ youngest bin averages days and the fit cannot see the decay. The range
 shows it (a 3-hour half-life checked uniformly over 40 days: range 6.6h
 to 17h, refused), and the source fidelity is then not written.
 
+## Curves that are not one exponential
+
+Every `fid calibrate` also tries three richer curves: a shape (the
+curve holds, then drops, as a moving ship's position does, or drops
+fast, then lingers), two clocks (most facts stay right for months but a
+share is replaced within days, as with package releases), and both. A
+richer curve is written only when it beats one clock on the held-out
+half by 0.1% (Brier), cuts the largest gap from the binned data by 20%,
+and has a lower BIC. Of those that pass, the lowest BIC wins. On
+simulated ledgers a richer curve was written for one-clock data in 1 of
+40 trials, and found in 20 of 20 when it was real. If its range is too
+wide to write, the next richer curve that passed is tried, then one
+clock.
+
+Checks at age zero fix the source's fidelity when they measure it
+tightly (500 of 500 right, not 20 of 20). A fast first drop is then
+read as a fast curve, not as a source that is wrong when fresh.
+
+## Baselines per entity
+
+`--entity-baselines out.csv` writes each entity's baseline, shrunk
+toward the state's own by how much history the entity has. Use it only
+for facts a stale value can still get right by chance: a reading, a
+category, a demand figure near yesterday's. Do not use it for facts that
+change and stay changed (a position, a version, a label): an entity
+that has not changed yet gets a baseline near 1, and is then never
+re-checked.
+
+## Choosing when to re-check
+
+`fid schedule artifact.json --price P` gives the next re-check time
+that minimizes mean staleness plus P times re-checks per day (use one
+price across every kind and state). `--staleness S` gives the longest
+interval that keeps mean staleness at or below S. `--floor F` caps either at the time the trust
+falls below F. Use the price or the target to spend a re-check budget;
+use the floor to guard a single decision.
+
 ## Re-check the calibration
 
 Run `fid drift` on each new batch of random re-checks against the
