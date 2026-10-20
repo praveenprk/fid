@@ -1,0 +1,4 @@
+# The specification, its test vectors, and the checks that enforce them.
+/spec/                    @praveenprk
+/conformance/             @praveenprk
+/.github/                 @praveenprk
