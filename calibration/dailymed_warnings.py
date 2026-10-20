@@ -163,14 +163,10 @@ def observations(labels):
     return out
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--labels", type=int, default=300, help="how many prescription labels to sample")
-    args = ap.parse_args(argv)
-    cache = fidcal.default_cache_dir()
-
+def load_labels(cache, n):
+    """{set_id: warnings timeline} for `n` sampled labels, with the number skipped and versions read."""
     labels, skipped, versions_read = {}, 0, 0
-    for i, setid in enumerate(sample_set_ids(cache, args.labels)):
+    for i, setid in enumerate(sample_set_ids(cache, n)):
         try:
             hist = history(cache, setid)
             texts = [(at, version_text(cache, setid, v)) for at, v in hist]
@@ -182,7 +178,17 @@ def main(argv=None):
         if any(t for _, t in texts):
             labels[setid] = timeline(texts)
         if (i + 1) % 25 == 0:
-            fidcal.log(f"  {i + 1}/{args.labels} labels, {versions_read:,} versions")
+            fidcal.log(f"  {i + 1}/{n} labels, {versions_read:,} versions")
+    return labels, skipped, versions_read
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--labels", type=int, default=300, help="how many prescription labels to sample")
+    args = ap.parse_args(argv)
+    cache = fidcal.default_cache_dir()
+
+    labels, skipped, versions_read = load_labels(cache, args.labels)
     changes = sum(len(c) - 1 for c in labels.values())
     fidcal.log(f"{len(labels)} labels with warnings, {versions_read:,} versions, {changes:,} warnings changes, "
                f"{skipped} skipped")
