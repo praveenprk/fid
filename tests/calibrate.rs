@@ -156,3 +156,75 @@ fn calibrate_period_writes_an_echo() {
     let spec = fid::registry::HalfLives::from_yaml(&yaml).unwrap().lookup("load", None).unwrap();
     assert!(spec.echo.unwrap().strength > 0.2);
 }
+
+#[test]
+fn calibrate_finds_two_clocks_and_stamp_uses_them() {
+    // 30% of facts go stale with a 2-day half-life, the rest with 60 days; exact counts per lag
+    let mut csv = String::from("entity,age,correct\n");
+    for day in [0.0_f64, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0] {
+        let p = 0.07 + 0.93 * (0.7 * 0.5_f64.powf(day / 60.0) + 0.3 * 0.5_f64.powf(day / 2.0));
+        let n = 1000;
+        let k = (p * n as f64).round() as usize;
+        for i in 0..n {
+            csv.push_str(&format!("pkg-{}-{},{}d,{}\n", day, i, day, i < k));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "pkg"], &csv);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let yaml = String::from_utf8(out.stdout).unwrap();
+    // two clocks, or a shape below 1 that draws the same curve
+    assert!(
+        yaml.contains("fast: { share: ") || yaml.contains("shape: 0."),
+        "{}",
+        yaml
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains(" kept: held-out")
+            || yaml.contains("kept: held-out"),
+        "{}",
+        yaml
+    );
+
+    let dir = std::env::temp_dir().join(format!("fid-calibrate-fast-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let registry = dir.join("half-lives.yaml");
+    std::fs::write(&registry, &yaml).unwrap();
+    let stamped = fid(&["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"], "{}");
+    assert!(stamped.status.success(), "{}", String::from_utf8_lossy(&stamped.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&stamped.stdout).unwrap();
+    assert!(
+        v["fid"]["fast"].is_object() || v["fid"]["shape"].as_f64().is_some_and(|k| k < 1.0),
+        "{}",
+        v
+    );
+    // fresh, the fact is near certain: one clock would have said 0.94 or so
+    assert!(v["fid"]["fid_at_stamp"].as_f64().unwrap() > 0.97, "{}", v);
+    let schedule = fid(&["schedule", "-", "--price", "0.001"], &String::from_utf8(stamped.stdout).unwrap());
+    assert_eq!(schedule.status.code(), Some(0), "{}", String::from_utf8_lossy(&schedule.stderr));
+}
+
+#[test]
+fn calibrate_writes_entity_baselines() {
+    let dir = std::env::temp_dir().join(format!("fid-calibrate-entities-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let out_path = dir.join("baselines.csv");
+    // 30 airports: stale facts right 80% of the time at the dry ones, 20% at the wet ones
+    let mut csv = String::from("entity,age,correct\n");
+    for a in 0..30 {
+        let (site, b) = if a % 2 == 0 { (format!("dry{}", a), 0.8_f64) } else { (format!("wet{}", a), 0.2) };
+        for day in 0..20 {
+            let p = b + (1.0 - b) * 0.5_f64.powf(day as f64);
+            for i in 0..50 {
+                csv.push_str(&format!("{},{}d,{}\n", site, day, (i as f64) < p * 50.0));
+            }
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "flight_category", "--entity-baselines", out_path.to_str().unwrap()], &csv);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("spread between entities"));
+    let text = std::fs::read_to_string(&out_path).unwrap();
+    let get = |site: &str| -> f64 {
+        text.lines().find(|l| l.starts_with(&format!("{},", site))).unwrap().split(',').nth(2).unwrap().parse().unwrap()
+    };
+    assert!(get("dry0") > 0.7 && get("wet1") < 0.3, "{}", text);
+}

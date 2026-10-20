@@ -112,6 +112,34 @@ class Registries(unittest.TestCase):
         self.assertGreater(fid.noise(path, "flight_leg", "previous_leg_late"), fid.noise(path, "flight_leg"))
 
 
+class Schedules(unittest.TestCase):
+    def test_recheck_at(self):
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        s = fid.stamp({"latest": "2.32.3"}, source="pypi", source_class="instrument", source_fidelity=1.0,
+                      half_life="80d", baseline=0.1, fast={"share": 0.3, "half_life": "3d"}, now=now)
+        self.assertEqual(s["fid"]["fast"], {"share": 0.3, "half_life": "3d"})
+        cheap, dear = fid.recheck_at(s, price=1e-4), fid.recheck_at(s, price=1e-2)
+        self.assertLess(cheap, dear)
+        self.assertIsNone(fid.recheck_at(s, price=1e6))
+        # the floor caps it
+        self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.99), fid.expires_at(s, 0.99))
+        self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.5), dear)
+        at = fid.recheck_at(s, staleness=0.05)
+        every = at - now
+        self.assertAlmostEqual(fid.mean_staleness(1.0, "80d", every, baseline=0.1, fast={"share": 0.3, "half_life": "3d"}), 0.05, delta=1e-6)
+        with self.assertRaises(ValueError):
+            fid.recheck_at(s)
+        with self.assertRaises(fid.IndeterminateError):
+            fid.recheck_at(fid.stamp({}, source="x", half_life="1d"), price=1e-3)
+
+    def test_registry_fast_share(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "r.yaml")
+            with open(path, "w") as f:
+                f.write("pkg: { half_life: 80d, fast: { share: 0.3, half_life: 3d } }\n")
+            self.assertEqual(fid.registry(path, "pkg")["fast"], {"share": 0.3, "half_life": "3d"})
+
+
 class Calibration(unittest.TestCase):
     def ledger(self):
         # Half wrong after 10 days, exactly

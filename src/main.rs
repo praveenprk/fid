@@ -145,6 +145,30 @@ enum Commands {
         floor: f64,
     },
 
+    /// When to re-check a stamped fact so a re-check budget is spent well
+    ///
+    /// Picks the interval that minimizes mean staleness + price × re-checks
+    /// per day, from the fact's measured decay; or, with --staleness, the
+    /// longest interval that keeps mean staleness at or below a target.
+    /// Prints the re-check time (RFC 3339) or "never"; exit code as `check`.
+    Schedule {
+        /// Path to the fid-stamped file ("-" for stdin)
+        path: String,
+
+        /// What one more re-check a day is worth, in staleness (e.g. 0.001:
+        /// a daily re-check must cut staleness by 0.1 percentage points)
+        #[arg(long, required_unless_present = "staleness", conflicts_with = "staleness")]
+        price: Option<f64>,
+
+        /// Keep mean staleness at or below this instead (e.g. 0.05)
+        #[arg(long)]
+        staleness: Option<f64>,
+
+        /// Never later than when fidelity falls below this floor
+        #[arg(long)]
+        floor: Option<f64>,
+    },
+
     /// Fit half-life and baseline from re-checked facts; print registry YAML
     ///
     /// CSV columns: entity, correct, and age (seconds or e.g. 30d) or
@@ -166,6 +190,12 @@ enum Commands {
         /// echo is written only if it beats plain decay on held-out data
         #[arg(long)]
         period: Option<String>,
+
+        /// Also write each entity's own baseline to this CSV (entity, state,
+        /// baseline, raw, stale_checks), shrunk toward the type's; pass it to
+        /// `fid stamp --baseline` for that entity's facts
+        #[arg(long)]
+        entity_baselines: Option<String>,
     },
 
     /// Test a registry against recent re-checks; exit 0 current, 1 drifted, 2 unknown
@@ -257,8 +287,15 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Calibrate { path, info_type, max_spread, period }) => {
-            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref()) {
+        Some(Commands::Schedule { path, price, staleness, floor }) => match run_schedule(&path, price, staleness, floor) {
+            Ok(code) => std::process::exit(code),
+            Err(e) => {
+                eprintln!("fid schedule: {}", e);
+                std::process::exit(EXIT_ERROR);
+            }
+        },
+        Some(Commands::Calibrate { path, info_type, max_spread, period, entity_baselines }) => {
+            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref(), entity_baselines.as_deref()) {
                 eprintln!("fid calibrate: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
@@ -298,7 +335,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
     let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
 
     // Registry values first, explicit flags override.
-    let (mut half_life, mut baseline, mut source_fidelity, mut echo) = (None, None, None, None);
+    let (mut half_life, mut baseline, mut source_fidelity, mut echo, mut fast, mut shape) = (None, None, None, None, None, None);
     if let Some(path) = &args.half_lives {
         let info_type = args.info_type.as_deref().expect("clap enforces --type");
         let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
@@ -306,6 +343,8 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         baseline = spec.baseline;
         source_fidelity = spec.source_fidelity;
         echo = spec.echo;
+        fast = spec.fast;
+        shape = spec.shape;
     }
     half_life = args.half_life.or(half_life);
     baseline = args.baseline.or(baseline);
@@ -343,6 +382,8 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         baseline,
         source_fidelity,
         echo,
+        fast,
+        shape,
         info_type: args.info_type,
         state: args.state,
         condition: args.condition,
@@ -389,12 +430,28 @@ fn run_chain(path: &str, floor: f64) -> Result<(), String> {
 }
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
-fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>) -> Result<(), String> {
+fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>, entity_baselines: Option<&str>) -> Result<(), String> {
     let period = period
         .map(|p| fid::compute::parse_half_life(p)?.ok_or_else(|| "--period cannot be infinite".to_string()))
         .transpose()?;
-    let fits = fid::calibrate::calibrate_periodic(&read_ledger(path)?, max_spread, period)?;
+    let obs = read_ledger(path)?;
+    let fits = fid::calibrate::calibrate_periodic(&obs, max_spread, period)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
+    if let Some(out) = entity_baselines {
+        let (rows, spreads) = fid::calibrate::entity_baselines(&obs, &fits);
+        std::fs::write(out, fid::calibrate::entity_baselines_csv(&rows)).map_err(|e| format!("cannot write {}: {}", out, e))?;
+        for s in spreads {
+            eprintln!(
+                "{}{}: baseline {:.2}, spread between entities {:.3} (sd, {} entities with stale checks) → {}",
+                info_type,
+                s.state.map(|st| format!(" / {}", st)).unwrap_or_default(),
+                s.baseline,
+                s.between,
+                s.entities,
+                out
+            );
+        }
+    }
     print!("{}", fid::calibrate::registry_yaml(info_type, &fits));
     Ok(())
 }
@@ -416,6 +473,42 @@ fn run_drift(path: &str, info_type: &str, half_lives: &str, max_spread: f64) -> 
     let verdict = fid::drift::overall(&drifts);
     println!("{}", format!("{:?}", verdict).to_lowercase());
     Ok(verdict.exit_code())
+}
+
+/// Print when to re-check a stamped fact; exit code as `check` at the floor (0.5 if none).
+fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: Option<f64>) -> Result<i32, String> {
+    let stamped = read_stamped(path)?;
+    if let Some(f) = floor {
+        fid::registry::check_unit(f, "floor")?;
+    }
+    let result = assess(&stamped, floor.unwrap_or(0.5), Utc::now())?;
+    let at = match (price, staleness) {
+        (Some(p), None) => stamped.fid.recheck_at(p, floor)?,
+        (None, Some(s)) => stamped.fid.recheck_for_staleness(s, floor)?,
+        _ => return Err("give --price or --staleness".to_string()),
+    };
+    let how = match (price, staleness) {
+        (Some(p), _) => format!("price {} per daily re-check", p),
+        (_, Some(s)) => format!("mean staleness at most {}", s),
+        _ => unreachable!(),
+    };
+    let guard = floor.map(|f| format!(", floor {:.2}", f)).unwrap_or_default();
+    match at {
+        None => {
+            eprintln!("UNKNOWN  source fidelity indeterminate; no schedule");
+            println!("unknown");
+        }
+        Some(fid::envelope::Expiry::Never) => {
+            eprintln!("never    a re-check removes less staleness than it costs ({}{})", how, guard);
+            println!("never");
+        }
+        Some(fid::envelope::Expiry::At(t)) => {
+            let every = (t - stamped.fid.measured_at).num_milliseconds() as f64 / 1000.0;
+            eprintln!("recheck  {} (every {}; {}{})", t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), fid::check::format_age(every), how, guard);
+            println!("{}", t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        }
+    }
+    Ok(result.assessment.status.exit_code())
 }
 
 /// Print when a stamped fact falls below the floor; exit code as `check`.

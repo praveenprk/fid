@@ -119,11 +119,12 @@ def observations(packages):
     return out
 
 
-def fetch(cache_dir, n):
+def fetch(cache_dir, n, start=0):
+    """The `n` most downloaded packages after the first `start`: {name: timeline}, and how many failed."""
     top_path = os.path.join(cache_dir, "pypi", "top-pypi-packages.json")
     fidcal.download(TOP_URL, top_path, pause=0)
     with open(top_path) as f:
-        names = [row["project"] for row in json.load(f)["rows"][:n]]
+        names = [row["project"] for row in json.load(f)["rows"][start:start + n]]
     packages, skipped = {}, 0
     for i, name in enumerate(names):
         path = os.path.join(cache_dir, "pypi", "json", name + ".json")

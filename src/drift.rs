@@ -91,7 +91,7 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
     if max_spread.is_nan() || max_spread < 1.0 {
         return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
     }
-    let fits = calibrate::calibrate_with(obs, f64::INFINITY)?;
+    let fits = calibrate::calibrate_one_clock(obs, f64::INFINITY)?;
 
     let mut groups: BTreeMap<Option<String>, Vec<&Observation>> = BTreeMap::new();
     for o in obs {
@@ -102,6 +102,14 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
         .zip(fits)
         .map(|(group, recent)| {
             let spec = registry.lookup(info_type, recent.state.as_deref())?;
+            if spec.fast.is_some() || spec.shape.is_some() {
+                // The test compares plain decay curves; a fast share or shape would be dropped silently
+                return Err(format!(
+                    "'{}'{} has a fast share or a shape: drift tests plain decay only; refit with fid calibrate instead",
+                    info_type,
+                    recent.state.as_deref().map(|s| format!(" state '{}'", s)).unwrap_or_default()
+                ));
+            }
             let registered = Registered {
                 half_life: parse_half_life(&spec.half_life)?.unwrap_or(f64::INFINITY),
                 baseline: spec.baseline.unwrap_or(0.0),
@@ -326,6 +334,14 @@ mod tests {
         let (current, drifted, unknown) = tally(truth, &reg, 30, 21);
         assert!(drifted <= 3, "false alarms: {} of 30", drifted);
         assert!(current >= 25, "current in {} of 30 ({} unknown)", current, unknown);
+    }
+
+    #[test]
+    fn test_fast_share_is_refused_not_dropped() {
+        let mut rng = Rng(5);
+        let obs = random_ledger(Model { s0: 1.0, baseline: 0.1, half_life: 10.0 * DAY }, 200, 60.0 * DAY, &mut rng);
+        let reg = registry("t: { half_life: 10d, baseline: 0.1, fast: { share: 0.2, half_life: 1d } }");
+        assert!(drift(&obs, &reg, "t", calibrate::MAX_SPREAD).unwrap_err().contains("fast share"));
     }
 
     #[test]

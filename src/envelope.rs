@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
 /// Current envelope schema version.
-pub const FID_VERSION: &str = "0.3";
+pub const FID_VERSION: &str = "0.4";
 
 /// Source class — determines initial fidelity ceiling.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -127,6 +127,14 @@ pub struct FidEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub echo: Option<crate::compute::Echo>,
 
+    /// A share that goes stale on a faster clock (fid_version 0.4)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast: Option<crate::compute::Fast>,
+
+    /// Shape of the decay clocks, 0.5^((age/h)^shape); absent: 1 (fid_version 0.4)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<f64>,
+
     /// Information type, as named in a half-life registry (e.g. "vessel_position")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info_type: Option<String>,
@@ -160,44 +168,82 @@ impl FidEnvelope {
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn fidelity_at(&self, now: DateTime<Utc>) -> Result<Option<f64>, String> {
-        let (half_life, echo) = self.decay_curve()?;
+        let curve = self.curve()?;
         let age_seconds = (now - self.measured_at).num_milliseconds() as f64 / 1000.0;
-        let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
-        Ok(self.source_fidelity().map(|source| {
-            crate::compute::apply_decay(
-                source * crate::compute::transform_factor(&noise),
-                crate::compute::temporal_factor(age_seconds, half_life, echo.as_ref()),
-                self.baseline.unwrap_or(0.0),
-            )
+        Ok(self.at_measurement().map(|f| {
+            crate::compute::apply_decay(f, curve.temporal(age_seconds), self.baseline.unwrap_or(0.0))
         }))
     }
 
-    /// Half-life in seconds (None: no decay) and echo, validated.
-    pub fn decay_curve(&self) -> Result<(Option<f64>, Option<crate::compute::EchoParams>), String> {
-        crate::compute::decay_curve(self.half_life.as_deref(), self.echo.as_ref())
+    /// The temporal curve (half-life, fast share, echo), validated.
+    pub fn curve(&self) -> Result<crate::compute::Curve, String> {
+        crate::compute::curve(self.half_life.as_deref(), self.fast.as_ref(), self.echo.as_ref(), self.shape)
+    }
+
+    /// Fidelity at measurement: source × ∏(1 − noise). None if the source is unknown.
+    pub fn at_measurement(&self) -> Option<f64> {
+        let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
+        self.source_fidelity().map(|s| s * crate::compute::transform_factor(&noise))
     }
 
     /// When fidelity falls below `floor`: the TTL implied by measured decay.
     ///
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn expires_at(&self, floor: f64) -> Result<Option<Expiry>, String> {
-        let (half_life, echo) = self.decay_curve()?;
-        let Some(source) = self.source_fidelity() else {
+        let curve = self.curve()?;
+        let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
-        let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
-        let at_measurement = source * crate::compute::transform_factor(&noise);
-        let baseline = self.baseline.unwrap_or(0.0);
-        let ttl = match (half_life, echo) {
-            (Some(h), Some(e)) => crate::compute::time_to_floor_echo(at_measurement, h, baseline, floor, &e),
-            _ => crate::compute::time_to_floor(at_measurement, half_life, baseline, floor),
-        };
+        let ttl = curve.time_to_floor(f, self.baseline.unwrap_or(0.0), floor);
         Ok(Some(match ttl {
             crate::compute::TimeToFloor::Never => Expiry::Never,
-            crate::compute::TimeToFloor::After(seconds) => {
-                Expiry::At(self.measured_at + chrono::Duration::milliseconds((seconds * 1000.0).round() as i64))
-            }
+            crate::compute::TimeToFloor::After(seconds) => Expiry::At(self.after(seconds)),
         }))
+    }
+
+    /// When to re-check this fact: the interval that minimizes staleness
+    /// plus `price` per re-check a day (`compute::best_interval`), and never
+    /// later than the floor's TTL when a floor is given.
+    ///
+    /// Ok(None) if the source class is Unknown (indeterminate).
+    pub fn recheck_at(&self, price: f64, floor: Option<f64>) -> Result<Option<Expiry>, String> {
+        let curve = self.curve()?;
+        let Some(f) = self.at_measurement() else {
+            return Ok(None);
+        };
+        let interval = crate::compute::best_interval(&curve, f, self.baseline.unwrap_or(0.0), price)?;
+        self.guarded(interval, floor).map(Some)
+    }
+
+    /// When to re-check this fact to keep its mean staleness at or below
+    /// `target`, and never later than the floor's TTL when a floor is given.
+    pub fn recheck_for_staleness(&self, target: f64, floor: Option<f64>) -> Result<Option<Expiry>, String> {
+        let curve = self.curve()?;
+        let Some(f) = self.at_measurement() else {
+            return Ok(None);
+        };
+        let interval = crate::compute::interval_for_staleness(&curve, f, self.baseline.unwrap_or(0.0), target)?;
+        self.guarded(interval, floor).map(Some)
+    }
+
+    fn guarded(&self, interval: crate::compute::Recheck, floor: Option<f64>) -> Result<Expiry, String> {
+        let mut at = match interval {
+            crate::compute::Recheck::Never => Expiry::Never,
+            crate::compute::Recheck::Every(seconds) => Expiry::At(self.after(seconds)),
+        };
+        if let Some(floor) = floor {
+            if let Some(Expiry::At(ttl)) = self.expires_at(floor)? {
+                at = match at {
+                    Expiry::At(t) if t <= ttl => Expiry::At(t),
+                    _ => Expiry::At(ttl),
+                };
+            }
+        }
+        Ok(at)
+    }
+
+    fn after(&self, seconds: f64) -> DateTime<Utc> {
+        self.measured_at + chrono::Duration::milliseconds((seconds * 1000.0).round().min(9.0e15) as i64)
     }
 }
 
@@ -289,6 +335,8 @@ mod tests {
             baseline: None,
             source_fidelity: None,
             echo: None,
+            fast: None,
+            shape: None,
             info_type: None,
             state: None,
             transforms: vec![TransformStep {
@@ -414,6 +462,77 @@ mod tests {
         assert_eq!(env.expires_at(0.45).unwrap(), Some(Expiry::Never));
         env.source_class = SourceClass::Unknown;
         assert_eq!(env.expires_at(0.45).unwrap(), None);
+    }
+
+    #[test]
+    fn test_fast_share_in_the_envelope() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Instrument;
+        env.source_fidelity = Some(1.0);
+        env.transforms.clear();
+        env.half_life = Some("80d".into());
+        env.fast = Some(crate::compute::Fast { share: 0.3, half_life: "3d".into() });
+        let day = chrono::Duration::days(3);
+        let f = env.fidelity_at(env.measured_at + day).unwrap().unwrap();
+        let want = 0.7 * 0.5_f64.powf(3.0 / 80.0) + 0.3 * 0.5;
+        assert!((f - want).abs() < 1e-9, "{}", f);
+        // round trip, and absent when unset
+        let back: FidEnvelope = serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
+        assert_eq!(back.fast, env.fast);
+        assert!(serde_json::to_value(sample_envelope()).unwrap().get("fast").is_none());
+        // an invalid fast share is an error, never ignored
+        env.fast = Some(crate::compute::Fast { share: 0.3, half_life: "90d".into() });
+        assert!(env.fidelity_at(env.measured_at).is_err());
+        assert!(env.expires_at(0.5).is_err());
+    }
+
+    #[test]
+    fn test_shape_in_the_envelope() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Instrument;
+        env.source_fidelity = Some(1.0);
+        env.transforms.clear();
+        env.half_life = Some("3m".into());
+        env.shape = Some(3.0);
+        let f = env.fidelity_at(env.measured_at + chrono::Duration::minutes(3)).unwrap().unwrap();
+        assert!((f - 0.5).abs() < 1e-9);
+        let Some(Expiry::At(at)) = env.expires_at(0.5).unwrap() else { panic!() };
+        assert_eq!(at, env.measured_at + chrono::Duration::minutes(3));
+        let back: FidEnvelope = serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
+        assert_eq!(back.shape, Some(3.0));
+        assert!(serde_json::to_value(sample_envelope()).unwrap().get("shape").is_none());
+        env.shape = Some(-1.0);
+        assert!(env.fidelity_at(env.measured_at).is_err());
+    }
+
+    #[test]
+    fn test_recheck_at() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Instrument;
+        env.source_fidelity = Some(1.0);
+        env.transforms.clear();
+        env.half_life = Some("1d".into());
+        env.baseline = Some(0.1);
+        let curve = env.curve().unwrap();
+        let crate::compute::Recheck::Every(t) = crate::compute::best_interval(&curve, 1.0, 0.1, 1e-3).unwrap() else { panic!() };
+        let Some(Expiry::At(at)) = env.recheck_at(1e-3, None).unwrap() else { panic!() };
+        assert_eq!(at, env.measured_at + chrono::Duration::milliseconds((t * 1000.0).round() as i64));
+        // a floor reached sooner caps it
+        let Some(Expiry::At(ttl)) = env.expires_at(0.99).unwrap() else { panic!() };
+        assert!(ttl < at);
+        assert_eq!(env.recheck_at(1e-3, Some(0.99)).unwrap(), Some(Expiry::At(ttl)));
+        // a floor reached later does not
+        assert_eq!(env.recheck_at(1e-3, Some(0.2)).unwrap(), Some(Expiry::At(at)));
+        // too dear to re-check: never, unless the floor says otherwise
+        assert_eq!(env.recheck_at(1e6, None).unwrap(), Some(Expiry::Never));
+        assert_eq!(env.recheck_at(1e6, Some(0.5)).unwrap(), env.expires_at(0.5).unwrap());
+        // staleness target
+        let Some(Expiry::At(s)) = env.recheck_for_staleness(0.05, None).unwrap() else { panic!() };
+        let secs = (s - env.measured_at).num_milliseconds() as f64 / 1000.0;
+        assert!((curve.mean_staleness(1.0, 0.1, secs) - 0.05).abs() < 1e-6);
+        // unknown source: no schedule
+        env.source_class = SourceClass::Unknown;
+        assert_eq!(env.recheck_at(1e-3, None).unwrap(), None);
     }
 
     #[test]

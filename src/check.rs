@@ -8,7 +8,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::compute::{apply_decay, temporal_factor, transform_factor};
+use crate::compute::{apply_decay, transform_factor};
 use crate::envelope::{integrity_hash, FidAssessment, FidStatus, Stamped};
 
 /// Result of checking one artifact.
@@ -31,12 +31,12 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     }
 
     let env = &stamped.fid;
-    let (half_life, echo) = env.decay_curve().map_err(|e| format!("envelope has {}", e))?;
+    let curve = env.curve().map_err(|e| format!("envelope has {}", e))?;
     let age_seconds = (now - env.measured_at).num_milliseconds() as f64 / 1000.0;
     let noise: Vec<f64> = env.transforms.iter().map(|t| t.noise).collect();
 
     let source = env.source_fidelity();
-    let temporal = temporal_factor(age_seconds, half_life, echo.as_ref());
+    let temporal = curve.temporal(age_seconds);
     let transforms = transform_factor(&noise);
     let baseline = env.baseline.unwrap_or(0.0);
     let fidelity = source.map(|s| apply_decay(s * transforms, temporal, baseline));
@@ -89,6 +89,12 @@ pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> S
     }
     if baseline > 0.0 {
         out.push_str(&format!(", baseline {:.2}", baseline));
+    }
+    if let Some(f) = &env.fast {
+        out.push_str(&format!(", {:.0}% on a {} clock", 100.0 * f.share, f.half_life));
+    }
+    if let Some(k) = env.shape {
+        out.push_str(&format!(", shape {}", k));
     }
     if let Some(e) = &env.echo {
         out.push_str(&format!(", echo every {} (strength {:.2})", e.period, e.strength));
@@ -170,6 +176,8 @@ mod tests {
                 baseline: None,
                 source_fidelity: None,
                 echo: None,
+                fast: None,
+                shape: None,
                 info_type: None,
                 state: None,
                 transforms: noise

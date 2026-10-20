@@ -84,6 +84,50 @@ class Conformance(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     fid.fidelity(0.9, 3600, 3600, echo=c["echo"])
 
+    def test_fast(self):
+        for c in V["fast"]:
+            with self.subTest(c["name"]):
+                got = _fid.fidelity(c["fidelity_at_measurement"], c["age_seconds"], c["half_life_seconds"], [], c["baseline"],
+                                    None if c["echo"] is None else json.dumps(c["echo"]),
+                                    None if c["fast"] is None else json.dumps(c["fast"]), c["shape"])
+                self.assertAlmostEqual(got, c["fidelity"], delta=TOL)
+        for c in V["fast_time_to_floor"]:
+            with self.subTest(c["name"]):
+                got = fid.time_to_floor(c["fidelity"], c["half_life_seconds"], c["floor"], baseline=c["baseline"], echo=c["echo"],
+                                        fast=c["fast"], shape=c["shape"])
+                if c["seconds"] is None:
+                    self.assertIsNone(got)
+                else:
+                    self.assertAlmostEqual(got.total_seconds(), c["seconds"], delta=1e-5)
+        for c in V["shape_errors"]:
+            with self.subTest(c["error"]):
+                with self.assertRaises(ValueError):
+                    fid.fidelity(0.9, 3600, c["half_life_seconds"], shape=c["shape"])
+        for c in V["fast_errors"]:
+            with self.subTest(c["error"]):
+                with self.assertRaises(ValueError):
+                    fid.fidelity(0.9, 3600, c["half_life_seconds"], fast=c["fast"])
+
+    def test_schedule(self):
+        for c in V["schedule"]:
+            with self.subTest(c["name"]):
+                kw = dict(baseline=c["baseline"], echo=c["echo"], fast=c["fast"], shape=c["shape"])
+                got = fid.recheck_interval(c["fidelity"], c["half_life_seconds"], price=c["price"], **kw)
+                if c["seconds"] is None:
+                    self.assertIsNone(got)
+                else:
+                    cost = lambda t: fid.mean_staleness(c["fidelity"], c["half_life_seconds"], t, **kw) + c["price"] * 86400 / t
+                    self.assertAlmostEqual(cost(c["seconds"]), c["cost"], delta=1e-7)
+                    self.assertLessEqual(cost(got.total_seconds()), c["cost"] + 1e-7)
+        for c in V["staleness_target"]:
+            with self.subTest(c["name"]):
+                got = fid.recheck_interval(c["fidelity"], c["half_life_seconds"], staleness=c["target"],
+                                           baseline=c["baseline"], echo=c["echo"], fast=c["fast"], shape=c["shape"])
+                if c["seconds"] is None:
+                    self.assertIsNone(got)
+                else:
+                    self.assertAlmostEqual(got.total_seconds() / c["seconds"], 1.0, delta=1e-6)
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):

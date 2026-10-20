@@ -29,6 +29,10 @@ pub struct StampOptions {
     pub source_fidelity: Option<f64>,
     /// Periodic return; overrides any inherited echo
     pub echo: Option<crate::compute::Echo>,
+    /// Fast share; overrides any inherited fast share
+    pub fast: Option<crate::compute::Fast>,
+    /// Shape of the clocks; overrides any inherited shape
+    pub shape: Option<f64>,
     /// Information type (e.g. "vessel_position"); overrides any inherited type
     pub info_type: Option<String>,
     /// State of the observed thing (e.g. "underway"); overrides any inherited state
@@ -82,6 +86,12 @@ pub fn stamp(
     if let Some(e) = &opts.echo {
         e.params()?;
     }
+    if let Some(f) = &opts.fast {
+        f.params()?;
+    }
+    if let Some(k) = opts.shape {
+        crate::compute::check_shape(k)?;
+    }
     if let Some(b) = opts.baseline {
         check_unit(b, "baseline")?;
     }
@@ -126,6 +136,12 @@ pub fn stamp(
             if opts.echo.is_some() {
                 upstream.echo = opts.echo.clone();
             }
+            if opts.fast.is_some() {
+                upstream.fast = opts.fast.clone();
+            }
+            if opts.shape.is_some() {
+                upstream.shape = opts.shape;
+            }
             if opts.info_type.is_some() {
                 upstream.info_type = opts.info_type.clone();
             }
@@ -150,6 +166,8 @@ pub fn stamp(
                 baseline: opts.baseline,
                 source_fidelity: opts.source_fidelity,
                 echo: opts.echo.clone(),
+                fast: opts.fast.clone(),
+                shape: opts.shape,
                 info_type: opts.info_type.clone(),
                 state: opts.state.clone(),
                 // A lossless root has no transform step, unless it records a condition
@@ -189,11 +207,27 @@ mod tests {
             baseline: None,
             source_fidelity: None,
             echo: None,
+            fast: None,
+            shape: None,
             info_type: None,
             state: None,
             condition: None,
             derived_from: None,
         }
+    }
+
+    #[test]
+    fn test_fast_share_is_stamped_and_inherited() {
+        let mut o = opts("pypi");
+        o.source_class = Some(SourceClass::Instrument);
+        o.half_life = Some("80d".into());
+        o.fast = Some(crate::compute::Fast { share: 0.3, half_life: "3d".into() });
+        let root = stamp("{}", &o, None, t0()).unwrap();
+        assert_eq!(root.stamped.fid.fast, o.fast);
+        let again = stamp(&to_json(&root), &opts("copy"), None, t0() + Duration::hours(1)).unwrap();
+        assert_eq!(again.stamped.fid.fast, o.fast);
+        o.fast = Some(crate::compute::Fast { share: 2.0, half_life: "3d".into() });
+        assert!(stamp("{}", &o, None, t0()).unwrap_err().contains("share"));
     }
 
     fn to_json(out: &StampOutput) -> String {
