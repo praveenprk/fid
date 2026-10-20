@@ -36,6 +36,9 @@ jobs:
           pip install "maturin>=1.5,<2"
           maturin develop --release
           python -m unittest discover -s tests -v
+      - name: Calibration tests (no network; they use the fid package built above)
+        working-directory: calibration
+        run: ../bindings/python/.venv/bin/python -m unittest discover -p 'test_*.py' -v
 
   spec:
     runs-on: ubuntu-latest
