@@ -63,12 +63,6 @@
    "what": "no envelope-level vectors for recheck_at"
   }
  ],
- "half-life-registry": [
-  {
-   "issue": 11,
-   "what": "whole-state lookup not implemented (a test pins inheritance); no vectors"
-  }
- ],
  "calibrator": [
   {
    "issue": 12,

@@ -154,6 +154,21 @@ class Conformance(unittest.TestCase):
                 stamped = {"fid": dict(V["envelope"][0]["stamped"]["fid"], integrity=c["hash"]), "content": c["content"]}
                 self.assertTrue(fid.check(stamped, 0.5, now=when(V["envelope"][0]["now"])).integrity_ok)
 
+    def test_registry(self):
+        import tempfile
+        for c in V["registry"]:
+            with self.subTest(type=c["type"], state=c["state"]):
+                with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+                    f.write(c["registry"])
+                try:
+                    if "error" in c:
+                        with self.assertRaises(ValueError):
+                            fid.registry(f.name, c["type"], c["state"])
+                    else:
+                        self.assertEqual(fid.registry(f.name, c["type"], c["state"]), c["spec"])
+                finally:
+                    os.unlink(f.name)
+
     def test_ledger_example(self):
         ex = V["ledger_example"]
         path = os.path.join(os.path.dirname(VECTORS), os.path.basename(ex["file"]))
