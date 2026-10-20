@@ -227,6 +227,22 @@ class AgainstFid(unittest.TestCase):
         self.assertAlmostEqual(dc.predicted_stale_time(model, length) / length,
                                dc.fid.mean_staleness(1.0, 2.4 * 3600, length, baseline=0.13, echo=echo), delta=1e-12)
 
+    def test_policy_keeps_the_shape(self):
+        # a registry's shape reaches the stamped envelope, the TTL and the prediction
+        import os, tempfile
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "r.yaml")
+        with open(path, "w") as f:
+            f.write("ship:\n  states:\n    underway: { half_life: 3m, baseline: 0.03, source_fidelity: 1, shape: 3 }\n")
+        model, ttls, _, _ = dc.FidPolicy(path, "ship", {}).decisions("underway", 0.03)
+        self.assertEqual(model[6], 3.0)
+        t = ttls[0.5]
+        # TTLs are to the millisecond; this curve falls 0.006 a second there
+        self.assertAlmostEqual(dc.fid_curve(model, t), 0.5, delta=1e-5)
+        self.assertAlmostEqual(dc.fid_curve(model, 180.0), dc.fid.fidelity(1.0, 180.0, 180.0, baseline=0.03, shape=3.0), delta=1e-12)
+        self.assertAlmostEqual(dc.predicted_stale_time(model, 600.0) / 600.0,
+                               dc.fid.mean_staleness(1.0, 180.0, 600.0, baseline=0.03, shape=3.0), delta=1e-12)
+
     def test_policy_reads_the_registry(self):
         import os, tempfile
         d = tempfile.mkdtemp()
@@ -237,7 +253,7 @@ class AgainstFid(unittest.TestCase):
         self.assertEqual(policy.baseline("requests", "quiet"), 0.25)
         self.assertEqual(policy.baseline("numpy", "quiet"), 0.1)
         model, ttls, every, guarded = policy.decisions("quiet", 0.1)
-        self.assertEqual(model, (0.99, 80 * DAY, 0.1, 0.3, 3 * DAY, None))
+        self.assertEqual(model, (0.99, 80 * DAY, 0.1, 0.3, 3 * DAY, None, None))
         # fid's TTL is where its curve crosses the floor; guarded never later than either
         for floor, t in ttls.items():
             if math.isfinite(t) and 0 < t:

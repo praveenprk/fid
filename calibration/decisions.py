@@ -147,15 +147,23 @@ class Changes:
 _ECHO_CACHE = {}
 
 
+def _echo_shape(model):
+    """The model's echo (parsed) and shape, None when it has none."""
+    echo = json.loads(model[5]) if len(model) > 5 and model[5] else None
+    shape = model[6] if len(model) > 6 else None
+    return echo, shape
+
+
 def fid_curve(model, age):
-    """fid's fidelity at `age` for model (s0, h, b, share, h_fast[, echo JSON]): two clocks toward a
-    baseline; with an echo, fid itself computes it."""
+    """fid's fidelity at `age` for model (s0, h, b, share, h_fast[, echo JSON[, shape]]): two clocks
+    toward a baseline; with an echo or a shape, fid itself computes it."""
     s0, h, b, share, hf = model[:5]
-    if len(model) > 5 and model[5]:
+    echo, shape = _echo_shape(model)
+    if echo or shape:
         key = (model, age)
         if key not in _ECHO_CACHE:
             fast = {"share": share, "half_life": f"{hf}s"} if share else None
-            _ECHO_CACHE[key] = fid.fidelity(s0, age, h, baseline=b, fast=fast, echo=json.loads(model[5]))
+            _ECHO_CACHE[key] = fid.fidelity(s0, age, h, baseline=b, fast=fast, echo=echo, shape=shape)
         return _ECHO_CACHE[key]
     if math.isinf(h):
         return s0
@@ -172,11 +180,12 @@ def _decay_integral(length, h):
 def predicted_stale_time(model, length):
     """∫₀ᴸ (1 − fidelity) dt: the staleness fid expects over one re-check interval, in seconds."""
     s0, h, b, share, hf = model[:5]
-    if len(model) > 5 and model[5]:
+    echo, shape = _echo_shape(model)
+    if echo or shape:
         key = (model, "stale", length)
         if key not in _ECHO_CACHE:
             fast = {"share": share, "half_life": f"{hf}s"} if share else None
-            _ECHO_CACHE[key] = length * fid.mean_staleness(s0, h, length, baseline=b, fast=fast, echo=json.loads(model[5]))
+            _ECHO_CACHE[key] = length * fid.mean_staleness(s0, h, length, baseline=b, fast=fast, echo=echo, shape=shape)
         return _ECHO_CACHE[key]
     if math.isinf(h):
         return length * (1 - s0)
@@ -459,13 +468,14 @@ class FidPolicy:
             return self.cache[key]
         spec = self.spec(state)
         stamped = fid.stamp({}, source="benchmark", source_class="instrument", half_life=spec["half_life"], baseline=b,
-                            source_fidelity=spec["source_fidelity"], fast=spec["fast"], echo=spec["echo"], now=T0)
+                            source_fidelity=spec["source_fidelity"], fast=spec["fast"], echo=spec["echo"], shape=spec["shape"],
+                            now=T0)
         env = stamped["fid"]
         h = fid.parse_half_life(env["half_life"])
         fast = env.get("fast")
         share, hf = (fast["share"], fid.parse_half_life(fast["half_life"])) if fast else (0.0, 0.0)
         echo = env.get("echo")
-        model = (env["fid_at_stamp"], h, b, share, hf, json.dumps(echo, sort_keys=True) if echo else None)
+        model = (env["fid_at_stamp"], h, b, share, hf, json.dumps(echo, sort_keys=True) if echo else None, env.get("shape"))
 
         def seconds(at):
             return math.inf if at is None else (at - T0).total_seconds()
