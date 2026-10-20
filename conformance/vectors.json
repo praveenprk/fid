@@ -2000,6 +2000,121 @@
    ]
   }
  ],
+ "integrity_jcs": [
+  {
+   "content": {
+    "numbers": [
+     333333333.3333333,
+     1e+30,
+     4.5,
+     0.002,
+     1e-27
+    ],
+    "string": "€$\u000f\nA'B\"\\\\\"/",
+    "literals": [
+     null,
+     true,
+     false
+    ]
+   },
+   "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}",
+   "hash": "sha256:2d5e01a318d0f0879ab568c4be289c8b1f64ef8921a53c6277d5e069978baacb",
+   "sections": [
+    "integrity"
+   ]
+  },
+  {
+   "content": {
+    "reading": 42,
+    "scale": 1.0
+   },
+   "canonical": "{\"reading\":42,\"scale\":1}",
+   "hash": "sha256:8fc479d9c5337fe959233a8fbaa170ca24e7974537d9276dec591f7fd98211ee",
+   "sections": [
+    "integrity"
+   ]
+  },
+  {
+   "content": [
+    1e+20,
+    1e+21,
+    1.5e+21,
+    1e-06,
+    9.99e-07,
+    1e-07,
+    -2.5e-07,
+    5e-324,
+    1.7976931348623157e+308,
+    -0.0,
+    100.0
+   ],
+   "canonical": "[100000000000000000000,1e+21,1.5e+21,0.000001,9.99e-7,1e-7,-2.5e-7,5e-324,1.7976931348623157e+308,0,100]",
+   "hash": "sha256:26bf5c61eb7dbd1ba43660b0bb54185bed37deb15349f8370796edfcb436f990",
+   "sections": [
+    "integrity"
+   ]
+  },
+  {
+   "content": {
+    "": 1,
+    "😀": 2,
+    "b": 3,
+    "a": {
+     "z": [
+      3,
+      2,
+      1
+     ],
+     "a": null
+    }
+   },
+   "canonical": "{\"a\":{\"a\":null,\"z\":[3,2,1]},\"b\":3,\"😀\":2,\"\":1}",
+   "hash": "sha256:a7252c49ae6c91f0317395404de24f1b90a192b2505c494916dfd2fd033a4d28",
+   "sections": [
+    "integrity"
+   ]
+  },
+  {
+   "content": {
+    "name": "Zoë",
+    "tab": "\t",
+    "ctrl": "\u0001",
+    "del": "",
+    "slash": "/"
+   },
+   "canonical": "{\"ctrl\":\"\\u0001\",\"del\":\"\",\"name\":\"Zoë\",\"slash\":\"/\",\"tab\":\"\\t\"}",
+   "hash": "sha256:902a2e484c55855116caaf124c30a4954c8e45a39161ca04f10876a27ce4422b",
+   "sections": [
+    "integrity"
+   ]
+  },
+  {
+   "content": "plain text",
+   "canonical": "\"plain text\"",
+   "hash": "sha256:86696ae0a7dd4789bb5a8256f0a58a13243fe65bafb37c44f3c73e2228fd78b7",
+   "sections": [
+    "integrity"
+   ]
+  }
+ ],
+ "writer_errors": [
+  {
+   "content_json": "{\"id\": 9007199254740993}",
+   "error": "integer beyond 2^53",
+   "sections": [
+    "structure",
+    "stamping"
+   ]
+  },
+  {
+   "content_json": "[-9007199254740993]",
+   "error": "integer beyond -2^53",
+   "sections": [
+    "structure",
+    "stamping"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",
@@ -2219,7 +2334,7 @@
    ]
   },
   {
-   "name": "no half-life never decays",
+   "name": "null half-life: decay unknown",
    "stamped": {
     "fid": {
      "fid_version": "0.2",
@@ -2227,6 +2342,39 @@
      "source_id": "conformance",
      "measured_at": "2026-01-01T00:00:00Z",
      "half_life": null,
+     "transforms": [],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2035-12-30T00:00:00Z",
+   "floor": 0.85,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": true,
+   "expires_at": "unknown",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "half-lives"
+   ]
+  },
+  {
+   "name": "infinite half-life never decays",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "database",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
      "transforms": [],
      "fid_at_stamp": 0.9,
      "derived_from": null,
@@ -2247,9 +2395,9 @@
     "envelope-fields",
     "timestamps",
     "check",
-    "expiry"
-   ],
-   "deviation_issue": 9
+    "expiry",
+    "half-lives"
+   ]
   },
   {
    "name": "exactly at the floor is SIGNAL",
@@ -2704,6 +2852,406 @@
     "timestamps",
     "check",
     "expiry"
+   ]
+  },
+  {
+   "name": "version 1.0: JCS integrity",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:8fc479d9c5337fe959233a8fbaa170ca24e7974537d9276dec591f7fd98211ee"
+    },
+    "content": {
+     "reading": 42,
+     "scale": 1.0
+    }
+   },
+   "now": "2026-01-02T00:00:00Z",
+   "floor": 0.7,
+   "status": "SIGNAL",
+   "fidelity": 0.8785519543359895,
+   "integrity_ok": true,
+   "expires_at": "2026-01-04T07:03:56.918Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "integrity",
+    "versioning"
+   ]
+  },
+  {
+   "name": "version 1.0 hashed the legacy way does not verify",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:42a880953d86a855f1b924170fc6a39c43772d464d6e4923f2eed4766c3fc8f5"
+    },
+    "content": {
+     "reading": 42,
+     "scale": 1.0
+    }
+   },
+   "now": "2026-01-02T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": 0.8785519543359895,
+   "integrity_ok": false,
+   "expires_at": "2026-01-04T07:03:56.918Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "integrity"
+   ]
+  },
+  {
+   "name": "version 1.0 with ext: ignored",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "ext": {
+      "pipeline": "nightly"
+     }
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "SIGNAL",
+   "fidelity": 0.97,
+   "integrity_ok": true,
+   "expires_at": "2026-01-04T07:03:56.918Z",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "ext in a 0.4 envelope: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "ext": {
+      "pipeline": "nightly"
+     }
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "member 'ext' not defined for its version",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "newer minor version: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.1",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "version not implemented",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "unknown major version: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "2.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "version not implemented",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "malformed version: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "one",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "malformed version",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "unknown member: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "colour": "red"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "member 'colour' not defined for its version",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "unknown member inside echo: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "2.42h",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "baseline": 0.13,
+     "echo": {
+      "period": "24h",
+      "strength": 0.31,
+      "width": "3.75h",
+      "fade": "345h",
+      "phase": 1
+     }
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "unknown member in 'echo'",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "member newer than its version: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "80d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "fast": {
+      "share": 0.3,
+      "half_life": "3d"
+     }
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "member 'fast' not defined for its version",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
+   ]
+  },
+  {
+   "name": "unknown member in a transform step: not understood",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [
+      {
+       "step": "clean.py",
+       "noise": 0.05,
+       "at": "2026-01-01T00:00:00Z",
+       "model": "x"
+      }
+     ],
+     "fid_at_stamp": 0.9215,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "floor": 0.7,
+   "status": "UNKNOWN",
+   "fidelity": null,
+   "integrity_ok": null,
+   "expires_at": "unknown",
+   "not_understood": "unknown member in a transform step",
+   "sections": [
+    "structure",
+    "envelope-fields",
+    "timestamps",
+    "check",
+    "expiry",
+    "versioning"
    ]
   }
  ],

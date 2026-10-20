@@ -27,34 +27,12 @@
   {
    "issue": 16,
    "what": "no vectors for missing fields, out-of-range or mistyped values"
-  },
-  {
-   "issue": 9,
-   "what": "null half-life must answer UNKNOWN, ext, I-JSON content: not in fid; the vector 'no half-life never decays' pins the old behaviour"
   }
  ],
  "stamping": [
   {
    "issue": 16,
    "what": "derived-stamp rules tested only by Rust unit tests, no vectors"
-  }
- ],
- "integrity": [
-  {
-   "issue": 8,
-   "what": "JCS (RFC 8785) for version 1.0 not implemented"
-  }
- ],
- "versioning": [
-  {
-   "issue": 9,
-   "what": "unknown versions and members not yet answered UNKNOWN"
-  }
- ],
- "check": [
-  {
-   "issue": 9,
-   "what": "UNKNOWN for a null half-life or an unknown member not implemented"
   }
  ],
  "recheck": [

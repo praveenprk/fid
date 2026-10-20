@@ -107,10 +107,10 @@ floor is a policy decision and outside this document.
 
 ## Status of this draft
 
-This draft specifies envelope version 1.0. The reference implementation,
-fid, writes version 0.4; where it does not yet do what this document
-says, {{deviations}} lists the difference and the issue that tracks it
-{{ISSUES}}. Decisions taken in writing this draft, and their reasons,
+This draft specifies envelope version 1.0, which the reference
+implementation, fid, writes. Where fid does not yet do what this
+document says, {{deviations}} lists the difference and the issue that
+tracks it {{ISSUES}}. Decisions taken in writing this draft, and their reasons,
 are in {{decisions}}.
 
 A change to behaviour is made in this document first, then in the test
@@ -833,16 +833,14 @@ It differs from JCS in number formatting (JCS writes `1.0` as `1` and
 switches to exponent form at 1e21 and below 1e-6) and in key order (JCS
 compares UTF-16 code units).
 
-# Deviations of fid 0.4 from this document {#deviations}
+# Deviations of fid from this document {#deviations}
 
 Where the reference implementation does not yet do what this document
 says. Each is tracked by an issue {{ISSUES}} and is fixed in code, with
-its test vectors first, before fid writes version 1.0.
+its test vectors first.
 
 | # | Deviation | Issue |
 |---|---|---|
-| 1 | Integrity uses the legacy form for every version; JCS is not implemented. | [#8](https://github.com/praveenprk/fid/issues/8) |
-| 2 | Envelope reading: unknown members and versions are ignored, not answered UNKNOWN; `ext` is not recognised; a null half-life is scored as no decay; non-I-JSON content is accepted. | [#9](https://github.com/praveenprk/fid/issues/9) |
 | 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
@@ -886,4 +884,6 @@ error in the "right curve" acceptance test was zero at a truth of 0 or
 Deviations fixed in code since -00 was first written, each with its
 tests: the CLI exit codes, [#13](https://github.com/praveenprk/fid/issues/13);
 durations, [#10](https://github.com/praveenprk/fid/issues/10); whole-state registry
-lookup, [#11](https://github.com/praveenprk/fid/issues/11).
+lookup, [#11](https://github.com/praveenprk/fid/issues/11); envelope version 1.0, with
+reading that fails closed, [#9](https://github.com/praveenprk/fid/issues/9), and JCS
+integrity, [#8](https://github.com/praveenprk/fid/issues/8).

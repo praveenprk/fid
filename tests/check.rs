@@ -62,7 +62,7 @@ fn check_stamped_floats_keep_integrity() {
     // Without correctly rounded float parsing, reading back 1.2345678901234567e+20
     // gives a different float, and an unchanged artifact fails its integrity check.
     let out = fid(
-        &["stamp", "--source", "s", "--source-class", "instrument"],
+        &["stamp", "--source", "s", "--source-class", "instrument", "--half-life", "infinite"],
         r#"{"v": 123456789012345680000.0, "w": [1e-7, 0.00001, 2.5e300]}"#,
     );
     assert!(out.status.success());
@@ -74,7 +74,7 @@ fn check_stamped_floats_keep_integrity() {
 // spec: cli, check
 #[test]
 fn check_below_floor_is_noise() {
-    let path = temp_file("noise", &stamped(&["--source", "s", "--source-class", "llm_ungrounded"]));
+    let path = temp_file("noise", &stamped(&["--source", "s", "--source-class", "llm_ungrounded", "--half-life", "infinite"]));
     let out = check(&path, "0.70");
     assert_eq!(out.status.code(), Some(1));
     assert!(stderr(&out).starts_with("NOISE"));
@@ -110,7 +110,7 @@ fn check_unknown_source_is_unknown() {
 // spec: cli, check, integrity
 #[test]
 fn check_tampered_content_is_unknown() {
-    let mut v: Value = serde_json::from_str(&stamped(&["--source", "s", "--source-class", "database"])).unwrap();
+    let mut v: Value = serde_json::from_str(&stamped(&["--source", "s", "--source-class", "database", "--half-life", "infinite"])).unwrap();
     v["content"]["reading"] = Value::from(43);
     let path = temp_file("tampered", &v.to_string());
     let out = check(&path, "0.10");
@@ -138,7 +138,7 @@ fn unknown_or_unimplemented_commands_are_errors() {
 // spec: cli
 #[test]
 fn check_reads_stdin() {
-    let artifact = stamped(&["--source", "s", "--source-class", "database"]);
+    let artifact = stamped(&["--source", "s", "--source-class", "database", "--half-life", "infinite"]);
     let out = fid(&["check", "-", "--floor", "0.5"], &artifact);
     assert_eq!(out.status.code(), Some(0));
 }
@@ -151,7 +151,7 @@ fn check_errors_exit_3() {
     let unstamped = temp_file("unstamped", r#"{"reading": 42}"#);
     assert_eq!(check(&unstamped, "0.5").status.code(), Some(3));
 
-    let good = temp_file("badfloor", &stamped(&["--source", "s", "--source-class", "database"]));
+    let good = temp_file("badfloor", &stamped(&["--source", "s", "--source-class", "database", "--half-life", "infinite"]));
     assert_eq!(check(&good, "1.5").status.code(), Some(3));
 
     // clap usage errors also exit 3, never the epistemic 2
@@ -161,7 +161,7 @@ fn check_errors_exit_3() {
 // spec: cli
 #[test]
 fn check_in_shell_pipeline() {
-    let path = temp_file("shell", &stamped(&["--source", "s", "--source-class", "instrument"]));
+    let path = temp_file("shell", &stamped(&["--source", "s", "--source-class", "instrument", "--half-life", "infinite"]));
     let bin = env!("CARGO_BIN_EXE_fid");
     let script = format!(
         "'{bin}' check '{p}' --floor 0.70 && echo proceed || echo escalate",

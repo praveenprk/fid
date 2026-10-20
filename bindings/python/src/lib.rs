@@ -28,8 +28,13 @@ fn when(now: Option<&str>) -> PyResult<DateTime<Utc>> {
     }
 }
 
-fn read_stamped(stamped_json: &str) -> PyResult<Stamped> {
-    serde_json::from_str(stamped_json).map_err(|e| err(format!("not a valid fid-stamped artifact: {}", e)))
+/// The artifact, or why this fid does not understand its envelope (answered UNKNOWN).
+fn read_stamped(stamped_json: &str) -> PyResult<Result<Stamped, String>> {
+    match fid::envelope::read(stamped_json) {
+        Ok(fid::envelope::Read::Understood(s)) => Ok(Ok(s)),
+        Ok(fid::envelope::Read::NotUnderstood(why)) => Ok(Err(why)),
+        Err(e) => Err(err(format!("not a valid fid-stamped artifact: {}", e))),
+    }
 }
 
 fn finite(v: f64) -> Option<f64> {
@@ -192,7 +197,12 @@ fn stamp(
     shape: Option<f64>,
 ) -> PyResult<(String, Vec<String>)> {
     let source_class = source_class.map(str::parse::<SourceClass>).transpose().map_err(err)?;
-    let upstream: Option<FidEnvelope> = upstream_json.map(read_stamped).transpose()?.map(|s| s.fid);
+    let upstream: Option<FidEnvelope> = match upstream_json.map(read_stamped).transpose()? {
+        None => None,
+        Some(Ok(s)) => Some(s.fid),
+        // A writer cannot carry forward fields it does not know
+        Some(Err(why)) => return Err(err(format!("cannot derive from upstream: {}", why))),
+    };
     let echo = echo_json.map(serde_json::from_str::<compute::Echo>).transpose().map_err(|e| err(format!("invalid echo: {}", e)))?;
     let fast = fast_json.map(serde_json::from_str::<compute::Fast>).transpose().map_err(|e| err(format!("invalid fast share: {}", e)))?;
     let opts = StampOptions { source, source_class, noise, half_life, baseline, source_fidelity, echo, fast, shape, info_type, state, condition, derived_from };
@@ -205,7 +215,19 @@ fn stamp(
 #[pyfunction]
 #[pyo3(signature = (stamped_json, floor, now))]
 fn check(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> {
-    let stamped = read_stamped(stamped_json)?;
+    if !(floor.is_finite() && (0.0..=1.0).contains(&floor)) {
+        return Err(err(format!("invalid floor {} (must be between 0.0 and 1.0)", floor)));
+    }
+    let stamped = match read_stamped(stamped_json)? {
+        Ok(s) => s,
+        Err(why) => {
+            return Ok(json!({
+                "status": "UNKNOWN", "fidelity": null, "source": null, "temporal": null, "transforms": null,
+                "baseline": null, "floor": floor, "integrity_ok": null, "age_seconds": null, "not_understood": why,
+            })
+            .to_string())
+        }
+    };
     let r = fid::check::assess(&stamped, floor, when(now)?).map_err(err)?;
     let a = &r.assessment;
     let status = match a.status {
@@ -230,7 +252,9 @@ fn check(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> 
 /// When a stamped artifact falls below floor: RFC 3339, "never" or "unknown".
 #[pyfunction]
 fn expires_at(stamped_json: &str, floor: f64) -> PyResult<String> {
-    let stamped = read_stamped(stamped_json)?;
+    let Ok(stamped) = read_stamped(stamped_json)? else {
+        return Ok("unknown".to_string());
+    };
     Ok(match stamped.fid.expires_at(floor).map_err(err)? {
         None => "unknown".to_string(),
         Some(Expiry::Never) => "never".to_string(),
@@ -242,7 +266,9 @@ fn expires_at(stamped_json: &str, floor: f64) -> PyResult<String> {
 #[pyfunction]
 #[pyo3(signature = (stamped_json, price=None, staleness=None, floor=None))]
 fn recheck_at(stamped_json: &str, price: Option<f64>, staleness: Option<f64>, floor: Option<f64>) -> PyResult<String> {
-    let stamped = read_stamped(stamped_json)?;
+    let Ok(stamped) = read_stamped(stamped_json)? else {
+        return Ok("unknown".to_string());
+    };
     let at = match (price, staleness) {
         (Some(p), None) => stamped.fid.recheck_at(p, floor),
         (None, Some(s)) => stamped.fid.recheck_for_staleness(s, floor),
@@ -260,7 +286,10 @@ fn recheck_at(stamped_json: &str, price: Option<f64>, staleness: Option<f64>, fl
 #[pyfunction]
 #[pyo3(signature = (stamped_json, floor, now))]
 fn chain(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> {
-    let stamped = read_stamped(stamped_json)?;
+    let stamped = match read_stamped(stamped_json)? {
+        Ok(s) => s,
+        Err(why) => return Ok(format!("UNKNOWN  envelope not understood: {}", why)),
+    };
     let r = fid::check::assess(&stamped, floor, when(now)?).map_err(err)?;
     Ok(fid::chain::report(&stamped, &r))
 }

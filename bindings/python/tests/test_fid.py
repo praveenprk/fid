@@ -56,7 +56,7 @@ class Envelopes(unittest.TestCase):
         self.assertEqual(fid.expires_at(a, 0.45), T0 + timedelta(days=1))
 
     def test_pipeline_restamp(self):
-        a = fid.stamp({"v": 1}, source="sensor-12", source_class="instrument", now=T0)
+        a = fid.stamp({"v": 1}, source="sensor-12", source_class="instrument", half_life="infinite", now=T0)
         b = fid.stamp(a, source="normalize.py", noise=0.05, now=T0)
         c = fid.stamp(b, source="aggregate.py", noise=0.08, now=T0)
         self.assertEqual([t["step"] for t in c["fid"]["transforms"]], ["normalize.py", "aggregate.py"])
