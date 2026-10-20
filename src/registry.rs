@@ -1,7 +1,7 @@
 //! Registries — measured decay and noise values, looked up by name.
 //!
 //! A half-life registry maps an information type to its half-life, and
-//! optionally a baseline and per-state overrides. A type's half-life can
+//! optionally a baseline and per-state entries. A type's half-life can
 //! depend on the state of the thing observed: a ship's position goes
 //! stale in minutes while it is underway and in days while it is moored.
 //!
@@ -112,7 +112,7 @@ impl HalfLives {
     }
 
     /// Resolve the half-life and baseline for a type, and state if given.
-    /// A state's values override the type's.
+    /// A state's entry is used whole: none of the type's own fields apply to it.
     pub fn lookup(&self, info_type: &str, state: Option<&str>) -> Result<DecaySpec, String> {
         let entry = self.0.get(info_type).ok_or_else(|| {
             format!("unknown information type '{}' (known: {})", info_type, names(self.0.keys()))
@@ -136,12 +136,9 @@ impl HalfLives {
             if !child.states.is_empty() {
                 return Err(format!("state '{}' of '{}' cannot have its own states", state, info_type));
             }
-            spec.half_life = child.half_life.or(spec.half_life);
-            spec.baseline = child.baseline.or(spec.baseline);
-            spec.source_fidelity = child.source_fidelity.or(spec.source_fidelity);
-            spec.echo = child.echo.or(spec.echo);
-            spec.fast = child.fast.or(spec.fast);
-            spec.shape = child.shape.or(spec.shape);
+            // A state's curve was fitted as a whole: nothing comes from the type's own fields
+            // (draft, Half-life registry)
+            spec = child;
         }
 
         let half_life = spec.half_life.ok_or_else(|| {
@@ -309,12 +306,14 @@ conditional_only:
         assert_eq!(moored.baseline, Some(0.1));
     }
 
-    // spec: half-life-registry (deviation #11)
+    // spec: half-life-registry
     #[test]
-    fn test_state_inherits_type_baseline() {
+    fn test_state_is_whole() {
+        // the type's baseline and source fidelity do not reach its states
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9), echo: None, fast: None, shape: None });
-        assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: None, source_fidelity: None, echo: None, fast: None, shape: None });
+        let own = half_lives().lookup("with_default", None).unwrap();
+        assert_eq!((own.half_life.as_str(), own.baseline, own.source_fidelity), ("1d", Some(0.2), Some(0.9)));
     }
 
     // spec: half-life-registry
@@ -322,7 +321,7 @@ conditional_only:
     fn test_state_overrides_source_fidelity() {
         let spec = half_lives().lookup("with_default", Some("checked")).unwrap();
         assert_eq!(spec.source_fidelity, Some(0.75));
-        assert_eq!(spec.baseline, Some(0.2));
+        assert_eq!(spec.baseline, None);
     }
 
     // spec: half-life-registry
@@ -353,9 +352,9 @@ conditional_only:
         .unwrap();
         let f = h.lookup("pkg", None).unwrap().fast.unwrap();
         assert_eq!((f.share, f.half_life.as_str()), (0.3, "3d"));
-        // a state inherits the type's fast share, or overrides it
-        assert_eq!(h.lookup("pkg", Some("quiet")).unwrap().fast.unwrap().share, 0.3);
-        assert_eq!(h.lookup("pkg", Some("fresh")).unwrap().fast.unwrap().half_life, "1d");
+        // a state is whole: no fast share from the type, and no half-life borrowed either
+        assert_eq!(h.lookup("pkg", Some("quiet")).unwrap().fast, None);
+        assert!(h.lookup("pkg", Some("fresh")).is_err());
         assert!(h.lookup("slow_fast", None).unwrap_err().contains("shorter"));
         assert!(h.lookup("big", None).unwrap_err().contains("share"));
         assert!(HalfLives::from_yaml("x: { half_life: 1h, fast: { share: 0.3 } }").is_err());
@@ -370,8 +369,9 @@ conditional_only:
         )
         .unwrap();
         assert_eq!(h.lookup("ship", None).unwrap().shape, Some(2.5));
-        assert_eq!(h.lookup("ship", Some("slow")).unwrap().shape, Some(2.5));
-        assert_eq!(h.lookup("ship", Some("flat")).unwrap().shape, Some(1.0));
+        // a state is whole: its own shape or none, and its own half-life
+        assert_eq!(h.lookup("ship", Some("slow")).unwrap().shape, None);
+        assert!(h.lookup("ship", Some("flat")).is_err());
         assert!(h.lookup("bad", None).unwrap_err().contains("shape"));
     }
 
