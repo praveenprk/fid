@@ -616,7 +616,9 @@ def kinds(cache, which, ships_per_day):
         # category). A position, a version or a label changes and stays changed: entities differ
         # in how fast, and an entity that did not change in its history is not right by chance
         # (on the dev set, such packages got a baseline near 1 and were never re-checked)
-        "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, True, None, False),
+        # Ships add 1 to 4 minutes to the study's lags: a moving ship's 1 km holds for a few
+        # minutes, then drops, and the shape of that drop needs checks inside it
+        "ship_position": (ships, [m * 60.0 for m in sorted({1, 2, 3, 4, *ships_ais.LAG_MINUTES})], 30 * 60.0, True, None, False),
         "airport_temperature": (weather[0], hourly_lags, 7 * H, False, "24h", True),
         "airport_flight_category": (weather[1], hourly_lags, 7 * H, True, None, True),
         "grid_demand": (grid, hourly_lags, 7 * H, False, "24h", True),
