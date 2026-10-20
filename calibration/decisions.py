@@ -64,6 +64,7 @@ import math
 import os
 import random
 import subprocess
+import time
 from datetime import date, datetime, timezone
 
 import fidcal
@@ -107,12 +108,14 @@ class Changes:
     """A value that changes at known times: values[i] holds from times[i] until times[i + 1].
 
     Observed from `start` to `end`. `state(t, since)` is the state at t,
-    given the time the current value took effect, or None.
+    given the time the current value took effect, or None. `boundaries`
+    (seconds after a change) are the only other times the state can
+    change; None if unknown, which makes replays check every interval.
     """
 
-    def __init__(self, group, times, values, start, end, state=None):
+    def __init__(self, group, times, values, start, end, state=None, boundaries=None):
         self.group, self.times, self.values = group, times, values
-        self.start, self.end, self.state = start, end, state
+        self.start, self.end, self.state, self.boundaries = start, end, state, boundaries
 
 
 def fid_curve(model, age):
@@ -218,7 +221,20 @@ def _simulate_changes(e, ttl, model):
         held = e.values[i]
         state = e.state(t, e.times[i]) if e.state else None
         interval = ttl(state) if callable(ttl) else ttl
-        nxt = e.end if math.isinf(interval) else min(t + max(interval, MIN_TTL), e.end)
+        if not math.isinf(interval):
+            interval = max(interval, MIN_TTL)
+        if not math.isinf(interval) and (e.state is None or e.boundaries is not None):
+            # Checks before the next change or state boundary all find the same value and state:
+            # count them at once and replay only the last, whose interval may hold the change
+            horizon = min([e.end] + [e.times[i] + b for b in e.boundaries or () if e.times[i] + b > t] +
+                          ([e.times[i + 1]] if i + 1 < len(e.times) else []))
+            same = math.ceil((horizon - t) / interval) - 1
+            if same > 0:
+                checks += same
+                if model:
+                    predicted += same * predicted_stale_time(model(state), interval)
+                t += same * interval
+        nxt = e.end if math.isinf(interval) else min(t + interval, e.end)
         stale += stale_between(e, held, t, nxt)
         if model:
             predicted += predicted_stale_time(model(state), nxt - t)
@@ -428,7 +444,8 @@ def package_entities(cache, n):
         start = max(PYPI_WINDOW[0], times[0])
         if start < PYPI_WINDOW[1]:
             out[name] = Changes(name, times, [v for _, v in changes], start, PYPI_WINDOW[1],
-                                lambda t, since: pypi_latest.state(t - since))
+                                lambda t, since: pypi_latest.state(t - since),
+                                (pypi_latest.JUST_RELEASED, pypi_latest.DORMANT))
     return out
 
 
@@ -573,6 +590,7 @@ def run(all_kinds, work):
     out = {"kinds": {}, "ttl_check_max_error_s": 0.0}
     per_kind = {}
     for name, (entities, lags, stride, states) in all_kinds.items():
+        began = time.monotonic()
         fidcal.log(f"{name}: {len(entities)} entities")
         train, test = split(entities)
         info = {"entities": len(entities), "train": len(train), "test": len(test),
@@ -634,6 +652,8 @@ def run(all_kinds, work):
             info[f"{variant}_honesty_error"] = sum(honest) / len(honest) if honest else None
             info[f"{variant}_needed"] = {str(t): rate_for([(c["rate"], c["stale"]) for c in curve], t) for t in TARGETS}
         info["fixed_needed"] = {str(t): rate_for([(c["rate"], c["stale"]) for c in info["fixed_curve"]], t) for t in TARGETS}
+        info["seconds"] = time.monotonic() - began
+        fidcal.log(f"  {name} done in {info['seconds']:.0f}s")
         out["kinds"][name] = info
 
     out["portfolio"] = portfolio(per_kind)
