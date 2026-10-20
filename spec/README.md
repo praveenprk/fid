@@ -22,11 +22,13 @@ that is judged by it.
 ## Building
 
 ```sh
-gem install kramdown-rfc
-pip install xml2rfc
-kramdown-rfc draft-kumar-fid-00.md > draft-kumar-fid-00.xml
-xml2rfc --text --html draft-kumar-fid-00.xml
+gem install kramdown-rfc -v 1.7.43
+pip install xml2rfc==3.34.1
+spec/build.sh        # writes spec/build/draft-kumar-fid-00.txt and .html
 ```
+
+CI runs the same script and fails on any error, or any kramdown-rfc
+warning; the built text and HTML are attached to each CI run.
 
 kramdown-rfc fetches references from bib.ietf.org; set
 `KRAMDOWN_OFFLINE=1` to build without network (references are then
