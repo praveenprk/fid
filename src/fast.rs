@@ -483,6 +483,7 @@ mod tests {
         }
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_recovers_two_clocks() {
         let truth = release();
@@ -547,6 +548,7 @@ mod tests {
         out
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_recovers_a_shape() {
         let truth = ship();
@@ -563,6 +565,7 @@ mod tests {
         );
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_one_clock_is_not_kept() {
         let truth = Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY };
@@ -598,44 +601,74 @@ mod tests {
         assert_eq!(b.iter().map(|b| b.n).sum::<usize>(), 5000);
     }
 
-    /// How often a fast share is kept on one-clock data, and found on two.
-    /// `cargo test --release --lib measure_fast -- --ignored --nocapture`
-    #[test]
-    #[ignore]
-    fn measure_fast_keeps() {
-        let mut false_keeps = 0;
-        for seed in 0..20 {
-            for truth in [
-                Model {
-                    s0: 1.0,
-                    baseline: 0.1,
-                    half_life: 80.0 * DAY,
-                },
-                Model {
-                    s0: 0.95,
-                    baseline: 0.0,
-                    half_life: 20.0 * DAY,
-                },
-            ] {
-                let f = run(&ledger(|a| truth.predict(a), 500, 100 + seed));
-                if f.kept {
-                    let worst = LAGS
-                        .iter()
-                        .map(|&l| (f.model.predict(l * DAY) - truth.predict(l * DAY)).abs())
-                        .fold(0.0, f64::max);
-                    eprintln!("FALSE KEEP {:?} Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}; worst miss {:.3}; {:?}", f.form, f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain, worst, f.model);
+    /// The draft's acceptance tests for richer curves (spec/draft-kumar-fid-00.md, "Acceptance
+    /// tests"), through the full calibrate path, spread fallback included. Seeds are free; the
+    /// bounds must hold for any. (written ledgers kept, ledgers whose written curve misses the
+    /// truth by more than 3 standard errors at some age)
+    fn acceptance(truth: impl Fn(f64) -> f64, ages: &[f64], per_age: usize, seeds: std::ops::Range<u64>) -> (usize, usize) {
+        let (mut kept, mut wrong) = (0, 0);
+        for seed in seeds {
+            let mut rng = Rng(seed);
+            let mut obs = Vec::new();
+            for (ai, &age) in ages.iter().enumerate() {
+                for i in 0..per_age {
+                    obs.push(Observation { entity: format!("a{}-{}", ai, i), age, correct: rng.unit() < truth(age), state: None });
                 }
-                false_keeps += f.kept as usize;
+            }
+            let fits = crate::calibrate::calibrate(&obs).expect("calibrates");
+            if let Some(f) = fits[0].kept_fast() {
+                kept += 1;
+                let miss = ages.iter().any(|&a| {
+                    // one right and one wrong check added, so the error is not zero where p is 0 or 1
+                    let (p, n) = (truth(a), per_age as f64);
+                    let q = (n * p + 1.0) / (n + 2.0);
+                    let se = (q * (1.0 - q) / n).sqrt();
+                    let bad = (f.model.predict(a) - p).abs() > 3.0 * se;
+                    if bad { eprintln!("MISS seed {} age {} truth {:.4} written {:.4} se {:.4} model {:?}", seed, a, p, f.model.predict(a), se, f.model); }
+                    bad
+                });
+                wrong += miss as usize;
             }
         }
-        eprintln!("FALSE KEEPS {} of 40", false_keeps);
+        (kept, wrong)
+    }
+
+    fn days() -> Vec<f64> {
+        LAGS.iter().map(|d| d * DAY).collect()
+    }
+
+    fn minutes_ages() -> Vec<f64> {
+        (0..=30).map(|m| m as f64 * 60.0).collect()
+    }
+
+    // spec: acceptance
+    #[test]
+    fn acceptance_no_false_richer_curve() {
+        let a = Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY };
+        let b = Model { s0: 0.95, baseline: 0.0, half_life: 20.0 * DAY };
+        let (ka, _) = acceptance(|t| a.predict(t), &days(), 500, 100..120);
+        let (kb, _) = acceptance(|t| b.predict(t), &days(), 500, 120..140);
+        eprintln!("ACCEPTANCE false keeps: {} of 40", ka + kb);
+        assert!(ka + kb <= 3, "a richer curve kept on one-clock truths in {} of 40 ledgers (bound: 3)", ka + kb);
+    }
+
+    // spec: acceptance
+    #[test]
+    fn acceptance_shape_found() {
         let truth = ship();
-        let found = (0..20)
-            .filter(|&seed| run(&minutes(|a| truth.predict(a), 100, 300 + seed)).kept)
-            .count();
-        eprintln!("SHAPE KEPT {} of 20 at 100 checks per lag", found);
+        let (kept, wrong) = acceptance(|t| truth.predict(t), &minutes_ages(), 100, 300..320);
+        eprintln!("ACCEPTANCE shape: kept {} of 20, wrong curve in {}", kept, wrong);
+        assert!(kept >= 18, "shape kept in {} of 20 ledgers (bound: 18)", kept);
+        assert_eq!(wrong, 0, "written curve off by more than 3 standard errors in {} ledgers", wrong);
+    }
+
+    // spec: acceptance
+    #[test]
+    fn acceptance_two_clocks_found() {
         let truth = release();
-        let found = (0..20).filter(|&seed| run(&ledger(|a| truth.predict(a), 500, 200 + seed)).kept).count();
-        eprintln!("TWO CLOCKS KEPT {} of 20 at 500 checks per lag", found);
+        let (kept, wrong) = acceptance(|t| truth.predict(t), &days(), 500, 200..220);
+        eprintln!("ACCEPTANCE two clocks: kept {} of 20, wrong curve in {}", kept, wrong);
+        assert!(kept >= 18, "two clocks kept in {} of 20 ledgers (bound: 18)", kept);
+        assert_eq!(wrong, 0, "written curve off by more than 3 standard errors in {} ledgers", wrong);
     }
 }

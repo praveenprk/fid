@@ -1199,6 +1199,7 @@ mod tests {
         out
     }
 
+    // spec: reference-procedure
     #[test]
     fn test_s0_measured_at_age_zero() {
         // A source right 100% of the time when fresh whose facts drop fast in the first day:
@@ -1382,6 +1383,7 @@ mod tests {
         assert!(report("x", &fits).contains("source fidelity not measured"));
     }
 
+    // spec: acceptance
     #[test]
     fn test_ranges_cover_the_truth() {
         // 40 independent ledgers from a known model: the 95% half-life
@@ -1399,6 +1401,7 @@ mod tests {
         assert!(s0_covered >= 34, "s0 covered in {} of {}", s0_covered, trials);
     }
 
+    // spec: acceptance
     #[test]
     fn test_ranges_narrow_with_more_data() {
         let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
@@ -1408,6 +1411,7 @@ mod tests {
         assert!(large.spread < small.spread, "{} vs {}", large.spread, small.spread);
     }
 
+    // spec: acceptance, calibrator
     #[test]
     fn test_too_uncertain_is_error() {
         // 60 re-checks: the plan's example of a half-life that might be 3 days or 9
@@ -1472,6 +1476,7 @@ mod tests {
         assert!(report("policy_clause", &fits).contains("95% ranges (200 entity resamples)"));
     }
 
+    // spec: calibrator
     #[test]
     fn test_young_checks_in_an_old_bin_do_not_measure_source_fidelity() {
         // True half-life 3h, checks spread over 40 days: the youngest of 20
