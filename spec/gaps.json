@@ -5,12 +5,6 @@
    "what": "no vector rejects a non-finite value in every numeric field"
   }
  ],
- "durations": [
-  {
-   "issue": 10,
-   "what": "strict grammar (no 1e3d, +5d, .5d, 5.d) and ISO 8601 durations not yet in vectors or fid"
-  }
- ],
  "timestamps": [
   {
    "issue": 16,
