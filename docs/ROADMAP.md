@@ -102,3 +102,31 @@ Each step is either measured on held-out data or proven by a test, and nothing g
 | 5a. Drift check | done | `fid drift`: likelihood ratio of registry against recent checks. False alarms 3.5% (1% with repeated checks per entity); a halved half-life caught 29 of 30 |
 | 5b. AI transform noise | done (19 Oct) | 200 documents with known facts, standard and hard corpus, Opus 5.5 and Haiku 5.5. Extraction: 0 errors in 4,800 checks. Summary: 1.5% (Opus), 1.9% (Opus, low effort), 7.0% (Haiku); rewrite ≤ 0.2%. Every error was a fact left out, none a wrong value. In `examples/noise-model.yaml` as `llm_extract` 0.001 (was guessed 0.20), `llm_summarize` 0.015 (0.028 when facts are buried), `llm_rewrite` 0.002 |
 | 5c. Echo in fid | done | `echo` in registries and envelopes, matching the study to 1e-12; `fid calibrate --period` keeps an echo only if it wins held-out (0 false keeps in 40) |
+
+## Decision benchmark, 20 October
+
+Does a store that re-checks when fid's trust falls below a floor beat one that re-checks on a fixed schedule? `calibration/decisions.py` replays six kinds of fact (ship positions, airport temperature and flight category, grid demand, PyPI latest version, drug label warnings) on real histories. fid is run, not re-implemented: `fid calibrate` fits on half the entities, and `fid stamp` + `fid ttl` set the re-check interval. Everything is scored on the other half. Full tables: `calibration/results/decisions.md`.
+
+**The rule set before running failed.** For a given held-out staleness, fid's floor needed more re-checks than the best fixed interval:
+- ships: 1.20× at 5%, 1.42× at 10%;
+- PyPI: 1.34×, 1.07× and 1.09× at 5%, 10% and 20%;
+- one floor across all six kinds against intervals tuned per kind: 3.8× to 11.9×.
+
+The floor's predicted staleness was within 0.02 of what happened for 4 of the 6 kinds; flight category (0.045) and PyPI (0.032) missed.
+
+What the diagnostics, added after that run, show:
+
+| Finding | Evidence |
+|---|---|
+| With one state, fid's floor lands exactly on the best fixed interval, from a calibration on other entities | Temperature, flight category, grid demand, drug labels: fid ÷ fixed between 0.98 and 1.06 at every target |
+| A floor is a promise for each decision, not a way to spend a re-check budget | Averaged staleness rewards giving up on expensive facts. Kept at or below the target in every kind and every state, fid ≈ the tuned intervals: 0.99 to 1.22×, 1.40× at 2% |
+| A single exponential cannot hold a fast first drop | PyPI just released: fitted s0 = 0.945, so floors ≥ 0.95 force constant re-checks (185 a day against once in 1.9 days at 2%). With s0 = 1, fid needs 0.86× and 0.92× the re-checks at 2% and 5%, but its predictions get worse (0.048) |
+| Errors gather where a thing changes state | Ships, decisions about ships moving now: fid 0.80× at 2%, 1.10× at 10%, 1.23× at 20%. A moored ship that leaves keeps its long interval |
+| The baseline varies by entity | Flight category: fitted 0.72 on six airports; on the other four a never-re-checked fact was right 82% of the time |
+
+What this means for the next steps, in order:
+1. **A decay shape with two timescales**, or s0 measured at age zero, so a fast first drop is not read as an unreliable source.
+2. **A re-check scheduler**: given a budget or a staleness target, choose each state's interval from the fitted curve (minimize staleness + price × re-checks), and keep the floor as a per-decision guard. It needs no new data and can be scored on this benchmark.
+3. **Hazard of leaving a state**: the chance that a moored ship departs, as its own term.
+4. **Baseline per entity**, or a range on it.
+

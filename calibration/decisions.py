@@ -81,6 +81,7 @@ LAMBDAS = [10 ** (k / 10) for k in range(-100, 41)]
 BOOTSTRAP = 200
 MIN_TTL = 60.0  # seconds: no store re-checks faster than once a minute
 MAX_HONEST_ERROR = 0.02
+MIN_STATE_SHARE = 0.01
 
 
 def epoch(d):
@@ -134,7 +135,11 @@ def predicted_stale_time(model, length):
 # ── replaying a policy ───────────────────────────────────────────────────
 
 def simulate(e, ttl, model=None):
-    """(checks, stale seconds, known seconds, predicted stale seconds) for one entity.
+    """(checks, stale seconds, known seconds, predicted stale seconds, by state) for one entity.
+
+    `by state` is {state: [stale seconds, known seconds]}, by the thing's
+    true state at each moment (a ship moving now, a package released last
+    week), so a policy that neglects one state shows it.
 
     `ttl` is a fixed interval in seconds (math.inf: check once) or a
     function of the state. `model(state)` gives fid's (s0, h, b) to
@@ -153,10 +158,19 @@ def _next_known(values, i):
     return i
 
 
+def _add(by_state, state, stale, known):
+    cell = by_state.get(state)
+    if cell is None:
+        cell = by_state[state] = [0.0, 0.0]
+    cell[0] += stale
+    cell[1] += known
+
+
 def _simulate_series(e, ttl, model):
     values, step, n_all = e.values, e.step, len(e.values)
     checks = stale = known = 0
     predicted = 0.0
+    by_state = {}
     i = _next_known(values, 0)
     while i < n_all:
         held = values[i]
@@ -169,30 +183,49 @@ def _simulate_series(e, ttl, model):
             if now is None:
                 continue
             known += 1
-            if not e.match(held, now):
+            wrong = not e.match(held, now)
+            if wrong:
                 stale += 1
+            _add(by_state, e.state(now) if e.state else None, step if wrong else 0.0, step)
             if m:
                 predicted += 1 - fid_curve(m, (k - i) * step)
         checks += 1
         i = _next_known(values, j)
-    return checks, stale * step, known * step, predicted * step
+    return checks, stale * step, known * step, predicted * step, by_state
 
 
 def _value_index(e, t):
     return bisect.bisect_right(e.times, t) - 1
 
 
-def stale_between(e, held, a, b):
-    """Seconds in [a, b) where the value is not `held`."""
-    i = bisect.bisect_right(e.times, a)
-    current, pos, total = e.values[i - 1], a, 0.0
-    while True:
-        nxt = e.times[i] if i < len(e.times) and e.times[i] < b else b
-        if current != held:
-            total += nxt - pos
-        if nxt >= b:
-            return total
-        pos, current, i = nxt, e.values[i], i + 1
+def segments(e, a, b):
+    """(from, to, value, state) pieces of [a, b), split at changes and state boundaries."""
+    i = _value_index(e, a)
+    pos = a
+    while pos < b:
+        since = e.times[i]
+        following = e.times[i + 1] if i + 1 < len(e.times) else math.inf
+        end = min([following, b] + [since + d for d in e.boundaries or () if since + d > pos])
+        yield pos, end, e.values[i], e.state(pos, since) if e.state else None
+        if end >= following:
+            i += 1
+        pos = end
+
+
+def stale_by_state(e, held, a, b, by_state):
+    """Seconds in [a, b) where the value is not `held`, added to by_state[state][0]; returns the total."""
+    total = 0.0
+    for u0, u1, value, state in segments(e, a, b):
+        if value != held and u1 > u0:
+            total += u1 - u0
+            _add(by_state, state, u1 - u0, 0.0)
+    return total
+
+
+def _known_by_state(e, by_state):
+    for u0, u1, _, state in segments(e, e.start, e.end):
+        _add(by_state, state, 0.0, u1 - u0)
+    return by_state
 
 
 def _fixed_changes(e, ttl):
@@ -200,7 +233,7 @@ def _fixed_changes(e, ttl):
     span = e.end - e.start
     t = max(ttl, MIN_TTL)
     checks = 1 if math.isinf(t) else math.ceil(span / t)
-    stale, seen = 0.0, set()
+    stale, seen, by_state = 0.0, set(), {}
     lo = bisect.bisect_right(e.times, e.start)
     hi = bisect.bisect_left(e.times, e.end)
     for c in range(lo, hi):
@@ -210,12 +243,12 @@ def _fixed_changes(e, ttl):
         seen.add(k)
         a = e.start + (0 if math.isinf(t) else k * t)
         b = e.end if math.isinf(t) else min(a + t, e.end)
-        stale += stale_between(e, e.values[_value_index(e, a)], a, b)
-    return checks, stale, span, 0.0
+        stale += stale_by_state(e, e.values[_value_index(e, a)], a, b, by_state)
+    return checks, stale, span, 0.0, _known_by_state(e, by_state)
 
 
 def _simulate_changes(e, ttl, model):
-    checks, stale, predicted, t = 0, 0.0, 0.0, e.start
+    checks, stale, predicted, t, by_state = 0, 0.0, 0.0, e.start, {}
     while t < e.end:
         i = _value_index(e, t)
         held = e.values[i]
@@ -235,12 +268,12 @@ def _simulate_changes(e, ttl, model):
                     predicted += same * predicted_stale_time(model(state), interval)
                 t += same * interval
         nxt = e.end if math.isinf(interval) else min(t + interval, e.end)
-        stale += stale_between(e, held, t, nxt)
+        stale += stale_by_state(e, held, t, nxt, by_state)
         if model:
             predicted += predicted_stale_time(model(state), nxt - t)
         checks += 1
         t = nxt
-    return checks, stale, e.end - e.start, predicted
+    return checks, stale, e.end - e.start, predicted, _known_by_state(e, by_state)
 
 
 def fixed_grid(entities):
@@ -339,7 +372,7 @@ def parse_time(s):
     return datetime.fromisoformat(s).timestamp()
 
 
-def fid_policy(registry, kind, states):
+def fid_policy(registry, kind, states, source_fidelity=None):
     """{state: (s0, h, b)} and {floor: {state: TTL seconds}}, from `fid stamp` and `fid ttl`.
 
     Also the largest gap between fid's TTL and the closed form
@@ -351,6 +384,8 @@ def fid_policy(registry, kind, states):
         args = ["stamp", "--source", "benchmark", "--source-class", "instrument", "--half-lives", registry, "--type", kind]
         if state is not None:
             args += ["--state", state]
+        if source_fidelity is not None:
+            args += ["--source-fidelity", str(source_fidelity)]
         stamped = run_fid(args, "{}")
         if stamped.returncode != 0:
             raise RuntimeError(f"fid stamp {kind} {state}: {stamped.stderr.strip()}")
@@ -520,7 +555,14 @@ def summarize(rows, index=None):
     predicted = sum(r[3] for r in pick)
     if known == 0:
         return None
-    return {"rate": checks / (known / fidcal.DAY), "stale": stale / known, "predicted": predicted / known}
+    states = {}
+    for r in pick:
+        for state, (s_, k_) in r[4].items():
+            _add(states, state, s_, k_)
+    # The worst-served state, among states that hold at least 1% of the time
+    worst = max(s_ / k_ for s_, k_ in states.values() if k_ >= MIN_STATE_SHARE * known)
+    return {"rate": checks / (known / fidcal.DAY), "stale": stale / known, "predicted": predicted / known,
+            "worst": worst, "by_state": {str(st): s_ / k_ for st, (s_, k_) in states.items() if k_ > 0}}
 
 
 class Summaries:
@@ -619,6 +661,13 @@ def run(all_kinds, work):
             info[f"{variant}_models"] = {str(s): {"s0": m[0], "half_life_s": m[1], "baseline": m[2]}
                                          for s, m in models.items()}
             info[f"{variant}_ttl_s"] = {str(f): {str(s): t for s, t in v.items()} for f, v in ttls.items()}
+            if variant == "fid":
+                # Diagnostic, added after the first run: the same registry with source fidelity 1, since a
+                # check here reads the truth itself and the fitted s0 is an extrapolation of the decay curve
+                models1, ttls1, worst1 = fid_policy(path, name, states if with_state else [None], source_fidelity=1.0)
+                out["ttl_check_max_error_s"] = max(out["ttl_check_max_error_s"], worst1)
+                fitted["fid_s0_1"] = (models1, ttls1)
+                info["fid_s0_1_ttl_s"] = {str(f): {str(s): t for s, t in v.items()} for f, v in ttls1.items()}
 
         # Replays: every fixed interval on both halves (tuning needs the training half), fid on held-out
         test_list = list(test.values())
@@ -638,8 +687,8 @@ def run(all_kinds, work):
         per_kind[name] = dict(fixed_train=fixed_train, fixed_test=fixed_test, fid_test=fid_test, summ=summ)
 
         # Per kind: fid against the best fixed interval for this kind
-        def curve_points(table, b):
-            return [(s["rate"], s["stale"]) for s in (summ(rows, b) for rows in table.values()) if s]
+        def curve_points(table, b, key="stale"):
+            return [(s["rate"], s[key]) for s in (summ(rows, b) for rows in table.values()) if s]
 
         info["fixed_curve"] = [dict(ttl_s=t, **summ(rows, None)) for t, rows in fixed_test.items() if summ(rows, None)]
         for variant, by_floor in fid_test.items():
@@ -650,13 +699,29 @@ def run(all_kinds, work):
                 for t in TARGETS}
             honest = [abs(c["predicted"] - c["stale"]) for c in curve if c["floor"] in HONEST_FLOORS]
             info[f"{variant}_honesty_error"] = sum(honest) / len(honest) if honest else None
+            # Floors whose interval is shorter than the data's time step cannot be scored: staleness
+            # inside one sample is invisible to the replay but not to fid's prediction
+            step = getattr(test_list[0], "step", 0.0)
+            ttls = fitted[variant][1]
+            resolved = [abs(c["predicted"] - c["stale"]) for c in curve if c["floor"] in HONEST_FLOORS
+                        and all(t >= step for t in ttls[c["floor"]].values())]
+            info[f"{variant}_honesty_error_resolved"] = (sum(resolved) / len(resolved), len(resolved)) if resolved else None
             info[f"{variant}_needed"] = {str(t): rate_for([(c["rate"], c["stale"]) for c in curve], t) for t in TARGETS}
+            # Diagnostic, added after the first run: the cost to keep every state at or below the target
+            info[f"{variant}_worst_needed"] = {str(t): rate_for([(c["rate"], c["worst"]) for c in curve], t) for t in TARGETS}
+            info[f"{variant}_worst_vs_fixed"] = {
+                str(t): ratio_with_range(lambda b, bf=by_floor: curve_points(bf, b, "worst"),
+                                         lambda b: curve_points(fixed_test, b, "worst"), t)
+                for t in TARGETS}
         info["fixed_needed"] = {str(t): rate_for([(c["rate"], c["stale"]) for c in info["fixed_curve"]], t) for t in TARGETS}
+        info["fixed_worst_needed"] = {str(t): rate_for([(c["rate"], c["worst"]) for c in info["fixed_curve"]], t)
+                                      for t in TARGETS}
         info["seconds"] = time.monotonic() - began
         fidcal.log(f"  {name} done in {info['seconds']:.0f}s")
         out["kinds"][name] = info
 
     out["portfolio"] = portfolio(per_kind)
+    out["requirement"] = requirement(per_kind)
     out["rule"] = rule(out)
     return out
 
@@ -723,6 +788,47 @@ def portfolio(per_kind):
     return result
 
 
+def requirement(per_kind):
+    """Diagnostic, added after the first run: what it costs to keep every kind and every state at or
+    below the target, each kind at its own cheapest setting (re-checks averaged across kinds)."""
+    names = list(per_kind)
+
+    def needed(family, target, b):
+        rates = []
+        for n in names:
+            k = per_kind[n]
+            table = k["fixed_test"] if family == "fixed" else k["fid_test"].get(family)
+            if table is None:
+                return None
+            pts = [(s["rate"], s["worst"]) for s in (k["summ"](rows, b) for rows in table.values()) if s]
+            r = rate_for(pts, target)
+            if r is None:
+                return None
+            rates.append(r)
+        return sum(rates) / len(rates)
+
+    out = {"needed": {}, "vs_fixed": {}}
+    for family in ("fixed", "fid", "fid_s0_1"):
+        out["needed"][family] = {str(t): needed(family, t, None) for t in TARGETS}
+    for family in ("fid", "fid_s0_1"):
+        out["vs_fixed"][family] = {}
+        for t in TARGETS:
+            point = needed(family, t, None), needed("fixed", t, None)
+            draws = []
+            for b in range(BOOTSTRAP):
+                a, c = needed(family, t, b), needed("fixed", t, b)
+                if a and c:
+                    draws.append(a / c)
+            draws.sort()
+            ok = point[0] and point[1] and len(draws) >= 0.9 * BOOTSTRAP
+            out["vs_fixed"][family][str(t)] = {
+                "ratio": point[0] / point[1] if point[0] and point[1] else None,
+                "low": draws[int(0.025 * len(draws))] if ok else None,
+                "high": draws[int(0.975 * len(draws)) - 1] if ok else None,
+                "resamples": len(draws)}
+    return out
+
+
 def rule(out):
     r = {"per_kind_with_state": {}, "honest_knob": {}}
     for name, info in out["kinds"].items():
@@ -783,7 +889,23 @@ def markdown(out):
                   "| Floor | Re-checks | Predicted staleness | Actual |", "|---|---|---|---|"]
             for c in k["fid_curve"]:
                 L.append(f"| {c['floor']:.2f} | {fmt_rate(c['rate'])} | {c['predicted']:.3f} | {c['stale']:.3f} |")
-            L += ["", f"Mean |predicted − actual| for floors 0.5–0.95: **{k['fid_honesty_error']:.3f}**", ""]
+            L += ["", f"Mean |predicted − actual| for floors 0.5–0.95: **{k['fid_honesty_error']:.3f}**"]
+            res = k.get("fid_honesty_error_resolved")
+            if res and res[1] < len(HONEST_FLOORS):
+                L.append(f"Leaving out floors whose interval is shorter than the data's time step: {res[0]:.3f} "
+                         f"({res[1]} floors)")
+            L.append("")
+        if "fid_s0_1_curve" in k:
+            L += ["", "Diagnostics, added after the first run (not part of the rule): staleness in the worst-served "
+                  "state, and fid with source fidelity 1 (a check reads the truth itself).", "",
+                  "| Target | Fixed, average | fid s0=1, average | ÷ fixed | Fixed, worst state | fid, worst state | ÷ fixed | "
+                  "fid s0=1, worst state | ÷ fixed |", "|---|---|---|---|---|---|---|---|---|"]
+            for t in TARGETS:
+                q = str(t)
+                L.append(f"| {t:.0%} | {fmt_rate(k['fixed_needed'][q])} | {fmt_rate(k['fid_s0_1_needed'][q])} | "
+                         f"{fmt_ratio(k['fid_s0_1_vs_fixed'][q])} | {fmt_rate(k['fixed_worst_needed'][q])} | "
+                         f"{fmt_rate(k['fid_worst_needed'][q])} | {fmt_ratio(k['fid_worst_vs_fixed'][q])} | "
+                         f"{fmt_rate(k['fid_s0_1_worst_needed'][q])} | {fmt_ratio(k['fid_s0_1_worst_vs_fixed'][q])} |")
         L.append("")
     p = out["portfolio"]
     L += ["## All kinds together", "",
@@ -797,6 +919,15 @@ def markdown(out):
     for t in TARGETS:
         L.append(f"| {t:.0%} | " + " | ".join(fmt_ratio(p["vs_tuned"][q][str(t)])
                                               for q in ("one_ttl", "fid_no_state", "fid")) + " |")
+    q = out["requirement"]
+    L += ["", "Diagnostic, added after the first run: every kind and every state kept at or below the target, "
+          "each kind at its own cheapest setting.", "",
+          "| Target | Fixed interval per kind | fid floor per kind | ÷ fixed | fid s0=1 floor per kind | ÷ fixed |",
+          "|---|---|---|---|---|---|"]
+    for t in TARGETS:
+        L.append(f"| {t:.0%} | {fmt_rate(q['needed']['fixed'][str(t)])} | {fmt_rate(q['needed']['fid'][str(t)])} | "
+                 f"{fmt_ratio(q['vs_fixed']['fid'][str(t)])} | {fmt_rate(q['needed']['fid_s0_1'][str(t)])} | "
+                 f"{fmt_ratio(q['vs_fixed']['fid_s0_1'][str(t)])} |")
     if out.get("unavailable"):
         L += ["", "Not included, because the source could not be reached from where this ran: " +
               "; ".join(f"{k}" for k in out["unavailable"]) + "."]
