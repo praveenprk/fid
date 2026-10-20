@@ -843,7 +843,6 @@ its test vectors first, before fid writes version 1.0.
 |---|---|---|
 | 1 | Integrity uses the legacy form for every version; JCS is not implemented. | [#8](https://github.com/praveenprk/fid/issues/8) |
 | 2 | Envelope reading: unknown members and versions are ignored, not answered UNKNOWN; `ext` is not recognised; a null half-life is scored as no decay; non-I-JSON content is accepted. | [#9](https://github.com/praveenprk/fid/issues/9) |
-| 4 | Registry lookup inherits each field a state does not give from its type. | [#11](https://github.com/praveenprk/fid/issues/11) |
 | 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
@@ -886,4 +885,5 @@ error in the "right curve" acceptance test was zero at a truth of 0 or
 
 Deviations fixed in code since -00 was first written, each with its
 tests: the CLI exit codes, [#13](https://github.com/praveenprk/fid/issues/13);
-durations, [#10](https://github.com/praveenprk/fid/issues/10).
+durations, [#10](https://github.com/praveenprk/fid/issues/10); whole-state registry
+lookup, [#11](https://github.com/praveenprk/fid/issues/11).
