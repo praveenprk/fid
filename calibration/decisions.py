@@ -407,11 +407,7 @@ def grid_entities(cache):
     import eia_demand
     out = {}
     for region in eia_demand.REGIONS:
-        try:
-            series = eia_demand.load(eia_demand.fetch(cache, region, os.environ.get("FID_EIA_API_KEY", "")))
-        except Exception as e:
-            fidcal.log(f"  EIA {region}: {e}")
-            continue
+        series = eia_demand.load(eia_demand.fetch(cache, region, os.environ.get("FID_EIA_API_KEY", "")))
         if series:
             out[region] = Series(region, 3600.0, hourly(series, lambda v: v),
                                  lambda a, b: abs(b - a) <= eia_demand.TOLERANCE * a)
@@ -452,32 +448,40 @@ def label_entities(cache, n):
 
 
 def kinds(cache, args):
-    """name → (entities, lags in seconds for the ledger, ledger stride in seconds, states or [None])."""
+    """name → (entities, lags in seconds for the ledger, ledger stride in seconds, states or [None]),
+    and {source: error} for the sources that could not be reached."""
     import dailymed_warnings
     import pypi_latest
     import ships_ais
     H, D = fidcal.HOUR, fidcal.DAY
     hourly_lags = [h * H for h in (0, 1, 2, 3, 4, 6, 8, 12, 18, 24, 36, 48, 72)]
-    fidcal.log("loading AIS")
-    ships = ship_entities(cache, args.ships_per_day)
-    fidcal.log("loading METAR")
-    temperature, category = weather_entities(cache)
-    fidcal.log("loading EIA")
-    grid = grid_entities(cache)
-    fidcal.log("loading PyPI")
-    packages = package_entities(cache, args.packages)
-    fidcal.log("loading DailyMed")
-    labels = label_entities(cache, args.labels)
+    unavailable = {}
+
+    def load(source, loader):
+        """A source that cannot be reached is left out and reported, not replaced."""
+        fidcal.log(f"loading {source}")
+        try:
+            return loader()
+        except Exception as e:
+            fidcal.log(f"  {source} unavailable: {e}")
+            unavailable[source] = str(e)
+            return None
+
+    ships = load("AIS (coast.noaa.gov)", lambda: ship_entities(cache, args.ships_per_day))
+    weather = load("METAR (mesonet.agron.iastate.edu)", lambda: weather_entities(cache)) or ({}, {})
+    grid = load("EIA (api.eia.gov)", lambda: grid_entities(cache))
+    packages = load("PyPI (pypi.org)", lambda: package_entities(cache, args.packages))
+    labels = load("DailyMed (dailymed.nlm.nih.gov)", lambda: label_entities(cache, args.labels))
     out = {
         "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, ["underway", "moored"]),
-        "airport_temperature": (temperature, hourly_lags, 7 * H, [None]),
-        "airport_flight_category": (category, hourly_lags, 7 * H, [None]),
+        "airport_temperature": (weather[0], hourly_lags, 7 * H, [None]),
+        "airport_flight_category": (weather[1], hourly_lags, 7 * H, [None]),
         "grid_demand": (grid, hourly_lags, 7 * H, [None]),
         "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D,
                                    ["just_released", "quiet", "dormant"]),
         "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, [None]),
     }
-    return {k: v for k, v in out.items() if v[0]}
+    return {k: v for k, v in out.items() if v[0]}, unavailable
 
 
 # ── scoring ──────────────────────────────────────────────────────────────
@@ -771,6 +775,9 @@ def markdown(out):
     for t in TARGETS:
         L.append(f"| {t:.0%} | " + " | ".join(fmt_ratio(p["vs_tuned"][q][str(t)])
                                               for q in ("one_ttl", "fid_no_state", "fid")) + " |")
+    if out.get("unavailable"):
+        L += ["", "Not included, because the source could not be reached from where this ran: " +
+              "; ".join(f"{k}" for k in out["unavailable"]) + "."]
     r = out["rule"]
     L += ["", "## The rule", ""]
     for name, v in r["per_kind_with_state"].items():
@@ -792,7 +799,9 @@ def main(argv=None):
     args = ap.parse_args(argv)
     cache = fidcal.default_cache_dir()
     work = os.path.join(cache, "decisions")
-    out = run(kinds(cache, args), work)
+    loaded, unavailable = kinds(cache, args)
+    out = run(loaded, work)
+    out["unavailable"] = unavailable
     with open(os.path.join(HERE, "results", "decisions.json"), "w") as f:
         json.dump(fidcal._finite(out), f, indent=1)
         f.write("\n")
