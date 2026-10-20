@@ -335,7 +335,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
     let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
 
     // Registry values first, explicit flags override.
-    let (mut half_life, mut baseline, mut source_fidelity, mut echo, mut fast) = (None, None, None, None, None);
+    let (mut half_life, mut baseline, mut source_fidelity, mut echo, mut fast, mut shape) = (None, None, None, None, None, None);
     if let Some(path) = &args.half_lives {
         let info_type = args.info_type.as_deref().expect("clap enforces --type");
         let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
@@ -344,6 +344,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         source_fidelity = spec.source_fidelity;
         echo = spec.echo;
         fast = spec.fast;
+        shape = spec.shape;
     }
     half_life = args.half_life.or(half_life);
     baseline = args.baseline.or(baseline);
@@ -382,6 +383,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         source_fidelity,
         echo,
         fast,
+        shape,
         info_type: args.info_type,
         state: args.state,
         condition: args.condition,

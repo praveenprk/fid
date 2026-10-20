@@ -88,15 +88,21 @@ class Conformance(unittest.TestCase):
         for c in V["fast"]:
             with self.subTest(c["name"]):
                 got = _fid.fidelity(c["fidelity_at_measurement"], c["age_seconds"], c["half_life_seconds"], [], c["baseline"],
-                                    None if c["echo"] is None else json.dumps(c["echo"]), json.dumps(c["fast"]))
+                                    None if c["echo"] is None else json.dumps(c["echo"]),
+                                    None if c["fast"] is None else json.dumps(c["fast"]), c["shape"])
                 self.assertAlmostEqual(got, c["fidelity"], delta=TOL)
         for c in V["fast_time_to_floor"]:
             with self.subTest(c["name"]):
-                got = fid.time_to_floor(c["fidelity"], c["half_life_seconds"], c["floor"], baseline=c["baseline"], echo=c["echo"], fast=c["fast"])
+                got = fid.time_to_floor(c["fidelity"], c["half_life_seconds"], c["floor"], baseline=c["baseline"], echo=c["echo"],
+                                        fast=c["fast"], shape=c["shape"])
                 if c["seconds"] is None:
                     self.assertIsNone(got)
                 else:
                     self.assertAlmostEqual(got.total_seconds(), c["seconds"], delta=1e-5)
+        for c in V["shape_errors"]:
+            with self.subTest(c["error"]):
+                with self.assertRaises(ValueError):
+                    fid.fidelity(0.9, 3600, c["half_life_seconds"], shape=c["shape"])
         for c in V["fast_errors"]:
             with self.subTest(c["error"]):
                 with self.assertRaises(ValueError):
@@ -105,7 +111,7 @@ class Conformance(unittest.TestCase):
     def test_schedule(self):
         for c in V["schedule"]:
             with self.subTest(c["name"]):
-                kw = dict(baseline=c["baseline"], echo=c["echo"], fast=c["fast"])
+                kw = dict(baseline=c["baseline"], echo=c["echo"], fast=c["fast"], shape=c["shape"])
                 got = fid.recheck_interval(c["fidelity"], c["half_life_seconds"], price=c["price"], **kw)
                 if c["seconds"] is None:
                     self.assertIsNone(got)
@@ -116,7 +122,7 @@ class Conformance(unittest.TestCase):
         for c in V["staleness_target"]:
             with self.subTest(c["name"]):
                 got = fid.recheck_interval(c["fidelity"], c["half_life_seconds"], staleness=c["target"],
-                                           baseline=c["baseline"], echo=c["echo"], fast=c["fast"])
+                                           baseline=c["baseline"], echo=c["echo"], fast=c["fast"], shape=c["shape"])
                 if c["seconds"] is None:
                     self.assertIsNone(got)
                 else:

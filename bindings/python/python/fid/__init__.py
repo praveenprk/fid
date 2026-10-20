@@ -181,14 +181,16 @@ def fidelity(
     baseline: float = 0.0,
     echo: Optional[Mapping[str, Any]] = None,
     fast: Optional[Mapping[str, Any]] = None,
+    shape: Optional[float] = None,
 ) -> float:
     """Fidelity of a fact `age` after measurement. half_life None = no decay.
 
     `echo` is a periodic return, {"period", "strength", "width", "fade"},
     as in a registry: e.g. {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}.
     `fast` is a share that goes stale on a faster clock: e.g. {"share": 0.3, "half_life": "3d"}.
+    `shape` bends the clocks, 0.5^((age/h)^shape): above 1 a fact holds, then drops.
     """
-    return _fid.fidelity(source, _age(age), _hl(half_life), list(noise), baseline, _echo(echo), _fast(fast))
+    return _fid.fidelity(source, _age(age), _hl(half_life), list(noise), baseline, _echo(echo), _fast(fast), shape)
 
 
 def time_to_floor(
@@ -199,6 +201,7 @@ def time_to_floor(
     baseline: float = 0.0,
     echo: Optional[Mapping[str, Any]] = None,
     fast: Optional[Mapping[str, Any]] = None,
+    shape: Optional[float] = None,
 ) -> timedelta | None:
     """Time after measurement until fidelity first falls below floor; None if it never does.
 
@@ -206,7 +209,7 @@ def time_to_floor(
     measured decay: half_life × log2((fidelity − b) / (floor − b)). With an
     echo the fact comes back later; this is still the first crossing.
     """
-    seconds = _fid.time_to_floor(fidelity, _hl(half_life), baseline, floor, _echo(echo), _fast(fast))
+    seconds = _fid.time_to_floor(fidelity, _hl(half_life), baseline, floor, _echo(echo), _fast(fast), shape)
     return None if seconds is None else timedelta(seconds=seconds)
 
 
@@ -219,6 +222,7 @@ def recheck_interval(
     staleness: Optional[float] = None,
     echo: Optional[Mapping[str, Any]] = None,
     fast: Optional[Mapping[str, Any]] = None,
+    shape: Optional[float] = None,
 ) -> timedelta | None:
     """How often to re-check a fact; None for never.
 
@@ -228,7 +232,7 @@ def recheck_interval(
     removes the most staleness. With `staleness`: the longest interval that
     keeps mean staleness at or below it.
     """
-    seconds = _fid.recheck_interval(fidelity, _hl(half_life), baseline, price, staleness, _echo(echo), _fast(fast))
+    seconds = _fid.recheck_interval(fidelity, _hl(half_life), baseline, price, staleness, _echo(echo), _fast(fast), shape)
     return None if seconds is None else timedelta(seconds=seconds)
 
 
@@ -240,9 +244,10 @@ def mean_staleness(
     baseline: float = 0.0,
     echo: Optional[Mapping[str, Any]] = None,
     fast: Optional[Mapping[str, Any]] = None,
+    shape: Optional[float] = None,
 ) -> float:
     """Fraction of the time a fact re-checked every `every` is served wrong."""
-    return _fid.mean_staleness(fidelity, _hl(half_life), baseline, _age(every), _echo(echo), _fast(fast))
+    return _fid.mean_staleness(fidelity, _hl(half_life), baseline, _age(every), _echo(echo), _fast(fast), shape)
 
 
 # ── envelopes ────────────────────────────────────────────────────────────
@@ -258,6 +263,7 @@ def stamp(
     source_fidelity: Optional[float] = None,
     echo: Optional[Mapping[str, Any]] = None,
     fast: Optional[Mapping[str, Any]] = None,
+    shape: Optional[float] = None,
     type: Optional[str] = None,
     state: Optional[str] = None,
     condition: Optional[str] = None,
@@ -275,7 +281,7 @@ def stamp(
     raw = content if isinstance(content, str) and _looks_stamped(content) else json.dumps(content)
     result, notes = _fid.stamp(
         raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity, _echo(echo),
-        type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now), _fast(fast),
+        type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now), _fast(fast), shape,
     )
     for note in notes:
         warnings.warn(note, stacklevel=2)
@@ -353,10 +359,10 @@ def half_life(registry_path: str, type: str, state: Optional[str] = None) -> tup
 
 def registry(registry_path: str, type: str, state: Optional[str] = None) -> dict:
     """Everything a half-life registry holds for a type and state, ready to pass to `stamp`:
-    {"half_life", "baseline", "source_fidelity", "echo", "fast"}; absent values are None."""
-    h, b, s, e, f = _fid.half_lives_lookup(registry_path, type, state)
+    {"half_life", "baseline", "source_fidelity", "echo", "fast", "shape"}; absent values are None."""
+    h, b, s, e, f, k = _fid.half_lives_lookup(registry_path, type, state)
     return {"half_life": h, "baseline": b, "source_fidelity": s, "echo": None if e is None else json.loads(e),
-            "fast": None if f is None else json.loads(f)}
+            "fast": None if f is None else json.loads(f), "shape": k}
 
 
 def noise(model_path: str, transform: str, condition: Optional[str] = None) -> float:

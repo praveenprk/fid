@@ -144,15 +144,27 @@ def fast_seconds(fast, half_life):
     return share, h
 
 
-def curve_temporal(age, half_life, fast=None, echo=None):
-    """(1 − m) 0.5^(t/h) + m 0.5^(t/h_f), plus the echo's returns, at most 1."""
+def shape_value(shape, half_life):
+    """The clocks' shape k; ValueError unless finite, from 0.1 to 10, with a finite half-life."""
+    if shape is None:
+        return 1.0
+    if not isinstance(shape, (int, float)) or not math.isfinite(shape) or not 0.1 <= shape <= 10:
+        raise ValueError("shape")
+    if half_life is None:
+        raise ValueError("a shape needs a finite half-life")
+    return float(shape)
+
+
+def curve_temporal(age, half_life, fast=None, echo=None, shape=None):
+    """(1 − m) 0.5^((t/h)^k) + m 0.5^((t/h_f)^k), plus the echo's returns, at most 1."""
     t = max(age, 0.0)
-    slow = 1.0 if half_life is None else 0.5 ** (t / half_life)
+    k = shape_value(shape, half_life)
+    slow = 1.0 if half_life is None else 0.5 ** ((t / half_life) ** k)
     if fast is None:
         base = slow
     else:
         share, hf = fast_seconds(fast, half_life)
-        base = (1 - share) * slow + share * 0.5 ** (t / hf)
+        base = (1 - share) * slow + share * 0.5 ** ((t / hf) ** k)
     if echo is None:
         return base
     period, strength, width, fade = echo_seconds(echo)
@@ -164,9 +176,9 @@ def curve_temporal(age, half_life, fast=None, echo=None):
     return min(1.0, base + strength * total)
 
 
-def curve_fidelity(f, age, half_life, baseline, fast=None, echo=None):
+def curve_fidelity(f, age, half_life, baseline, fast=None, echo=None, shape=None):
     b = min(max(baseline, 0.0), max(f, 0.0))
-    return b + (f - b) * curve_temporal(age, half_life, fast, echo)
+    return b + (f - b) * curve_temporal(age, half_life, fast, echo, shape)
 
 
 def shortest(half_life, fast, echo):
@@ -178,14 +190,14 @@ def shortest(half_life, fast, echo):
     return min(scales)
 
 
-def curve_time_to_floor(f, half_life, baseline, floor, fast=None, echo=None):
+def curve_time_to_floor(f, half_life, baseline, floor, fast=None, echo=None, shape=None):
     """First time below floor, by scanning in steps of a hundredth of the shortest timescale; None for never."""
     if f < floor:
         return 0.0
     b = min(max(baseline, 0.0), max(f, 0.0))
     if half_life is None or floor <= b:
         return None
-    below = lambda t: curve_fidelity(f, t, half_life, baseline, fast, echo) < floor
+    below = lambda t: curve_fidelity(f, t, half_life, baseline, fast, echo, shape) < floor
     step = shortest(half_life, fast, echo) / 100.0
     end = 10_000 * (echo_seconds(echo)[0] if echo else half_life)
     t = 0.0
@@ -207,6 +219,32 @@ def exp_integral(t, h):
     return -h / math.log(2) * math.expm1(-t * math.log(2) / h)
 
 
+def lower_gamma_regularized(a, x):
+    """P(a, x) = x^a e^(−x) Σₙ xⁿ / Γ(a + n + 1); 1 once x is far past a, where the rest is under 1e-17."""
+    if x <= 0:
+        return 0.0
+    if x > a + 60 + 10 * math.sqrt(a):
+        return 1.0
+    total, n = 0.0, 0
+    while True:
+        term = math.exp(n * math.log(x) - math.lgamma(a + n + 1))
+        total += term
+        if term < 1e-18 * total and n > x:
+            break
+        n += 1
+    return min(1.0, total * math.exp(a * math.log(x) - x))
+
+
+def clock_integral(t, h, k):
+    """∫₀ᵗ 0.5^((u / h)^k) du = h ln2^(−1/k) / k × Γ(1/k) × P(1/k, ln2 (t/h)^k)."""
+    if k == 1.0:
+        return exp_integral(t, h)
+    if h is None:
+        return t
+    a = 1 / k
+    return h * math.log(2) ** (-a) / k * math.exp(math.lgamma(a)) * lower_gamma_regularized(a, math.log(2) * (t / h) ** k)
+
+
 def uncapped_echo(t, period, strength, width, fade):
     """strength × the echo's returns within 30 widths of t."""
     total = 0.0
@@ -217,16 +255,17 @@ def uncapped_echo(t, period, strength, width, fade):
     return strength * total
 
 
-def temporal_integral(t, half_life, fast=None, echo=None):
-    """∫₀ᵗ temporal. The exponentials and each echo return integrate in closed form;
+def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
+    """∫₀ᵗ temporal. The clocks and each echo return integrate in closed form;
     the cap at 1 is subtracted by Simpson's rule where it can bind."""
     if t <= 0:
         return 0.0
+    k = shape_value(shape, half_life)
     if fast is None:
-        total = exp_integral(t, half_life)
+        total = clock_integral(t, half_life, k)
     else:
         share, hf = fast_seconds(fast, half_life)
-        total = (1 - share) * exp_integral(t, half_life) + share * exp_integral(t, hf)
+        total = (1 - share) * clock_integral(t, half_life, k) + share * clock_integral(t, hf, k)
     if echo is None:
         return total
     period, strength, width, fade = echo_seconds(echo)
@@ -242,7 +281,7 @@ def temporal_integral(t, half_life, fast=None, echo=None):
         total += strength * weight * part
         n += 1
     # The cap can bind only while plain decay is above 1 − strength × 2 / (1 − 0.5^(P/w))
-    plain = lambda u: curve_temporal(u, half_life, fast, None)
+    plain = lambda u: curve_temporal(u, half_life, fast, None, shape)
     bound = 1 - strength * 2 / (1 - 0.5 ** (period / width))
     reach = t
     if bound > 0 and plain(t) <= bound:
@@ -258,25 +297,25 @@ def temporal_integral(t, half_life, fast=None, echo=None):
     return total - cap * h / 3
 
 
-def mean_staleness(f, half_life, baseline, interval, fast=None, echo=None):
+def mean_staleness(f, half_life, baseline, interval, fast=None, echo=None, shape=None):
     """1 − (1/T) ∫₀ᵀ fidelity."""
     if interval <= 0:
         return 1 - f
     b = min(max(baseline, 0.0), max(f, 0.0))
-    return 1 - (b + (f - b) * temporal_integral(interval, half_life, fast, echo) / interval)
+    return 1 - (b + (f - b) * temporal_integral(interval, half_life, fast, echo, shape) / interval)
 
 
-def recheck_cost(f, half_life, baseline, price, interval, fast=None, echo=None):
-    return mean_staleness(f, half_life, baseline, interval, fast, echo) + price * 86400.0 / interval
+def recheck_cost(f, half_life, baseline, price, interval, fast=None, echo=None, shape=None):
+    return mean_staleness(f, half_life, baseline, interval, fast, echo, shape) + price * 86400.0 / interval
 
 
-def best_interval(f, half_life, baseline, price, fast=None, echo=None):
+def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=None):
     """(seconds, cost) minimizing staleness + price × 86400 / T on [1 s, 10,000 × longest scale]; None for never."""
     scale = half_life
     if echo is not None:
         period, _, _, fade = echo_seconds(echo)
         scale = max(scale, period, fade or period)
-    cost = lambda t: recheck_cost(f, half_life, baseline, price, t, fast, echo)
+    cost = lambda t: recheck_cost(f, half_life, baseline, price, t, fast, echo, shape)
     lo, hi = 0.0, math.log(10_000 * scale)
     grid = [math.exp(lo + (hi - lo) * i / 400) for i in range(401)]
     costs = [cost(t) for t in grid]
@@ -296,9 +335,9 @@ def best_interval(f, half_life, baseline, price, fast=None, echo=None):
     return t, best
 
 
-def interval_for_staleness(f, half_life, baseline, target, fast=None, echo=None):
+def interval_for_staleness(f, half_life, baseline, target, fast=None, echo=None, shape=None):
     """Seconds until mean staleness first exceeds target (bisection); None for never."""
-    stale = lambda t: mean_staleness(f, half_life, baseline, t, fast, echo)
+    stale = lambda t: mean_staleness(f, half_life, baseline, t, fast, echo, shape)
     t, prev = 1.0, 0.0
     while t < 10_000 * half_life:
         if stale(t) > target:
@@ -684,13 +723,18 @@ PACKAGE = {"share": 0.3, "half_life": "3d"}
 DAY = 86400.0
 
 FAST = [
-    # name, fidelity, age, half_life, baseline, fast, echo
+    # name, fidelity, age, half_life, baseline, fast, echo[, shape]
     ("fresh", 1.0, 0.0, 80 * DAY, 0.1, PACKAGE, None),
     ("three days: the fast share half gone", 1.0, 3 * DAY, 80 * DAY, 0.1, PACKAGE, None),
     ("a year: only the slow clock", 0.97, 365 * DAY, 80 * DAY, 0.1, PACKAGE, None),
     ("zero share is plain decay", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 0.0, "half_life": "3d"}, None),
     ("whole share is the fast clock", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 1.0, "half_life": "3d"}, None),
     ("with an echo", 1.0, 24 * 3600.0, 2.42 * 3600, 0.13, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+    ("shape: a moving ship, one minute", 1.0, 60.0, 180.0, 0.03, None, None, 3.0),
+    ("shape: a moving ship, five minutes", 1.0, 300.0, 180.0, 0.03, None, None, 3.0),
+    ("shape below 1: falls fast, lingers", 0.98, 10 * DAY, 30 * DAY, 0.0, None, None, 0.5),
+    ("shape with two clocks", 1.0, 240.0, 480.0, 0.02, {"share": 0.6, "half_life": "3m"}, None, 2.5),
+    ("shape with an echo", 1.0, 24 * 3600.0, 2.42 * 3600, 0.13, None, TEMPERATURE, 1.7),
 ]
 
 FAST_TTL = [
@@ -700,6 +744,16 @@ FAST_TTL = [
     ("floor under the baseline", 1.0, 80 * DAY, 0.1, 0.05, PACKAGE, None),
     ("already below", 0.8, 80 * DAY, 0.1, 0.9, PACKAGE, None),
     ("with an echo", 1.0, 2.42 * 3600, 0.13, 0.5, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+    ("shape: a moving ship to 0.9", 1.0, 180.0, 0.03, 0.9, None, None, 3.0),
+    ("shape below 1 to 0.5", 0.98, 30 * DAY, 0.0, 0.5, None, None, 0.5),
+    ("shape with two clocks to 0.7", 1.0, 480.0, 0.02, 0.7, {"share": 0.6, "half_life": "3m"}, None, 2.5),
+]
+
+SHAPE_ERRORS = [
+    (0.0, 3600.0, "zero shape"),
+    (-1.0, 3600.0, "negative shape"),
+    (11.0, 3600.0, "shape above 10"),
+    (2.0, None, "no finite half-life"),
 ]
 
 FAST_ERRORS = [
@@ -718,6 +772,8 @@ SCHEDULE = [
     ("two clocks", 1.0, 80 * DAY, 0.1, 1e-3, PACKAGE, None),
     ("source below 1", 0.95, 7 * DAY, 0.0, 1e-3, None, None),
     ("temperature with its echo", 1.0, 2.42 * 3600, 0.13, 1e-3, None, TEMPERATURE),
+    ("a moving ship, shape 3", 1.0, 180.0, 0.03, 1e-4, None, None, 3.0),
+    ("shape with two clocks", 1.0, 480.0, 0.02, 1e-4, {"share": 0.6, "half_life": "3m"}, None, 2.5),
 ]
 
 STALENESS = [
@@ -726,6 +782,7 @@ STALENESS = [
     ("two clocks, 5%", 1.0, 80 * DAY, 0.1, 0.05, PACKAGE, None),
     ("two clocks, 20%", 0.99, 80 * DAY, 0.1, 0.20, PACKAGE, None),
     ("baseline already under the target: never", 1.0, DAY, 0.9, 0.2, None, None),
+    ("a moving ship, shape 3, 5%", 1.0, 180.0, 0.03, 0.05, None, None, 3.0),
 ]
 
 
@@ -760,24 +817,25 @@ def main():
         "echo_errors": [{"echo": e, "error": reason} for e, reason in ECHO_ERRORS],
         "fast": [
             {"name": n, "fidelity_at_measurement": f, "age_seconds": a, "half_life_seconds": h, "baseline": b,
-             "fast": fa, "echo": e, "fidelity": curve_fidelity(f, a, h, b, fa, e)}
-            for n, f, a, h, b, fa, e in FAST
+             "fast": fa, "echo": e, "shape": k, "fidelity": curve_fidelity(f, a, h, b, fa, e, k)}
+            for n, f, a, h, b, fa, e, k in (c if len(c) == 8 else c + (None,) for c in FAST)
         ],
         "fast_time_to_floor": [
             {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl, "fast": fa, "echo": e,
-             "seconds": curve_time_to_floor(f, h, b, fl, fa, e)}
-            for n, f, h, b, fl, fa, e in FAST_TTL
+             "shape": k, "seconds": curve_time_to_floor(f, h, b, fl, fa, e, k)}
+            for n, f, h, b, fl, fa, e, k in (c if len(c) == 8 else c + (None,) for c in FAST_TTL)
         ],
         "fast_errors": [{"fast": fa, "half_life_seconds": h, "error": reason} for fa, h, reason in FAST_ERRORS],
+        "shape_errors": [{"shape": k, "half_life_seconds": h, "error": reason} for k, h, reason in SHAPE_ERRORS],
         "schedule": [
-            dict(zip(("name", "fidelity", "half_life_seconds", "baseline", "price", "fast", "echo"), case),
+            dict(zip(("name", "fidelity", "half_life_seconds", "baseline", "price", "fast", "echo", "shape"), case),
                  **dict(zip(("seconds", "cost"), best_interval(*case[1:]))))
-            for case in SCHEDULE
+            for case in (c if len(c) == 8 else c + (None,) for c in SCHEDULE)
         ],
         "staleness_target": [
             {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "target": t, "fast": fa, "echo": e,
-             "seconds": interval_for_staleness(f, h, b, t, fa, e)}
-            for n, f, h, b, t, fa, e in STALENESS
+             "shape": k, "seconds": interval_for_staleness(f, h, b, t, fa, e, k)}
+            for n, f, h, b, t, fa, e, k in (c if len(c) == 8 else c + (None,) for c in STALENESS)
         ],
         "integrity": integrity_cases(),
         "envelope": envelope_cases(),

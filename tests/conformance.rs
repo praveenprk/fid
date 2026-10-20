@@ -150,7 +150,7 @@ fn case_curve(c: &Value) -> Curve {
     let fast: Option<Fast> = serde_json::from_value(c["fast"].clone()).unwrap();
     let echo: Option<Echo> = serde_json::from_value(c["echo"].clone()).unwrap();
     let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
-    fid::compute::curve(h.as_deref(), fast.as_ref(), echo.as_ref()).unwrap()
+    fid::compute::curve(h.as_deref(), fast.as_ref(), echo.as_ref(), c["shape"].as_f64()).unwrap()
 }
 
 #[test]
@@ -178,10 +178,14 @@ fn fast_shares() {
             (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
         }
     }
+    for c in cases(&v, "shape_errors") {
+        let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+        assert!(fid::compute::curve(h.as_deref(), None, None, c["shape"].as_f64()).is_err(), "{}", c["error"]);
+    }
     for c in cases(&v, "fast_errors") {
         let fast: Fast = serde_json::from_value(c["fast"].clone()).unwrap();
         let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
-        assert!(fid::compute::curve(h.as_deref(), Some(&fast), None).is_err(), "{}", c["error"]);
+        assert!(fid::compute::curve(h.as_deref(), Some(&fast), None, None).is_err(), "{}", c["error"]);
     }
 }
 
