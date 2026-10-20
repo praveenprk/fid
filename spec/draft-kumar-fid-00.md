@@ -612,8 +612,11 @@ A calibrator reads a ledger and writes a registry entry per state.
    its age), or of bins of them. Any model selection by likelihood (BIC)
    MUST use these estimates.
 4. Refusal over guessing: a calibrator MUST refuse, with a reason, when
-   the data cannot determine the half-life to within its spread limit,
-   and MUST NOT write a value it refused.
+   the data cannot tell: the ledger has no rows, a state has less than
+   the minimum data, or the half-life is not determined to within the
+   spread limit. It MUST NOT write a value it refused. A refusal is an
+   answer about the evidence, distinct from an error in the input (a
+   malformed ledger, an invalid option), which is reported as an error.
 5. Uncertainty: every written half-life and baseline MUST carry a 95%
    range.
 6. A calibrator MUST NOT write `source_fidelity` unless checks at ages
@@ -843,7 +846,6 @@ its test vectors first, before fid writes version 1.0.
 | 3 | Durations: any Rust float literal is accepted as the number (`1e3d`, `+5d`, `.5d`, `5.d`); ISO 8601 durations are not. | [#10](https://github.com/praveenprk/fid/issues/10) |
 | 4 | Registry lookup inherits each field a state does not give from its type. | [#11](https://github.com/praveenprk/fid/issues/11) |
 | 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
-| 6 | CLI: `fid measure`, `scan`, `filter` and `watch` are listed but not implemented and exit 2; `fid calibrate` exits 3 on refusal. | [#13](https://github.com/praveenprk/fid/issues/13) |
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
 its state's) are not part of this document. A first implementation is
@@ -882,3 +884,6 @@ the option that fails closed or uses an existing standard:
 differences are in {{deviations}}. Corrected during -00: the standard
 error in the "right curve" acceptance test was zero at a truth of 0 or
 1 ({{acceptance}}).
+
+Deviations fixed in code since -00 was first written, each with its
+tests: the CLI exit codes, [#13](https://github.com/praveenprk/fid/issues/13).

@@ -120,6 +120,23 @@ fn check_tampered_content_is_unknown() {
 
 // spec: cli
 #[test]
+fn unknown_or_unimplemented_commands_are_errors() {
+    // never exit 2: a pipeline must not read a broken call as UNKNOWN
+    for args in [&["measure", "x.json"][..], &["scan", "."], &["filter"], &["watch", "."], &["record.json"], &[]] {
+        let out = fid(args, "");
+        assert_eq!(out.status.code(), Some(3), "fid {:?}", args);
+        assert!(out.stdout.is_empty(), "fid {:?}", args);
+    }
+    let help = fid(&["--help"], "");
+    assert_eq!(help.status.code(), Some(0));
+    let text = String::from_utf8_lossy(&help.stdout);
+    for gone in ["measure", "scan", "filter", "watch"] {
+        assert!(!text.contains(&format!("  {} ", gone)), "help still lists {}: {}", gone, text);
+    }
+}
+
+// spec: cli
+#[test]
 fn check_reads_stdin() {
     let artifact = stamped(&["--source", "s", "--source-class", "database"]);
     let out = fid(&["check", "-", "--floor", "0.5"], &artifact);

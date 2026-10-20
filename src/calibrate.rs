@@ -531,48 +531,85 @@ pub fn spread(range: &Range, max_age: f64) -> f64 {
     }
 }
 
+/// Why calibration wrote nothing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CalibrateError {
+    /// The evidence cannot tell: no rows, too little data for a state, or a half-life not
+    /// pinned down within the spread limit. An answer, not a failure: `fid calibrate` exits 2.
+    Refused(String),
+    /// The input or an option is wrong: `fid calibrate` exits 3.
+    Invalid(String),
+}
+
+impl CalibrateError {
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Refused(m) | Self::Invalid(m) => m,
+        }
+    }
+}
+
+impl std::fmt::Display for CalibrateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message())
+    }
+}
+
+impl From<CalibrateError> for String {
+    fn from(e: CalibrateError) -> String {
+        e.message().to_string()
+    }
+}
+
+impl From<String> for CalibrateError {
+    /// Errors from reading input are the input's fault.
+    fn from(m: String) -> Self {
+        Self::Invalid(m)
+    }
+}
+
 /// Fit every state with the default limit on the half-life range.
-pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, String> {
+pub fn calibrate(obs: &[Observation]) -> Result<Vec<StateFit>, CalibrateError> {
     calibrate_with(obs, MAX_SPREAD)
 }
 
 /// Fit every state. Either every observation has a state or none does.
 /// A state whose half-life range spans more than `max_spread` is an error.
-pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, String> {
+pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, CalibrateError> {
     calibrate_periodic(obs, max_spread, None)
 }
 
 /// As `calibrate_with`, and with a period, test an echo at that period
 /// on the held-out half (see `crate::echo`).
-pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f64>) -> Result<Vec<StateFit>, String> {
+pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f64>) -> Result<Vec<StateFit>, CalibrateError> {
     calibrate_inner(obs, max_spread, period, true)
 }
 
 /// As `calibrate_with`, one clock only: no richer form is tried. For callers
 /// that compare plain decay curves, such as `fid drift`.
-pub fn calibrate_one_clock(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, String> {
+pub fn calibrate_one_clock(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, CalibrateError> {
     calibrate_inner(obs, max_spread, None, false)
 }
 
-fn calibrate_inner(obs: &[Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<Vec<StateFit>, String> {
+fn calibrate_inner(obs: &[Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<Vec<StateFit>, CalibrateError> {
     if let Some(p) = period {
         if !(p.is_finite() && p > 0.0) {
-            return Err(format!("invalid period {} (must be a positive duration)", p));
+            return Err(CalibrateError::Invalid(format!("invalid period {} (must be a positive duration)", p)));
         }
     }
     if max_spread.is_nan() || max_spread < 1.0 {
-        return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
+        return Err(CalibrateError::Invalid(format!("invalid max spread {} (must be at least 1)", max_spread)));
     }
     if obs.is_empty() {
-        return Err("no observations".to_string());
+        return Err(CalibrateError::Refused("no observations".to_string()));
     }
     let with_state = obs.iter().filter(|o| o.state.is_some()).count();
     if with_state != 0 && with_state != obs.len() {
-        return Err(format!(
+        return Err(CalibrateError::Invalid(format!(
             "{} of {} rows have a state: give every row a state, or none",
             with_state,
             obs.len()
-        ));
+        )));
     }
 
     let mut groups: BTreeMap<Option<String>, Vec<&Observation>> = BTreeMap::new();
@@ -583,12 +620,12 @@ fn calibrate_inner(obs: &[Observation], max_spread: f64, period: Option<f64>, ri
     groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread, period, richer)).collect()
 }
 
-fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<StateFit, String> {
+fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<StateFit, CalibrateError> {
     let name = state.as_deref().map(|s| format!("state '{}'", s)).unwrap_or_else(|| "data".to_string());
     let train: Vec<&Observation> = group.iter().copied().filter(|o| is_train(&o.entity)).collect();
     let test: Vec<&Observation> = group.iter().copied().filter(|o| !is_train(&o.entity)).collect();
     if group.len() < MIN_OBSERVATIONS || train.len() < MIN_PER_HALF || test.len() < MIN_PER_HALF {
-        return Err(format!(
+        return Err(CalibrateError::Refused(format!(
             "{}: too little data ({} observations, {} and {} in the two halves; need {} total and {} per half)",
             name,
             group.len(),
@@ -596,11 +633,11 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
             test.len(),
             MIN_OBSERVATIONS,
             MIN_PER_HALF
-        ));
+        )));
     }
     let all_bins = bins(group);
     if all_bins.len() < 3 || !all_bins.iter().any(|b| b.age > 0.0) {
-        return Err(format!("{}: need at least 3 distinct ages, some above zero", name));
+        return Err(CalibrateError::Refused(format!("{}: need at least 3 distinct ages, some above zero", name)));
     }
 
     let train_bins = bins(&train);
@@ -662,7 +699,7 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
         }
     };
     if spread > max_spread {
-        return Err(format!(
+        return Err(CalibrateError::Refused(format!(
             "{}: half-life too uncertain: 95% range {} to {} (×{:.1}; limit ×{}). Re-check more entities, \
              over a wider range of ages, or raise --max-spread",
             name,
@@ -670,7 +707,7 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
             format_half_life(uncertainty.half_life.hi),
             spread,
             trim(max_spread)
-        ));
+        )));
     }
     Ok(StateFit {
         state,
@@ -1417,10 +1454,11 @@ mod tests {
         // 60 re-checks: the plan's example of a half-life that might be 3 days or 9
         let truth = Model { s0: 0.95, baseline: 0.0, half_life: 6.0 * DAY };
         let obs = random_ledger(truth, 60, 20.0 * DAY, &mut Rng(3));
-        let err = calibrate(&obs).unwrap_err();
+        assert!(matches!(calibrate(&obs), Err(CalibrateError::Refused(_))), "a refusal, not an input error");
+        let err = calibrate(&obs).unwrap_err().to_string();
         assert!(err.contains("too uncertain") && err.contains("--max-spread"), "{}", err);
         assert!(calibrate_with(&obs, f64::INFINITY).is_ok());
-        assert!(calibrate_with(&obs, 0.5).unwrap_err().contains("invalid max spread"));
+        assert!(matches!(calibrate_with(&obs, 0.5), Err(CalibrateError::Invalid(m)) if m.contains("invalid max spread")));
     }
 
     #[test]
@@ -1491,20 +1529,20 @@ mod tests {
     #[test]
     fn test_too_little_data_is_error() {
         let obs = synthetic(Model { s0: 1.0, baseline: 0.0, half_life: 100.0 }, &[0.0, 100.0], 10, None);
-        assert!(calibrate(&obs).unwrap_err().contains("too little data"));
+        assert!(calibrate(&obs).unwrap_err().message().contains("too little data"));
     }
 
     #[test]
     fn test_one_age_is_error() {
         let obs = synthetic(Model { s0: 1.0, baseline: 0.0, half_life: 100.0 }, &[50.0], 200, None);
-        assert!(calibrate(&obs).unwrap_err().contains("distinct ages"));
+        assert!(calibrate(&obs).unwrap_err().message().contains("distinct ages"));
     }
 
     #[test]
     fn test_mixed_states_is_error() {
         let mut obs = synthetic(Model { s0: 1.0, baseline: 0.0, half_life: 100.0 }, &[0.0, 50.0, 100.0], 50, None);
         obs[0].state = Some("x".into());
-        assert!(calibrate(&obs).unwrap_err().contains("have a state"));
+        assert!(calibrate(&obs).unwrap_err().message().contains("have a state"));
     }
 
     #[test]
