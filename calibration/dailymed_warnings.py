@@ -163,10 +163,11 @@ def observations(labels):
     return out
 
 
-def load_labels(cache, n):
-    """{set_id: warnings timeline} for `n` sampled labels, with the number skipped and versions read."""
+def load_labels(cache, n, skip=0):
+    """{set_id: warnings timeline} for `n` sampled labels after the first `skip`,
+    with the number skipped and versions read."""
     labels, skipped, versions_read = {}, 0, 0
-    for i, setid in enumerate(sample_set_ids(cache, n)):
+    for i, setid in enumerate(sample_set_ids(cache, skip + n)[skip:]):
         try:
             hist = history(cache, setid)
             texts = [(at, version_text(cache, setid, v)) for at, v in hist]

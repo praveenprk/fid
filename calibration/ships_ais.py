@@ -44,15 +44,16 @@ def is_cargo_or_tanker(vessel_type):
         return False
 
 
-def load(path):
-    """Per vessel: minute of day → (lat, lon, sog). First report per minute."""
+def load(path, status=False):
+    """Per vessel: minute of day → (lat, lon, sog), or (lat, lon, sog, navigational status)
+    with `status`. First report per minute."""
     tracks = defaultdict(dict)
     with zipfile.ZipFile(path) as z:
         name = next(n for n in z.namelist() if n.endswith(".csv"))
         with z.open(name) as raw:
             reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""))
             header = next(reader)
-            i = {col: header.index(col) for col in ("MMSI", "BaseDateTime", "LAT", "LON", "SOG", "VesselType")}
+            i = {col: header.index(col) for col in ("MMSI", "BaseDateTime", "LAT", "LON", "SOG", "VesselType", "Status")}
             for row in reader:
                 if not is_cargo_or_tanker(row[i["VesselType"]]):
                     continue
@@ -62,7 +63,8 @@ def load(path):
                 if minute in track:
                     continue
                 try:
-                    track[minute] = (float(row[i["LAT"]]), float(row[i["LON"]]), float(row[i["SOG"]]))
+                    report = (float(row[i["LAT"]]), float(row[i["LON"]]), float(row[i["SOG"]]))
+                    track[minute] = report + (row[i["Status"]],) if status else report
                 except ValueError:
                     continue
     return tracks
