@@ -669,6 +669,54 @@ def integrity_cases():
     return [{"content": c, "canonical": canonical(c), "hash": integrity(c)} for c in contents]
 
 
+# A half-life registry as JSON text (YAML 1.2 reads JSON unchanged)
+REGISTRY = {
+    "plain": "1y",
+    "typed": {"half_life": "2.9h", "baseline": 0.73},
+    "shaped": {"half_life": "1h", "shape": 2.0, "baseline": 0.2, "source_fidelity": 0.9,
+               "states": {"bare": "30m", "full": {"half_life": "10m", "baseline": 0.05, "shape": 3.0}}},
+    "stateful": {"states": {"a": "1d", "b": {"half_life": "2d", "fast": {"share": 0.3, "half_life": "1d"}}}},
+}
+FIELDS = ("half_life", "baseline", "source_fidelity", "echo", "fast", "shape")
+
+
+def registry_lookup(registry, info_type, state):
+    """The draft's Half-life registry lookup: a state's entry alone, else the type's own fields."""
+    if info_type not in registry:
+        raise KeyError("unknown type")
+    entry = registry[info_type]
+    entry = {"half_life": entry} if isinstance(entry, str) else entry
+    if state is not None:
+        states = entry.get("states", {})
+        if not states:
+            raise KeyError("type has no states")
+        if state not in states:
+            raise KeyError("unknown state")
+        entry = states[state]
+        entry = {"half_life": entry} if isinstance(entry, str) else entry
+    if entry.get("half_life") is None:
+        raise KeyError("needs a state")
+    return {f: entry.get(f) for f in FIELDS}
+
+
+def registry_cases():
+    text = json.dumps(REGISTRY)
+    out = []
+    for t, st in [("plain", None), ("typed", None), ("shaped", None), ("shaped", "bare"), ("shaped", "full"),
+                  ("stateful", "b"), ("nope", None), ("stateful", None), ("plain", "a"), ("stateful", "zzz")]:
+        try:
+            out.append({"registry": text, "type": t, "state": st, "spec": registry_lookup(REGISTRY, t, st)})
+        except KeyError as e:
+            out.append({"registry": text, "type": t, "state": st, "error": e.args[0]})
+    for bad, reason in [({"x": {"half_life": "1d", "colour": 1}}, "unknown key"),
+                        ({"x": {"states": {"a": {"half_life": "1d", "states": {"b": "1h"}}}}}, "a state with states"),
+                        ({"x": {"half_life": "1d", "shape": 2.0, "states": {"a": "0d"}}}, "zero half-life"),
+                        ({"x": {"half_life": "1d", "fast": {"share": 0.3, "half_life": "2d"}}}, "fast clock not shorter")]:
+        state = "a" if "states" in bad["x"] else None
+        out.append({"registry": json.dumps(bad), "type": "x", "state": state, "error": reason})
+    return out
+
+
 def ledger_cases():
     """CSV text an exporter writes → observations fid reads."""
     ok = [
@@ -823,6 +871,7 @@ GROUP_SECTIONS = {
     "integrity": ["integrity", "legacy-canonical"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
+    "registry": ["half-life-registry"],
 }
 
 # Envelope vectors that also test another section, by name
@@ -914,6 +963,7 @@ def main():
         "integrity": integrity_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
+        "registry": registry_cases(),
         "ledger_example": {
             "file": "conformance/ledger-example.csv",
             "type": "company_ceo",

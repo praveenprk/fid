@@ -2852,6 +2852,179 @@
    ]
   }
  ],
+ "registry": [
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "plain",
+   "state": null,
+   "spec": {
+    "half_life": "1y",
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "typed",
+   "state": null,
+   "spec": {
+    "half_life": "2.9h",
+    "baseline": 0.73,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "shaped",
+   "state": null,
+   "spec": {
+    "half_life": "1h",
+    "baseline": 0.2,
+    "source_fidelity": 0.9,
+    "echo": null,
+    "fast": null,
+    "shape": 2.0
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "shaped",
+   "state": "bare",
+   "spec": {
+    "half_life": "30m",
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "shaped",
+   "state": "full",
+   "spec": {
+    "half_life": "10m",
+    "baseline": 0.05,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": 3.0
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "stateful",
+   "state": "b",
+   "spec": {
+    "half_life": "2d",
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": {
+     "share": 0.3,
+     "half_life": "1d"
+    },
+    "shape": null
+   },
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "nope",
+   "state": null,
+   "error": "unknown type",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "stateful",
+   "state": null,
+   "error": "needs a state",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "plain",
+   "state": "a",
+   "error": "type has no states",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"plain\": \"1y\", \"typed\": {\"half_life\": \"2.9h\", \"baseline\": 0.73}, \"shaped\": {\"half_life\": \"1h\", \"shape\": 2.0, \"baseline\": 0.2, \"source_fidelity\": 0.9, \"states\": {\"bare\": \"30m\", \"full\": {\"half_life\": \"10m\", \"baseline\": 0.05, \"shape\": 3.0}}}, \"stateful\": {\"states\": {\"a\": \"1d\", \"b\": {\"half_life\": \"2d\", \"fast\": {\"share\": 0.3, \"half_life\": \"1d\"}}}}}",
+   "type": "stateful",
+   "state": "zzz",
+   "error": "unknown state",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"x\": {\"half_life\": \"1d\", \"colour\": 1}}",
+   "type": "x",
+   "state": null,
+   "error": "unknown key",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"x\": {\"states\": {\"a\": {\"half_life\": \"1d\", \"states\": {\"b\": \"1h\"}}}}}",
+   "type": "x",
+   "state": "a",
+   "error": "a state with states",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"x\": {\"half_life\": \"1d\", \"shape\": 2.0, \"states\": {\"a\": \"0d\"}}}",
+   "type": "x",
+   "state": "a",
+   "error": "zero half-life",
+   "sections": [
+    "half-life-registry"
+   ]
+  },
+  {
+   "registry": "{\"x\": {\"half_life\": \"1d\", \"fast\": {\"share\": 0.3, \"half_life\": \"2d\"}}}",
+   "type": "x",
+   "state": null,
+   "error": "fast clock not shorter",
+   "sections": [
+    "half-life-registry"
+   ]
+  }
+ ],
  "ledger_example": {
   "file": "conformance/ledger-example.csv",
   "type": "company_ceo",

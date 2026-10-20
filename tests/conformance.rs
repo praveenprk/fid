@@ -261,6 +261,28 @@ fn envelopes() {
 }
 
 #[test]
+fn registry() {
+    let v = vectors();
+    for c in cases(&v, "registry") {
+        let info_type = c["type"].as_str().unwrap();
+        let state = c["state"].as_str();
+        let got = fid::registry::HalfLives::from_yaml(c["registry"].as_str().unwrap()).and_then(|r| r.lookup(info_type, state));
+        if let Some(reason) = c.get("error") {
+            assert!(got.is_err(), "{} {:?}: {} should be an error, got {:?}", info_type, state, reason, got);
+            continue;
+        }
+        let got = got.unwrap_or_else(|e| panic!("{} {:?}: {}", info_type, state, e));
+        let want = &c["spec"];
+        assert_eq!(got.half_life, want["half_life"].as_str().unwrap(), "{} {:?}", info_type, state);
+        assert_eq!(got.baseline, want["baseline"].as_f64(), "{} {:?} baseline", info_type, state);
+        assert_eq!(got.source_fidelity, want["source_fidelity"].as_f64(), "{} {:?} source_fidelity", info_type, state);
+        assert_eq!(got.shape, want["shape"].as_f64(), "{} {:?} shape", info_type, state);
+        assert_eq!(serde_json::to_value(&got.fast).unwrap(), want["fast"], "{} {:?} fast", info_type, state);
+        assert_eq!(serde_json::to_value(&got.echo).unwrap(), want["echo"], "{} {:?} echo", info_type, state);
+    }
+}
+
+#[test]
 fn ledger_csv() {
     let v = vectors();
     for c in cases(&v, "ledger_csv") {
