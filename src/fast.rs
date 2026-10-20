@@ -17,7 +17,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::calibrate::{brier, fit, Bin, Model, Observation, FRESH_DECAY, MIN_FRESH};
+use crate::calibrate::{brier, fit, zero_age_s0, Bin, Model, Observation, FRESH_DECAY, MIN_FRESH};
 use crate::echo::nelder_mead;
 
 /// Exact ages up to this many distinct values; otherwise this many equal-count bins.
@@ -96,24 +96,39 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
         out.sort_by(|a, b| a.age.total_cmp(&b.age));
         return out;
     }
-    let mut sorted: Vec<&Observation> = obs.to_vec();
+    // Checks at age zero keep a bin of their own, so they can measure s0
+    let mut out = Vec::new();
+    if let Some(&(k, n)) = exact.get(&0.0_f64.to_bits()) {
+        out.push(Bin { age: 0.0, correct: k as f64 / n as f64, n });
+    }
+    let mut sorted: Vec<&Observation> = obs.iter().copied().filter(|o| o.age != 0.0).collect();
     sorted.sort_by(|a, b| a.age.total_cmp(&b.age));
-    let per_bin = sorted.len().div_ceil(FINE_BINS);
-    sorted
-        .chunks(per_bin)
-        .map(|chunk| Bin {
-            age: chunk.iter().map(|o| o.age).sum::<f64>() / chunk.len() as f64,
-            correct: chunk.iter().filter(|o| o.correct).count() as f64 / chunk.len() as f64,
-            n: chunk.len(),
-        })
-        .collect()
+    let per_bin = sorted.len().div_ceil(FINE_BINS).max(1);
+    out.extend(sorted.chunks(per_bin).map(|chunk| Bin {
+        age: chunk.iter().map(|o| o.age).sum::<f64>() / chunk.len() as f64,
+        correct: chunk.iter().filter(|o| o.correct).count() as f64 / chunk.len() as f64,
+        n: chunk.len(),
+    }));
+    out
 }
 
 /// Best (s0, b) for fixed clocks, by weighted least squares on y ≈ b (1 − d) + s0 d,
-/// with 0 ≤ b ≤ s0 ≤ 1. Returns the model and its weighted squared error.
-fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64) -> (FastModel, f64) {
+/// with 0 ≤ b ≤ s0 ≤ 1; with `pinned`, s0 is that (measured at age zero) and only b
+/// is fitted. Returns the model and its weighted squared error.
+fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64, pinned: Option<f64>) -> (FastModel, f64) {
     let shape = FastModel { s0: 1.0, baseline: 0.0, half_life, share, fast_half_life };
     let d: Vec<f64> = bins.iter().map(|b| shape.decay(b.age)).collect();
+    if let Some(s0) = pinned {
+        let (mut num, mut den) = (0.0, 0.0);
+        for (bin, &d) in bins.iter().zip(&d) {
+            num += bin.n as f64 * (1.0 - d) * (bin.correct - s0 * d);
+            den += bin.n as f64 * (1.0 - d) * (1.0 - d);
+        }
+        let b = if den > 0.0 { (num / den).clamp(0.0, s0) } else { 0.0 };
+        let m = FastModel { s0, baseline: b, ..shape };
+        let loss = bins.iter().map(|bin| bin.n as f64 * (bin.correct - m.predict(bin.age)).powi(2)).sum();
+        return (m, loss);
+    }
     let (mut ee, mut ed, mut dd, mut ey, mut dy) = (0.0, 0.0, 0.0, 0.0, 0.0);
     for (b, &d) in bins.iter().zip(&d) {
         let (w, e, y) = (b.n as f64, 1.0 - d, b.correct);
@@ -160,12 +175,13 @@ fn unpack(x: &[f64]) -> (f64, f64, f64) {
 pub fn fit_fast(bins: &[Bin], start: &Model) -> FastModel {
     let oldest = bins.iter().map(|b| b.age).fold(0.0, f64::max).max(1.0);
     let h0 = if start.half_life.is_finite() { start.half_life } else { oldest };
+    let pinned = zero_age_s0(bins);
     let loss = |x: &[f64]| {
         let (h, hf, m) = unpack(x);
         if !(h.is_finite() && hf.is_finite() && hf > 0.0) {
             return f64::INFINITY;
         }
-        solve(bins, h, m, hf).1
+        solve(bins, h, m, hf, pinned).1
     };
     let mut best: Option<(Vec<f64>, f64)> = None;
     for (h_scale, ratio, share) in [(1.0, 0.05, 0.2), (2.0, 0.02, 0.3), (1.5, 0.2, 0.1), (3.0, 0.01, 0.5)] {
@@ -177,7 +193,7 @@ pub fn fit_fast(bins: &[Bin], start: &Model) -> FastModel {
         }
     }
     let (h, hf, m) = unpack(&best.expect("four starts").0);
-    solve(bins, h, m, hf).0
+    solve(bins, h, m, hf, pinned).0
 }
 
 fn gap(bins: &[Bin], predict: impl Fn(f64) -> f64) -> f64 {
@@ -256,9 +272,11 @@ mod tests {
         assert!((m.half_life / DAY / 60.0 - 1.0).abs() < 0.15, "{:?}", m);
         assert!((m.fast_half_life / DAY / 2.0 - 1.0).abs() < 0.4, "{:?}", m);
         assert!((m.s0 - 1.0).abs() < 0.01 && (m.baseline - 0.07).abs() < 0.03, "{:?}", m);
-        // one clock reads the quick drop as a source wrong when fresh
+        // s0 is measured at age zero: one clock cannot blame the quick drop on the source,
+        // so it misfits the curve instead
         let plain = fit(&fine_bins(&ledger(|a| truth.predict(a), 2000, 1).iter().collect::<Vec<_>>()), true);
-        assert!(plain.s0 < 0.95, "{:?}", plain);
+        assert_eq!(plain.s0, 1.0);
+        assert!(f.gap_plain > 0.1, "{:?}", f);
     }
 
     #[test]
@@ -284,7 +302,7 @@ mod tests {
             .collect();
         let refs: Vec<&Observation> = obs.iter().collect();
         let b = fine_bins(&refs);
-        assert_eq!(b.len(), FINE_BINS);
+        assert_eq!(b.len(), FINE_BINS + 1); // and one for the check at age zero
         assert_eq!(b.iter().map(|b| b.n).sum::<usize>(), 5000);
     }
 
