@@ -8,8 +8,8 @@ neither tested nor listed as a gap.
 | Section | Title | Vectors | Tests | Status |
 |---|---|---|---|---|
 | numbers | Numbers | — | — | gap: #16: no vector rejects a non-finite value in every numeric field |
-| durations | Durations | parse_duration (20) | — | partial: #10: strict grammar (no 1e3d, +5d, .5d, 5.d) and ISO 8601 durations not yet in vectors or fid |
-| half-lives | Half-lives | parse_half_life (14) | — | covered |
+| durations | Durations | parse_duration (43) | — | covered |
+| half-lives | Half-lives | parse_half_life (18) | — | covered |
 | timestamps | Timestamps | envelope (19), envelope (deviation #9) (1) | — | partial: #16: no vector for rounding at exactly .5 ms |
 | source-classes | Source Classes | envelope (3), source_fidelity (12) | `check_unknown_source_is_unknown`, `stamp_unknown_source_is_indeterminate` | covered |
 | at-measurement | Fidelity at measurement | envelope (2), fidelity (16) | — | covered |

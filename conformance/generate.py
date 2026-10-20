@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,21 +33,35 @@ SOURCE_CLASSES = {
 
 # ── the spec ─────────────────────────────────────────────────────────────
 
+NUMBER = r"[0-9]+(?:\.[0-9]+)?"
+SHORT = re.compile(rf"({NUMBER})(s|m|h|d|mo|y)?", re.I)
+ISO_UNITS = {"y": 365.25 * 86400.0, "mo": 30.44 * 86400.0, "w": 7 * 86400.0, "d": 86400.0,
+             "h": 3600.0, "mi": 60.0, "s": 1.0}
+ISO = re.compile(
+    rf"p(?:(?P<w>{NUMBER})w"
+    rf"|(?:(?P<y>{NUMBER})y)?(?:(?P<mo>{NUMBER})m)?(?:(?P<d>{NUMBER})d)?"
+    rf"(?:t(?:(?P<h>{NUMBER})h)?(?:(?P<mi>{NUMBER})m)?(?:(?P<s>{NUMBER})s)?)?)",
+    re.I,
+)
+
+
 def parse_duration(text):
-    t = text.strip().lower()
-    for suffix in ("mo", "s", "m", "h", "d", "y"):
-        if t.endswith(suffix):
-            number, unit = t[: -len(suffix)], UNITS[suffix]
-            break
+    """The draft's Durations grammar: the short form, or an ISO 8601 duration."""
+    t = text.strip(" \t")
+    m = SHORT.fullmatch(t)
+    if m:
+        n = float(m.group(1)) * UNITS[(m.group(2) or "s").lower()]
     else:
-        number, unit = t, 1.0
-    # Python's float() also takes surrounding spaces and "1_000"; the spec does not
-    if number != number.strip() or "_" in number:
+        m = ISO.fullmatch(t)
+        parts = {k: v for k, v in (m.groupdict() if m else {}).items() if v is not None}
+        has_t = m is not None and "t" in t.lower()
+        time_parts = {"h", "mi", "s"} & set(parts)
+        if not parts or (has_t and not time_parts):
+            raise ValueError(text)
+        n = sum(float(v) * ISO_UNITS[k] for k, v in parts.items())
+    if not math.isfinite(n):
         raise ValueError(text)
-    n = float(number)  # ValueError: not a number
-    if not math.isfinite(n) or n < 0:
-        raise ValueError(text)
-    return n * unit
+    return n
 
 
 def parse_half_life(text):
@@ -389,16 +404,19 @@ T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
 def duration_cases():
-    good = ["30s", "5m", "6h", "7d", "3mo", "3y", "1.5d", "90", "0d", " 2H ", "0.25y"]
-    bad = ["7days", "30ms", "", "abc", "-1d", "inf", "nan", "infd", "1e400d"]
+    good = ["30s", "5m", "6h", "7d", "3mo", "3y", "1.5d", "90", "0d", " 2H ", "0.25y",
+            "PT5M", "P1D", "P2W", "P1Y2M3DT4H5M6.5S", "pt90s", "P0D", "PT0.5H", "P1M", "PT1M"]
+    bad = ["7days", "30ms", "", "abc", "-1d", "inf", "nan", "infd", "1e400d",
+           "1e3d", "+5d", ".5d", "5.d", "1,5d", "5 d",
+           "P", "PT", "P1H", "PT1D", "P1W2D", "P1DT", "P1D1Y", "1P"]
     out = [{"input": s, "seconds": parse_duration(s)} for s in good]
     out += [{"input": s, "error": True} for s in bad]
     return out
 
 
 def half_life_cases():
-    good = ["30s", "6h", "7d", "3mo", "5.8y", "infinite", "INF", "90"]
-    bad = ["0d", "0", "-5h", "7days", "nan", ""]
+    good = ["30s", "6h", "7d", "3mo", "5.8y", "infinite", "INF", "90", "P1D", "PT2.4H"]
+    bad = ["0d", "0", "-5h", "7days", "nan", "", "PT0S", "1e3d"]
     out = [{"input": s, "seconds": parse_half_life(s)} for s in good]
     out += [{"input": s, "error": True} for s in bad]
     return out
