@@ -13,7 +13,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::calibrate::{brier, fit, Bin, Model, Observation, FRESH_DECAY, MIN_FRESH};
+use crate::calibrate::{brier, fit, zero_age_s0, Bin, Model, Observation, FRESH_DECAY, MIN_FRESH};
 use crate::compute::{apply_decay, temporal_factor, EchoParams};
 
 /// Exact ages up to this many distinct values; otherwise P/48-wide bins.
@@ -62,7 +62,12 @@ pub struct EchoFit {
 pub fn periodic_bins(obs: &[&Observation], period: f64) -> Vec<Bin> {
     let distinct: std::collections::BTreeSet<u64> = obs.iter().map(|o| o.age.to_bits()).collect();
     let width = period / BINS_PER_PERIOD;
-    let key = |age: f64| if distinct.len() <= MAX_EXACT_AGES { age.to_bits() } else { (age / width).floor() as u64 };
+    // Checks at age zero keep a group of their own, so they can measure s0
+    let key = |age: f64| match (distinct.len() <= MAX_EXACT_AGES, age == 0.0) {
+        (true, _) => age.to_bits(),
+        (false, true) => 0,
+        (false, false) => (age / width).floor() as u64 + 1,
+    };
     let mut groups: BTreeMap<u64, (f64, usize, usize)> = BTreeMap::new();
     for o in obs {
         let g = groups.entry(key(o.age)).or_insert((0.0, 0, 0));
@@ -134,8 +139,8 @@ fn logit(p: f64) -> f64 {
 
 /// Parameters on an unconstrained scale: s0 and b/s0 in (0, 1), h, r and
 /// h_r positive, w in (0, P/2).
-fn unpack(x: &[f64], period: f64) -> EchoModel {
-    let s0 = sigmoid(x[0]);
+fn unpack(x: &[f64], period: f64, pinned: Option<f64>) -> EchoModel {
+    let s0 = pinned.unwrap_or_else(|| sigmoid(x[0]));
     EchoModel {
         s0,
         baseline: s0 * sigmoid(x[1]),
@@ -151,8 +156,9 @@ fn sse(bins: &[Bin], m: &EchoModel) -> f64 {
 /// Fit the echo model to bins, starting from a decay-to-baseline fit.
 pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
     let h0 = if start.half_life.is_finite() { start.half_life } else { period / 4.0 };
+    let pinned = zero_age_s0(bins);
     let loss = |x: &[f64]| {
-        let m = unpack(x, period);
+        let m = unpack(x, period, pinned);
         if !(m.half_life.is_finite() && m.echo.strength.is_finite() && m.echo.fade.unwrap().is_finite()) {
             return f64::INFINITY;
         }
@@ -177,7 +183,7 @@ pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
             best = Some((x, v));
         }
     }
-    unpack(&best.expect("three starts").0, period)
+    unpack(&best.expect("three starts").0, period, pinned)
 }
 
 fn gap(bins: &[Bin], predict: impl Fn(f64) -> f64) -> f64 {
@@ -313,7 +319,8 @@ mod tests {
         let refs: Vec<&Observation> = obs.iter().collect();
         // 3000 distinct ages: P/48 = 1800 s wide bins
         let b = periodic_bins(&refs, 24.0 * HOUR);
-        assert_eq!(b.len(), (3000.0 * 7.3 / 1800.0_f64).ceil() as usize);
+        // the check at age zero keeps a group of its own
+        assert_eq!(b.len(), (3000.0 * 7.3 / 1800.0_f64).ceil() as usize + 1);
         assert_eq!(b.iter().map(|b| b.n).sum::<usize>(), 3000);
     }
 }

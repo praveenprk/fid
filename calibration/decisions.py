@@ -79,7 +79,7 @@ FID_BIN = os.environ.get("FID_BIN", os.path.join(HERE, "..", "target", "release"
 
 T_GRID = [60.0 * 1.3 ** k for k in range(64)]  # 1 minute to ~30 years
 FLOORS = [0.30, 0.40, 0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.93, 0.95, 0.97, 0.98, 0.99]
-PRICES = [10 ** (k / 5) for k in range(-40, 6)]  # 1e-8 to 10 staleness per daily re-check
+PRICES = [10 ** (k / 5) for k in range(-40, 26)]  # 1e-8 to 1e5 staleness per daily re-check
 GUARD_FLOOR = 0.5
 HONEST_FLOORS = [f for f in FLOORS if 0.5 <= f <= 0.95]
 HONEST_STALENESS = (0.01, 0.30)
@@ -143,9 +143,19 @@ class Changes:
         self.start, self.end, self.state, self.boundaries = start, end, state, boundaries
 
 
+_ECHO_CACHE = {}
+
+
 def fid_curve(model, age):
-    """fid's fidelity at `age` for model (s0, h, b, share, h_fast): two clocks toward a baseline."""
-    s0, h, b, share, hf = model
+    """fid's fidelity at `age` for model (s0, h, b, share, h_fast[, echo JSON]): two clocks toward a
+    baseline; with an echo, fid itself computes it."""
+    s0, h, b, share, hf = model[:5]
+    if len(model) > 5 and model[5]:
+        key = (model, age)
+        if key not in _ECHO_CACHE:
+            fast = {"share": share, "half_life": f"{hf}s"} if share else None
+            _ECHO_CACHE[key] = fid.fidelity(s0, age, h, baseline=b, fast=fast, echo=json.loads(model[5]))
+        return _ECHO_CACHE[key]
     if math.isinf(h):
         return s0
     decay = (1 - share) * 0.5 ** (age / h) + (share * 0.5 ** (age / hf) if share else 0.0)
@@ -160,7 +170,13 @@ def _decay_integral(length, h):
 
 def predicted_stale_time(model, length):
     """∫₀ᴸ (1 − fidelity) dt: the staleness fid expects over one re-check interval, in seconds."""
-    s0, h, b, share, hf = model
+    s0, h, b, share, hf = model[:5]
+    if len(model) > 5 and model[5]:
+        key = (model, "stale", length)
+        if key not in _ECHO_CACHE:
+            fast = {"share": share, "half_life": f"{hf}s"} if share else None
+            _ECHO_CACHE[key] = length * fid.mean_staleness(s0, h, length, baseline=b, fast=fast, echo=json.loads(model[5]))
+        return _ECHO_CACHE[key]
     if math.isinf(h):
         return length * (1 - s0)
     decay = (1 - share) * _decay_integral(length, h) + (share * _decay_integral(length, hf) if share else 0.0)
@@ -396,9 +412,10 @@ def run_fid(args):
     return subprocess.run([FID_BIN] + args, capture_output=True, text=True)
 
 
-def calibrate(ledger, kind, baselines_path):
+def calibrate(ledger, kind, baselines_path, period=None):
     """Registry YAML and per-entity baselines from `fid calibrate`, or (None, None, reason) when it refuses."""
-    out = run_fid(["calibrate", ledger, "--type", kind, "--entity-baselines", baselines_path])
+    out = run_fid(["calibrate", ledger, "--type", kind, "--entity-baselines", baselines_path]
+                  + (["--period", period] if period else []))
     if out.returncode != 0 or not out.stdout.strip():
         return None, None, (out.stderr.strip().splitlines() or ["no output"])[-1]
     baselines = {}
@@ -433,12 +450,13 @@ class FidPolicy:
             return self.cache[key]
         spec = self.spec(state)
         stamped = fid.stamp({}, source="benchmark", source_class="instrument", half_life=spec["half_life"], baseline=b,
-                            source_fidelity=spec["source_fidelity"], fast=spec["fast"], now=T0)
+                            source_fidelity=spec["source_fidelity"], fast=spec["fast"], echo=spec["echo"], now=T0)
         env = stamped["fid"]
         h = fid.parse_half_life(env["half_life"])
         fast = env.get("fast")
         share, hf = (fast["share"], fid.parse_half_life(fast["half_life"])) if fast else (0.0, 0.0)
-        model = (env["fid_at_stamp"], h, b, share, hf)
+        echo = env.get("echo")
+        model = (env["fid_at_stamp"], h, b, share, hf, json.dumps(echo, sort_keys=True) if echo else None)
 
         def seconds(at):
             return math.inf if at is None else (at - T0).total_seconds()
@@ -557,7 +575,7 @@ def label_entities(cache, skip, n):
 
 
 def kinds(cache, which, ships_per_day):
-    """name → (entities, ledger lags in seconds, ledger stride in seconds, has states),
+    """name → (entities, ledger lags in seconds, ledger stride in seconds, has states, period to test an echo at),
     and {source: error} for the sources that could not be reached."""
     import dailymed_warnings
     import pypi_latest
@@ -583,12 +601,13 @@ def kinds(cache, which, ships_per_day):
     packages = load("PyPI (pypi.org)", lambda: package_entities(cache, *cfg["packages"]))
     labels = load("DailyMed (dailymed.nlm.nih.gov)", lambda: label_entities(cache, *cfg["labels"]))
     out = {
-        "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, True),
-        "airport_temperature": (weather[0], hourly_lags, 7 * H, False),
-        "airport_flight_category": (weather[1], hourly_lags, 7 * H, True),
-        "grid_demand": (grid, hourly_lags, 7 * H, False),
-        "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D, True),
-        "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, False),
+        "ship_position": (ships, [m * 60.0 for m in ships_ais.LAG_MINUTES], 30 * 60.0, True, None),
+        # Temperature and demand come back daily (Finding 5, eia_demand.py): calibrate tests an echo
+        "airport_temperature": (weather[0], hourly_lags, 7 * H, False, "24h"),
+        "airport_flight_category": (weather[1], hourly_lags, 7 * H, True, None),
+        "grid_demand": (grid, hourly_lags, 7 * H, False, "24h"),
+        "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D, True, None),
+        "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, False, None),
     }
     return {k: v for k, v in out.items() if v[0]}, unavailable
 
@@ -690,7 +709,7 @@ def run(all_kinds, work):
     rng = random.Random(20261020)
     out = {"kinds": {}, "ttl_check_max_error_s": 0.0}
     per_kind = {}
-    for name, (entities, lags, stride, has_states) in all_kinds.items():
+    for name, (entities, lags, stride, has_states, period) in all_kinds.items():
         began = time.monotonic()
         fidcal.log(f"{name}: {len(entities)} entities")
         train, test = split(entities)
@@ -703,7 +722,7 @@ def run(all_kinds, work):
         ledger = os.path.join(work, f"{name}.csv")
         sources = list(train.values()) + [h for h, _ in halves.values()]
         info["ledger_rows"] = write_ledger(ledger, (r for e in sources for r in ledger_rows(e, lags, stride)), has_states)
-        registry, baselines, log = calibrate(ledger, name, os.path.join(work, f"{name}_baselines.csv"))
+        registry, baselines, log = calibrate(ledger, name, os.path.join(work, f"{name}_baselines.csv"), period)
         info["calibrate"] = log
         policy = None
         if registry is None:

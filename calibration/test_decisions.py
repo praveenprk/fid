@@ -3,6 +3,7 @@
     python3 -m unittest test_decisions      (from calibration/)
 """
 
+import json
 import math
 import random
 import unittest
@@ -210,6 +211,15 @@ class AgainstFid(unittest.TestCase):
                 self.assertAlmostEqual(dc.fid_curve((0.99, h, b, share, hf), length),
                                        dc.fid.fidelity(0.99, length, h, baseline=b, fast=fast), delta=1e-12)
 
+    def test_echo_prediction_is_fids(self):
+        echo = {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}
+        model = (1.0, 2.4 * 3600, 0.13, 0.0, 0.0, json.dumps(echo, sort_keys=True))
+        for age in (0.0, 12 * 3600.0, 24 * 3600.0):
+            self.assertEqual(dc.fid_curve(model, age), dc.fid.fidelity(1.0, age, 2.4 * 3600, baseline=0.13, echo=echo))
+        length = 30 * 3600.0
+        self.assertAlmostEqual(dc.predicted_stale_time(model, length) / length,
+                               dc.fid.mean_staleness(1.0, 2.4 * 3600, length, baseline=0.13, echo=echo), delta=1e-12)
+
     def test_policy_reads_the_registry(self):
         import os, tempfile
         d = tempfile.mkdtemp()
@@ -220,7 +230,7 @@ class AgainstFid(unittest.TestCase):
         self.assertEqual(policy.baseline("requests", "quiet"), 0.25)
         self.assertEqual(policy.baseline("numpy", "quiet"), 0.1)
         model, ttls, every, guarded = policy.decisions("quiet", 0.1)
-        self.assertEqual(model, (0.99, 80 * DAY, 0.1, 0.3, 3 * DAY))
+        self.assertEqual(model, (0.99, 80 * DAY, 0.1, 0.3, 3 * DAY, None))
         # fid's TTL is where its curve crosses the floor; guarded never later than either
         for floor, t in ttls.items():
             if math.isfinite(t) and 0 < t:

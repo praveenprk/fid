@@ -17,10 +17,14 @@
 //! refitted on all the data. Too little data is an error, never a guess.
 //!
 //! s0, the fraction correct when fresh, is the source's measured
-//! fidelity. It is written to the registry only when enough checks fall
-//! in fresh bins (the model has decayed less than a tenth of the way to
-//! the baseline at the bin's age); otherwise it is an extrapolation and
-//! the source class constant stays in force.
+//! fidelity. With at least `MIN_FRESH` checks at age zero it is measured
+//! there directly, and the decay is fitted with s0 fixed: a fact that
+//! changes fast in its first hours is then a fast curve, not a source that
+//! is wrong when fresh. Otherwise s0 is the fitted curve's value at age
+//! zero. It is written to the registry only when enough checks fall in
+//! fresh bins (the model has decayed less than a tenth of the way to the
+//! baseline at the bin's age); otherwise it is an extrapolation and the
+//! source class constant stays in force.
 //!
 //! Uncertainty comes from resampling entities with replacement and
 //! refitting (a bootstrap, 200 rounds, fixed seed): the middle 95% of the
@@ -143,7 +147,8 @@ pub struct StateFit {
     pub fresh_checks: usize,
     /// s0, when `fresh_checks` is enough to call it measured
     pub source_fidelity: Option<f64>,
-    /// 95% ranges from the entity bootstrap
+    /// 95% ranges from the entity bootstrap, of the curve the registry gets
+    /// (two clocks when the fast share is kept)
     pub uncertainty: Uncertainty,
     /// Half-life range, high end ÷ low end; infinite when one end is
     /// within the data and the other beyond it
@@ -177,9 +182,30 @@ pub fn is_train(entity: &str) -> bool {
     Sha256::digest(entity.as_bytes())[0] % 2 == 0
 }
 
+/// The fraction correct among checks at age zero, when there are at
+/// least `MIN_FRESH` of them: s0 measured, not extrapolated.
+pub fn zero_age_s0(bins: &[Bin]) -> Option<f64> {
+    let (k, n) = bins.iter().filter(|b| b.age == 0.0).fold((0.0, 0), |(k, n), b| (k + b.correct * b.n as f64, n + b.n));
+    (n >= MIN_FRESH).then(|| k / n as f64)
+}
+
 /// Group observations into bins: exact ages when there are few distinct
-/// ages, otherwise equal-count bins at their mean age.
+/// ages, otherwise equal-count bins at their mean age. Checks at age zero
+/// always keep a bin of their own, so they can measure s0.
 pub fn bins(obs: &[&Observation]) -> Vec<Bin> {
+    let zero: Vec<&Observation> = obs.iter().copied().filter(|o| o.age == 0.0).collect();
+    let distinct = obs.iter().map(|o| o.age.to_bits()).collect::<std::collections::BTreeSet<_>>().len();
+    if !zero.is_empty() && distinct > MAX_EXACT_AGES {
+        let rest: Vec<&Observation> = obs.iter().copied().filter(|o| o.age != 0.0).collect();
+        let k = zero.iter().filter(|o| o.correct).count();
+        let mut out = vec![Bin { age: 0.0, correct: k as f64 / zero.len() as f64, n: zero.len() }];
+        out.extend(binned(&rest));
+        return out;
+    }
+    binned(obs)
+}
+
+fn binned(obs: &[&Observation]) -> Vec<Bin> {
     let mut sorted: Vec<&Observation> = obs.to_vec();
     sorted.sort_by(|a, b| a.age.total_cmp(&b.age));
 
@@ -213,10 +239,25 @@ pub fn bins(obs: &[&Observation]) -> Vec<Bin> {
 }
 
 /// Best (s0, b) for a fixed half-life, and its weighted squared error.
-fn solve(bins: &[Bin], h: f64, with_baseline: bool) -> (Model, f64) {
+/// With `pinned`, s0 is that and only b is fitted.
+fn solve(bins: &[Bin], h: f64, with_baseline: bool, pinned: Option<f64>) -> (Model, f64) {
     let d: Vec<f64> = bins.iter().map(|b| 0.5_f64.powf(b.age / h)).collect();
     let w: Vec<f64> = bins.iter().map(|b| b.n as f64).collect();
     let y: Vec<f64> = bins.iter().map(|b| b.correct).collect();
+
+    if let Some(s0) = pinned {
+        // y − s0 d ≈ b (1 − d)
+        let (mut num, mut den) = (0.0, 0.0);
+        for i in 0..bins.len() {
+            let e = 1.0 - d[i];
+            num += w[i] * e * (y[i] - s0 * d[i]);
+            den += w[i] * e * e;
+        }
+        let b = if with_baseline && den > 0.0 { (num / den).clamp(0.0, s0) } else { 0.0 };
+        let model = Model { s0, baseline: b, half_life: h };
+        let loss = bins.iter().map(|b| b.n as f64 * (b.correct - model.predict(b.age)).powi(2)).sum();
+        return (model, loss);
+    }
 
     let zero_baseline = || {
         let num: f64 = (0..bins.len()).map(|i| w[i] * d[i] * y[i]).sum();
@@ -264,11 +305,15 @@ fn solve(bins: &[Bin], h: f64, with_baseline: bool) -> (Model, f64) {
 }
 
 /// Fit the model to binned data. Infinite half-life when no decay fits best.
+///
+/// s0 is measured at age zero when there are enough checks there (`zero_age_s0`).
 pub fn fit(bins: &[Bin], with_baseline: bool) -> Model {
+    let pinned = zero_age_s0(bins);
     let total: f64 = bins.iter().map(|b| b.n as f64).sum();
     let mean = bins.iter().map(|b| b.correct * b.n as f64).sum::<f64>() / total;
-    let no_decay = Model { s0: mean, baseline: 0.0, half_life: f64::INFINITY };
-    let no_decay_loss: f64 = bins.iter().map(|b| b.n as f64 * (b.correct - mean).powi(2)).sum();
+    let level = pinned.unwrap_or(mean);
+    let no_decay = Model { s0: level, baseline: 0.0, half_life: f64::INFINITY };
+    let no_decay_loss: f64 = bins.iter().map(|b| b.n as f64 * (b.correct - level).powi(2)).sum();
 
     let positive: Vec<f64> = bins.iter().map(|b| b.age).filter(|&a| a > 0.0).collect();
     if positive.is_empty() {
@@ -277,11 +322,11 @@ pub fn fit(bins: &[Bin], with_baseline: bool) -> Model {
     let lo_age = positive.iter().cloned().fold(f64::INFINITY, f64::min);
     let hi_age = positive.iter().cloned().fold(0.0, f64::max);
     let (mut lo, mut hi) = ((lo_age / 100.0).ln(), (hi_age * 1000.0).ln());
-    let mut best = solve(bins, lo.exp(), with_baseline);
+    let mut best = solve(bins, lo.exp(), with_baseline, pinned);
     for _ in 0..4 {
         for i in 0..=200 {
             let h = (lo + (hi - lo) * i as f64 / 200.0).exp();
-            let candidate = solve(bins, h, with_baseline);
+            let candidate = solve(bins, h, with_baseline, pinned);
             if candidate.1 < best.1 {
                 best = candidate;
             }
@@ -382,11 +427,18 @@ fn bin_index(group: &[&Observation]) -> (Vec<usize>, usize) {
         }
         return (index, distinct.len());
     }
-    let per_bin = group.len().div_ceil(BINS);
-    for (rank, &i) in order.iter().enumerate() {
-        index[i] = rank / per_bin;
+    // As `bins`: checks at age zero in a bin of their own, the rest in equal-count bins
+    let zeros = group.iter().filter(|o| o.age == 0.0).count();
+    let offset = (zeros > 0) as usize;
+    let rest = group.len() - zeros;
+    let per_bin = rest.div_ceil(BINS).max(1);
+    for (rank, &i) in order.iter().skip(zeros).enumerate() {
+        index[i] = offset + rank / per_bin;
     }
-    (index, group.len().div_ceil(per_bin))
+    for &i in order.iter().take(zeros) {
+        index[i] = 0;
+    }
+    (index, offset + rest.div_ceil(per_bin))
 }
 
 /// Refit on entities drawn with replacement, `BOOTSTRAP_ROUNDS` times.
@@ -395,6 +447,30 @@ fn bin_index(group: &[&Observation]) -> (Vec<usize>, usize) {
 /// drawn entities' counts per bin, so a round costs one pass over the
 /// entities, not a sort of the observations.
 pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
+    let (mut h, mut b, mut s0) = (Vec::new(), Vec::new(), Vec::new());
+    for sample in bootstrap_samples(group) {
+        let m = fit(&sample, with_baseline);
+        h.push(m.half_life);
+        b.push(m.baseline);
+        s0.push(m.s0);
+    }
+    Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
+}
+
+/// As `bootstrap`, for two clocks: the ranges of the slow half-life, baseline and s0.
+pub fn bootstrap_fast(group: &[&Observation], with_baseline: bool) -> Uncertainty {
+    let (mut h, mut b, mut s0) = (Vec::new(), Vec::new(), Vec::new());
+    for sample in bootstrap_samples(group) {
+        let m = crate::fast::fit_fast(&sample, &fit(&sample, with_baseline));
+        h.push(m.half_life);
+        b.push(m.baseline);
+        s0.push(m.s0);
+    }
+    Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
+}
+
+/// `BOOTSTRAP_ROUNDS` sets of bins from entities drawn with replacement.
+pub fn bootstrap_samples(group: &[&Observation]) -> Vec<Vec<Bin>> {
     let (index, nbins) = bin_index(group);
     // Per entity: (bin, sum of ages, correct, n)
     let mut by_entity: BTreeMap<&str, BTreeMap<usize, (f64, usize, usize)>> = BTreeMap::new();
@@ -410,7 +486,7 @@ pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
         .collect();
 
     let mut rng = Rng(BOOTSTRAP_SEED);
-    let (mut h, mut b, mut s0) = (Vec::new(), Vec::new(), Vec::new());
+    let mut out = Vec::with_capacity(BOOTSTRAP_ROUNDS);
     for _ in 0..BOOTSTRAP_ROUNDS {
         let mut sums = vec![(0.0, 0, 0); nbins];
         for _ in 0..entities.len() {
@@ -420,17 +496,14 @@ pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
                 sums[bin].2 += n;
             }
         }
-        let sample: Vec<Bin> = sums
-            .into_iter()
-            .filter(|&(_, _, n)| n > 0)
-            .map(|(age, k, n)| Bin { age: age / n as f64, correct: k as f64 / n as f64, n })
-            .collect();
-        let m = fit(&sample, with_baseline);
-        h.push(m.half_life);
-        b.push(m.baseline);
-        s0.push(m.s0);
+        out.push(
+            sums.into_iter()
+                .filter(|&(_, _, n)| n > 0)
+                .map(|(age, k, n)| Bin { age: age / n as f64, correct: k as f64 / n as f64, n })
+                .collect(),
+        );
     }
-    Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
+    out
 }
 
 /// Is a half-life too long to tell from no decay, given checks up to `max_age`?
@@ -526,7 +599,12 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
     // Fresh by the bins the fit sees: a young check grouped into an old bin
     // does not inform s0
     let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh_age(&model)).map(|b| b.n).sum();
-    let uncertainty = bootstrap(group, uses_baseline);
+    let echo = period.map(|p| crate::echo::test_echo(group, &train, &test, p));
+    let fast = crate::fast::test_fast(group, &train, &test, uses_baseline);
+    // The ranges, and the refusal, are for the curve the registry gets: two clocks when the
+    // fast share is kept (and no echo is), else one
+    let fast_written = fast.kept && !echo.as_ref().is_some_and(|e| e.kept);
+    let uncertainty = if fast_written { bootstrap_fast(group, uses_baseline) } else { bootstrap(group, uses_baseline) };
     let max_age = group.iter().map(|o| o.age).fold(0.0, f64::max);
     let spread = spread(&uncertainty.half_life, max_age);
     if spread > max_spread {
@@ -556,8 +634,8 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
         brier_baseline,
         brier_zero,
         brier_constant,
-        echo: period.map(|p| crate::echo::test_echo(group, &train, &test, p)),
-        fast: crate::fast::test_fast(group, &train, &test, uses_baseline),
+        echo,
+        fast,
     })
 }
 
@@ -812,18 +890,23 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
         }
         if let Some(fast) = f.kept_fast() {
             let m = &fast.model;
+            let u = &f.uncertainty;
             let mut s = format!(
-                "{}# fast share kept: held-out Brier {:.4} vs one clock {:.4}\n{}half_life: {}\n{}baseline: {}\n",
+                "{}# fast share kept: held-out Brier {:.4} vs one clock {:.4}\n{}half_life: {}  # 95% range {} to {}\n{}baseline: {}  # 95% range {} to {}\n",
                 indent,
                 fast.brier_fast,
                 fast.brier_plain,
                 indent,
                 format_half_life(m.half_life),
+                format_half_life(u.half_life.lo),
+                format_half_life(u.half_life.hi),
                 indent,
-                trim(m.baseline)
+                trim(m.baseline),
+                trim(u.baseline.lo),
+                trim(u.baseline.hi)
             );
             if fast.source_fidelity.is_some() {
-                s.push_str(&format!("{}source_fidelity: {}\n", indent, trim3(m.s0)));
+                s.push_str(&format!("{}source_fidelity: {}  # 95% range {} to {}\n", indent, trim3(m.s0), trim3(u.s0.lo), trim3(u.s0.hi)));
             }
             s.push_str(&format!(
                 "{}fast: {{ share: {}, half_life: {} }}\n",
@@ -1041,6 +1124,29 @@ mod tests {
     }
 
     #[test]
+    fn test_s0_measured_at_age_zero() {
+        // A source right 100% of the time when fresh whose facts drop fast in the first day:
+        // fitted freely, one clock would put s0 well under 1
+        let truth = |age: f64| 0.1 + 0.9 * (0.6 * 0.5_f64.powf(age / (40.0 * DAY)) + 0.4 * 0.5_f64.powf(age / (0.3 * DAY)));
+        let mut obs = Vec::new();
+        for (ai, &age) in [0.0, 1.0, 3.0, 7.0, 14.0, 30.0, 60.0, 120.0].iter().enumerate() {
+            let k = (500.0 * truth(age * DAY)).round() as usize;
+            for i in 0..500 {
+                obs.push(Observation { entity: format!("e{}-{}", ai, i), age: age * DAY, correct: i < k, state: None });
+            }
+        }
+        let refs: Vec<&Observation> = obs.iter().collect();
+        assert_eq!(zero_age_s0(&bins(&refs)), Some(1.0));
+        let f = &calibrate(&obs).unwrap()[0];
+        assert_eq!(f.model.s0, 1.0);
+        assert_eq!(f.source_fidelity, Some(1.0));
+        // fewer than MIN_FRESH checks at age zero: s0 is fitted as before
+        let few: Vec<Observation> = obs.iter().filter(|o| o.age > 0.0 || o.entity.ends_with("-1")).cloned().collect();
+        let refs: Vec<&Observation> = few.iter().collect();
+        assert_eq!(zero_age_s0(&bins(&refs)), None);
+    }
+
+    #[test]
     fn test_entity_baselines_follow_the_entity() {
         let truth: Vec<f64> = (0..40).map(|i| if i % 2 == 0 { 0.2 } else { 0.8 }).collect();
         let obs = varied_baselines(&truth, 400, 11);
@@ -1140,7 +1246,9 @@ mod tests {
             })
             .collect();
         let fits = calibrate(&obs).unwrap();
-        assert_eq!(fits[0].bins.len(), BINS);
+        // the one check at age zero keeps a bin of its own
+        assert_eq!(fits[0].bins.len(), BINS + 1);
+        assert_eq!(fits[0].bins[0].age, 0.0);
         assert!((fits[0].model.half_life / DAY - 30.0).abs() < 4.0, "{:?}", fits[0].model);
     }
 
