@@ -706,7 +706,9 @@ standard error now adds one right and one wrong check, as the s0 rule
 of the reference procedure does. Results with this definition, fid 0.4
 through the full calibration path: false keeps 0 of 40; shape found in
 20 of 20, two clocks in 20 of 20; written curve right in every ledger
-where one was kept.
+where one was kept. With maximum-likelihood estimation ([#12](https://github.com/praveenprk/fid/issues/12)) the
+results are the same: 0 of 40, 20 of 20, 20 of 20, every written curve
+right.
 
 ## Drift {#drift}
 
@@ -839,9 +841,9 @@ Where the reference implementation does not yet do what this document
 says. Each is tracked by an issue {{ISSUES}} and is fixed in code, with
 its test vectors first.
 
-| # | Deviation | Issue |
-|---|---|---|
-| 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
+None is known. Requirements fid meets but no test vector yet proves are
+listed in `spec/gaps.json` and tracked in
+[#16](https://github.com/praveenprk/fid/issues/16).
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
 its state's) are not part of this document. A first implementation is
@@ -886,4 +888,6 @@ tests: the CLI exit codes, [#13](https://github.com/praveenprk/fid/issues/13);
 durations, [#10](https://github.com/praveenprk/fid/issues/10); whole-state registry
 lookup, [#11](https://github.com/praveenprk/fid/issues/11); envelope version 1.0, with
 reading that fails closed, [#9](https://github.com/praveenprk/fid/issues/9), and JCS
-integrity, [#8](https://github.com/praveenprk/fid/issues/8).
+integrity, [#8](https://github.com/praveenprk/fid/issues/8); maximum-likelihood
+calibration with output independent of row order,
+[#12](https://github.com/praveenprk/fid/issues/12).
