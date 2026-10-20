@@ -46,6 +46,7 @@ fn stderr(out: &Output) -> String {
     String::from_utf8_lossy(&out.stderr).to_string()
 }
 
+// spec: cli, check
 #[test]
 fn check_fresh_artifact_is_signal() {
     let path = temp_file("fresh", &stamped(&["--source", "s", "--source-class", "instrument", "--half-life", "30d"]));
@@ -55,6 +56,7 @@ fn check_fresh_artifact_is_signal() {
     assert!(out.stdout.is_empty());
 }
 
+// spec: integrity, stamping
 #[test]
 fn check_stamped_floats_keep_integrity() {
     // Without correctly rounded float parsing, reading back 1.2345678901234567e+20
@@ -69,6 +71,7 @@ fn check_stamped_floats_keep_integrity() {
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
 }
 
+// spec: cli, check
 #[test]
 fn check_below_floor_is_noise() {
     let path = temp_file("noise", &stamped(&["--source", "s", "--source-class", "llm_ungrounded"]));
@@ -77,6 +80,7 @@ fn check_below_floor_is_noise() {
     assert!(stderr(&out).starts_with("NOISE"));
 }
 
+// spec: check
 #[test]
 fn check_stale_artifact_decays_to_noise() {
     // Measured 60 days ago with a 30-day half-life: 0.97 × 0.25 ≈ 0.24
@@ -94,6 +98,7 @@ fn check_stale_artifact_decays_to_noise() {
     assert!(check(&path, "0.20").status.success());
 }
 
+// spec: cli, check, source-classes
 #[test]
 fn check_unknown_source_is_unknown() {
     let path = temp_file("unknown", &stamped(&["--source", "mystery"]));
@@ -102,6 +107,7 @@ fn check_unknown_source_is_unknown() {
     assert!(stderr(&out).starts_with("UNKNOWN"));
 }
 
+// spec: cli, check, integrity
 #[test]
 fn check_tampered_content_is_unknown() {
     let mut v: Value = serde_json::from_str(&stamped(&["--source", "s", "--source-class", "database"])).unwrap();
@@ -112,6 +118,7 @@ fn check_tampered_content_is_unknown() {
     assert!(stderr(&out).contains("integrity mismatch"));
 }
 
+// spec: cli
 #[test]
 fn check_reads_stdin() {
     let artifact = stamped(&["--source", "s", "--source-class", "database"]);
@@ -134,6 +141,7 @@ fn check_errors_exit_3() {
     assert_eq!(fid(&["check"], "").status.code(), Some(3));
 }
 
+// spec: cli
 #[test]
 fn check_in_shell_pipeline() {
     let path = temp_file("shell", &stamped(&["--source", "s", "--source-class", "instrument"]));
@@ -147,6 +155,7 @@ fn check_in_shell_pipeline() {
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "proceed");
 }
 
+// spec: cli
 #[test]
 fn chain_walks_pipeline() {
     let first = stamped(&["--source", "sensor-12", "--source-class", "instrument", "--half-life", "30d"]);
@@ -168,6 +177,7 @@ fn chain_errors_exit_3() {
     assert_eq!(fid(&["chain", "-"], "not json").status.code(), Some(3));
 }
 
+// spec: cli, expiry
 #[test]
 fn ttl_prints_expiry_and_exit_code() {
     // database 0.90, 1d half-life: falls below 0.45 one day after measurement
@@ -181,6 +191,7 @@ fn ttl_prints_expiry_and_exit_code() {
     assert!(((at - measured).num_seconds() - 86_400).abs() <= 1, "{}", printed);
 }
 
+// spec: cli, expiry
 #[test]
 fn ttl_never_and_unknown() {
     let never = stamped(&["--source", "s", "--source-class", "instrument", "--half-life", "1h", "--baseline", "0.8"]);
@@ -194,6 +205,7 @@ fn ttl_never_and_unknown() {
     assert_eq!(out.status.code(), Some(2));
 }
 
+// spec: cli, recheck, staleness
 #[test]
 fn schedule_prints_recheck_time_and_exit_code() {
     let artifact = stamped(&["--source", "s", "--source-class", "instrument", "--source-fidelity", "1", "--half-life", "1d", "--baseline", "0.1"]);

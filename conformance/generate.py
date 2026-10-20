@@ -786,10 +786,66 @@ STALENESS = [
 ]
 
 
+# The draft sections (spec/draft-kumar-fid-00.md anchors) each group of vectors tests
+GROUP_SECTIONS = {
+    "parse_duration": ["durations"],
+    "parse_half_life": ["half-lives"],
+    "source_fidelity": ["source-classes"],
+    "fidelity": ["at-measurement", "temporal", "fidelity", "tolerances"],
+    "time_to_floor": ["time-to-floor", "tolerances"],
+    "echo": ["temporal", "fidelity", "tolerances"],
+    "echo_time_to_floor": ["time-to-floor", "tolerances"],
+    "echo_errors": ["temporal"],
+    "fast": ["temporal", "fidelity", "tolerances"],
+    "fast_time_to_floor": ["time-to-floor", "tolerances"],
+    "fast_errors": ["temporal"],
+    "shape_errors": ["temporal"],
+    "schedule": ["staleness", "tolerances"],
+    "staleness_target": ["staleness", "tolerances"],
+    "integrity": ["integrity", "legacy-canonical"],
+    "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
+    "ledger_csv": ["ledger"],
+}
+
+# Envelope vectors that also test another section, by name
+ENVELOPE_SECTIONS = {
+    "transform chain": ["at-measurement"],
+    "conditioned transform": ["at-measurement"],
+    "exactly at the floor is SIGNAL": ["time-to-floor"],
+    "unknown source": ["source-classes"],
+    "content changed since stamp": ["integrity"],
+    "clock skew: now before measured_at": ["timestamps"],
+    "version 0.1 envelope (no baseline field)": ["versioning"],
+    "measured source fidelity replaces the class constant": ["source-classes"],
+    "measured source fidelity, unknown class stays unknown": ["source-classes"],
+}
+
+# Vectors that encode fid 0.4's behaviour where the draft says otherwise: the issue that changes them
+DEVIATIONS = {
+    "no half-life never decays": 9,
+}
+
+
+def tag(vectors):
+    """Give every vector the draft sections it tests, and mark known deviations."""
+    for group, sections in GROUP_SECTIONS.items():
+        for v in vectors[group]:
+            name = v.get("name", "")
+            v["sections"] = sections + [s for s in ENVELOPE_SECTIONS.get(name, []) if s not in sections]
+            if name in DEVIATIONS:
+                v["deviation_issue"] = DEVIATIONS[name]
+    vectors["ledger_example"]["sections"] = ["calibrator"]
+    names = {v.get("name") for g in GROUP_SECTIONS for v in vectors[g]}
+    missing = (set(ENVELOPE_SECTIONS) | set(DEVIATIONS)) - names
+    if missing:
+        raise SystemExit(f"tagged names with no vector: {sorted(missing)}")
+    return vectors
+
+
 def main():
     vectors = {
         "fid_conformance": "1",
-        "spec": "conformance/README.md",
+        "spec": "spec/draft-kumar-fid-00.md",
         "tolerance": 1e-9,
         "parse_duration": duration_cases(),
         "parse_half_life": half_life_cases(),
@@ -848,6 +904,10 @@ def main():
             "baseline_within": 0.05,
         },
     }
+    tag(vectors)
+    untagged = [g for g, v in vectors.items() if isinstance(v, list) and any(not c.get("sections") for c in v)]
+    if untagged:
+        raise SystemExit(f"vectors without a draft section: {untagged}; add them to GROUP_SECTIONS")
     with open(os.path.join(HERE, "vectors.json"), "w") as f:
         json.dump(vectors, f, indent=1, ensure_ascii=False)
         f.write("\n")
