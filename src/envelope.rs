@@ -82,6 +82,8 @@ pub fn not_understood(fid: &serde_json::Map<String, Value>) -> Option<String> {
 }
 
 /// A stamped artifact as read: one a scorer understands, or why it does not.
+// Built once per artifact read and matched at once; boxing the large variant buys nothing
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Read {
     Understood(Stamped),
