@@ -102,10 +102,10 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
         .zip(fits)
         .map(|(group, recent)| {
             let spec = registry.lookup(info_type, recent.state.as_deref())?;
-            if spec.fast.is_some() {
-                // The test compares plain decay curves; a fast share would be dropped silently
+            if spec.fast.is_some() || spec.shape.is_some() {
+                // The test compares plain decay curves; a fast share or shape would be dropped silently
                 return Err(format!(
-                    "'{}'{} has a fast share: drift tests plain decay only; refit with fid calibrate instead",
+                    "'{}'{} has a fast share or a shape: drift tests plain decay only; refit with fid calibrate instead",
                     info_type,
                     recent.state.as_deref().map(|s| format!(" state '{}'", s)).unwrap_or_default()
                 ));

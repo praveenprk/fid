@@ -31,6 +31,8 @@ pub struct StampOptions {
     pub echo: Option<crate::compute::Echo>,
     /// Fast share; overrides any inherited fast share
     pub fast: Option<crate::compute::Fast>,
+    /// Shape of the clocks; overrides any inherited shape
+    pub shape: Option<f64>,
     /// Information type (e.g. "vessel_position"); overrides any inherited type
     pub info_type: Option<String>,
     /// State of the observed thing (e.g. "underway"); overrides any inherited state
@@ -87,6 +89,9 @@ pub fn stamp(
     if let Some(f) = &opts.fast {
         f.params()?;
     }
+    if let Some(k) = opts.shape {
+        crate::compute::check_shape(k)?;
+    }
     if let Some(b) = opts.baseline {
         check_unit(b, "baseline")?;
     }
@@ -134,6 +139,9 @@ pub fn stamp(
             if opts.fast.is_some() {
                 upstream.fast = opts.fast.clone();
             }
+            if opts.shape.is_some() {
+                upstream.shape = opts.shape;
+            }
             if opts.info_type.is_some() {
                 upstream.info_type = opts.info_type.clone();
             }
@@ -159,6 +167,7 @@ pub fn stamp(
                 source_fidelity: opts.source_fidelity,
                 echo: opts.echo.clone(),
                 fast: opts.fast.clone(),
+                shape: opts.shape,
                 info_type: opts.info_type.clone(),
                 state: opts.state.clone(),
                 // A lossless root has no transform step, unless it records a condition
@@ -199,6 +208,7 @@ mod tests {
             source_fidelity: None,
             echo: None,
             fast: None,
+            shape: None,
             info_type: None,
             state: None,
             condition: None,

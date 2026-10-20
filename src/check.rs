@@ -93,6 +93,9 @@ pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> S
     if let Some(f) = &env.fast {
         out.push_str(&format!(", {:.0}% on a {} clock", 100.0 * f.share, f.half_life));
     }
+    if let Some(k) = env.shape {
+        out.push_str(&format!(", shape {}", k));
+    }
     if let Some(e) = &env.echo {
         out.push_str(&format!(", echo every {} (strength {:.2})", e.period, e.strength));
     }
@@ -174,6 +177,7 @@ mod tests {
                 source_fidelity: None,
                 echo: None,
                 fast: None,
+                shape: None,
                 info_type: None,
                 state: None,
                 transforms: noise

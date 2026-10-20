@@ -17,6 +17,9 @@
 //!   half_life: 80d
 //!   baseline: 0.1
 //!   fast: { share: 0.3, half_life: 3d }
+//! vessel_underway:                      # holds, then drops: shape above 1
+//!   half_life: 3m
+//!   shape: 2.5
 //! airport_temperature:                  # comes back once a day
 //!   half_life: 2.42h
 //!   baseline: 0.13
@@ -67,6 +70,8 @@ pub struct HalfLifeSpec {
     pub echo: Option<Echo>,
     /// A share that goes stale on a faster clock
     pub fast: Option<Fast>,
+    /// Shape of the clocks: 0.5^((t/h)^shape)
+    pub shape: Option<f64>,
     #[serde(default)]
     pub states: BTreeMap<String, HalfLifeEntry>,
 }
@@ -88,6 +93,7 @@ pub struct DecaySpec {
     pub source_fidelity: Option<f64>,
     pub echo: Option<Echo>,
     pub fast: Option<Fast>,
+    pub shape: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -135,19 +141,27 @@ impl HalfLives {
             spec.source_fidelity = child.source_fidelity.or(spec.source_fidelity);
             spec.echo = child.echo.or(spec.echo);
             spec.fast = child.fast.or(spec.fast);
+            spec.shape = child.shape.or(spec.shape);
         }
 
         let half_life = spec.half_life.ok_or_else(|| {
             format!("information type '{}' needs a state (one of: {})", info_type, names(spec.states.keys()))
         })?;
-        curve(Some(&half_life), spec.fast.as_ref(), spec.echo.as_ref()).map_err(|e| format!("'{}': {}", info_type, e))?;
+        curve(Some(&half_life), spec.fast.as_ref(), spec.echo.as_ref(), spec.shape).map_err(|e| format!("'{}': {}", info_type, e))?;
         if let Some(b) = spec.baseline {
             check_unit(b, "baseline").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
         if let Some(s) = spec.source_fidelity {
             check_unit(s, "source fidelity").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
-        Ok(DecaySpec { half_life, baseline: spec.baseline, source_fidelity: spec.source_fidelity, echo: spec.echo, fast: spec.fast })
+        Ok(DecaySpec {
+            half_life,
+            baseline: spec.baseline,
+            source_fidelity: spec.source_fidelity,
+            echo: spec.echo,
+            fast: spec.fast,
+            shape: spec.shape,
+        })
     }
 }
 
@@ -273,7 +287,7 @@ conditional_only:
     #[test]
     fn test_simple_half_life() {
         let spec = half_lives().lookup("employee_role", None).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None, fast: None });
+        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None, fast: None, shape: None });
     }
 
     #[test]
@@ -295,7 +309,7 @@ conditional_only:
     #[test]
     fn test_state_inherits_type_baseline() {
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9), echo: None, fast: None });
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9), echo: None, fast: None, shape: None });
         assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
     }
 
@@ -338,6 +352,19 @@ conditional_only:
         assert!(h.lookup("slow_fast", None).unwrap_err().contains("shorter"));
         assert!(h.lookup("big", None).unwrap_err().contains("share"));
         assert!(HalfLives::from_yaml("x: { half_life: 1h, fast: { share: 0.3 } }").is_err());
+    }
+
+    #[test]
+    fn test_shape_lookup_and_validation() {
+        let h = HalfLives::from_yaml(
+            "ship: { half_life: 3m, baseline: 0.03, shape: 2.5, states: { slow: { half_life: 8m }, flat: { shape: 1 } } }\n\
+             bad: { half_life: 3m, shape: 0 }",
+        )
+        .unwrap();
+        assert_eq!(h.lookup("ship", None).unwrap().shape, Some(2.5));
+        assert_eq!(h.lookup("ship", Some("slow")).unwrap().shape, Some(2.5));
+        assert_eq!(h.lookup("ship", Some("flat")).unwrap().shape, Some(1.0));
+        assert!(h.lookup("bad", None).unwrap_err().contains("shape"));
     }
 
     #[test]

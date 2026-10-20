@@ -131,6 +131,10 @@ pub struct FidEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast: Option<crate::compute::Fast>,
 
+    /// Shape of the decay clocks, 0.5^((age/h)^shape); absent: 1 (fid_version 0.4)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<f64>,
+
     /// Information type, as named in a half-life registry (e.g. "vessel_position")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info_type: Option<String>,
@@ -173,7 +177,7 @@ impl FidEnvelope {
 
     /// The temporal curve (half-life, fast share, echo), validated.
     pub fn curve(&self) -> Result<crate::compute::Curve, String> {
-        crate::compute::curve(self.half_life.as_deref(), self.fast.as_ref(), self.echo.as_ref())
+        crate::compute::curve(self.half_life.as_deref(), self.fast.as_ref(), self.echo.as_ref(), self.shape)
     }
 
     /// Fidelity at measurement: source × ∏(1 − noise). None if the source is unknown.
@@ -332,6 +336,7 @@ mod tests {
             source_fidelity: None,
             echo: None,
             fast: None,
+            shape: None,
             info_type: None,
             state: None,
             transforms: vec![TransformStep {
@@ -479,6 +484,25 @@ mod tests {
         env.fast = Some(crate::compute::Fast { share: 0.3, half_life: "90d".into() });
         assert!(env.fidelity_at(env.measured_at).is_err());
         assert!(env.expires_at(0.5).is_err());
+    }
+
+    #[test]
+    fn test_shape_in_the_envelope() {
+        let mut env = sample_envelope();
+        env.source_class = SourceClass::Instrument;
+        env.source_fidelity = Some(1.0);
+        env.transforms.clear();
+        env.half_life = Some("3m".into());
+        env.shape = Some(3.0);
+        let f = env.fidelity_at(env.measured_at + chrono::Duration::minutes(3)).unwrap().unwrap();
+        assert!((f - 0.5).abs() < 1e-9);
+        let Some(Expiry::At(at)) = env.expires_at(0.5).unwrap() else { panic!() };
+        assert_eq!(at, env.measured_at + chrono::Duration::minutes(3));
+        let back: FidEnvelope = serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
+        assert_eq!(back.shape, Some(3.0));
+        assert!(serde_json::to_value(sample_envelope()).unwrap().get("shape").is_none());
+        env.shape = Some(-1.0);
+        assert!(env.fidelity_at(env.measured_at).is_err());
     }
 
     #[test]

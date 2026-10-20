@@ -67,8 +67,14 @@ fn echo_params(echo_json: Option<&str>, half_life_seconds: Option<f64>) -> PyRes
 }
 
 /// The whole curve: half-life in seconds, fast share and echo as JSON, validated.
-fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: Option<&str>) -> PyResult<compute::Curve> {
+fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: Option<&str>, shape: Option<f64>) -> PyResult<compute::Curve> {
     let echo = echo_params(echo_json, half_life_seconds)?;
+    if let Some(k) = shape {
+        compute::check_shape(k).map_err(err)?;
+        if half_life_seconds.is_none() {
+            return Err(err("a shape needs a finite half-life"));
+        }
+    }
     let fast = match fast_json {
         None => None,
         Some(text) => {
@@ -81,12 +87,12 @@ fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: 
             }
         }
     };
-    Ok(compute::Curve { half_life: half_life_seconds, fast, echo })
+    Ok(compute::Curve { half_life: half_life_seconds, fast, echo, shape })
 }
 
 /// baseline + (source × ∏(1 − noise) − baseline) × temporal, temporal with an optional fast share and echo
 #[pyfunction]
-#[pyo3(signature = (source, age_seconds, half_life_seconds, noise, baseline, echo_json=None, fast_json=None))]
+#[pyo3(signature = (source, age_seconds, half_life_seconds, noise, baseline, echo_json=None, fast_json=None, shape=None))]
 fn fidelity(
     source: f64,
     age_seconds: f64,
@@ -95,14 +101,15 @@ fn fidelity(
     baseline: f64,
     echo_json: Option<&str>,
     fast_json: Option<&str>,
+    shape: Option<f64>,
 ) -> PyResult<f64> {
-    let curve = curve_of(half_life_seconds, fast_json, echo_json)?;
+    let curve = curve_of(half_life_seconds, fast_json, echo_json, shape)?;
     Ok(compute::apply_decay(source * compute::transform_factor(&noise), curve.temporal(age_seconds), baseline))
 }
 
 /// Seconds after measurement until fidelity first falls below floor; None for never.
 #[pyfunction]
-#[pyo3(signature = (fidelity, half_life_seconds, baseline, floor, echo_json=None, fast_json=None))]
+#[pyo3(signature = (fidelity, half_life_seconds, baseline, floor, echo_json=None, fast_json=None, shape=None))]
 fn time_to_floor(
     fidelity: f64,
     half_life_seconds: Option<f64>,
@@ -110,8 +117,9 @@ fn time_to_floor(
     floor: f64,
     echo_json: Option<&str>,
     fast_json: Option<&str>,
+    shape: Option<f64>,
 ) -> PyResult<Option<f64>> {
-    let ttl = curve_of(half_life_seconds, fast_json, echo_json)?.time_to_floor(fidelity, baseline, floor);
+    let ttl = curve_of(half_life_seconds, fast_json, echo_json, shape)?.time_to_floor(fidelity, baseline, floor);
     Ok(match ttl {
         TimeToFloor::After(s) => Some(s),
         TimeToFloor::Never => None,
@@ -121,7 +129,7 @@ fn time_to_floor(
 /// Seconds between re-checks that minimize staleness + price × re-checks per day (or, with a
 /// staleness target, the longest interval that keeps it); None for never.
 #[pyfunction]
-#[pyo3(signature = (fidelity, half_life_seconds, baseline, price=None, staleness=None, echo_json=None, fast_json=None))]
+#[pyo3(signature = (fidelity, half_life_seconds, baseline, price=None, staleness=None, echo_json=None, fast_json=None, shape=None))]
 #[allow(clippy::too_many_arguments)]
 fn recheck_interval(
     fidelity: f64,
@@ -131,8 +139,9 @@ fn recheck_interval(
     staleness: Option<f64>,
     echo_json: Option<&str>,
     fast_json: Option<&str>,
+    shape: Option<f64>,
 ) -> PyResult<Option<f64>> {
-    let curve = curve_of(half_life_seconds, fast_json, echo_json)?;
+    let curve = curve_of(half_life_seconds, fast_json, echo_json, shape)?;
     let r = match (price, staleness) {
         (Some(p), None) => compute::best_interval(&curve, fidelity, baseline, p),
         (None, Some(s)) => compute::interval_for_staleness(&curve, fidelity, baseline, s),
@@ -147,7 +156,7 @@ fn recheck_interval(
 
 /// Mean fraction of the time a fact re-checked every `interval_seconds` is served wrong.
 #[pyfunction]
-#[pyo3(signature = (fidelity, half_life_seconds, baseline, interval_seconds, echo_json=None, fast_json=None))]
+#[pyo3(signature = (fidelity, half_life_seconds, baseline, interval_seconds, echo_json=None, fast_json=None, shape=None))]
 fn mean_staleness(
     fidelity: f64,
     half_life_seconds: Option<f64>,
@@ -155,13 +164,14 @@ fn mean_staleness(
     interval_seconds: f64,
     echo_json: Option<&str>,
     fast_json: Option<&str>,
+    shape: Option<f64>,
 ) -> PyResult<f64> {
-    Ok(curve_of(half_life_seconds, fast_json, echo_json)?.mean_staleness(fidelity, baseline, interval_seconds))
+    Ok(curve_of(half_life_seconds, fast_json, echo_json, shape)?.mean_staleness(fidelity, baseline, interval_seconds))
 }
 
 /// Wrap content (raw stdin-style text) in an envelope. Returns (stamped JSON, warnings).
 #[pyfunction]
-#[pyo3(signature = (input, source, source_class, noise, half_life, baseline, source_fidelity, echo_json, info_type, state, condition, derived_from, upstream_json, now, fast_json=None))]
+#[pyo3(signature = (input, source, source_class, noise, half_life, baseline, source_fidelity, echo_json, info_type, state, condition, derived_from, upstream_json, now, fast_json=None, shape=None))]
 #[allow(clippy::too_many_arguments)]
 fn stamp(
     input: &str,
@@ -179,12 +189,13 @@ fn stamp(
     upstream_json: Option<&str>,
     now: Option<&str>,
     fast_json: Option<&str>,
+    shape: Option<f64>,
 ) -> PyResult<(String, Vec<String>)> {
     let source_class = source_class.map(str::parse::<SourceClass>).transpose().map_err(err)?;
     let upstream: Option<FidEnvelope> = upstream_json.map(read_stamped).transpose()?.map(|s| s.fid);
     let echo = echo_json.map(serde_json::from_str::<compute::Echo>).transpose().map_err(|e| err(format!("invalid echo: {}", e)))?;
     let fast = fast_json.map(serde_json::from_str::<compute::Fast>).transpose().map_err(|e| err(format!("invalid fast share: {}", e)))?;
-    let opts = StampOptions { source, source_class, noise, half_life, baseline, source_fidelity, echo, fast, info_type, state, condition, derived_from };
+    let opts = StampOptions { source, source_class, noise, half_life, baseline, source_fidelity, echo, fast, shape, info_type, state, condition, derived_from };
     let out = stamp_content(input, &opts, upstream, when(now)?).map_err(err)?;
     let json = serde_json::to_string(&out.stamped).map_err(err)?;
     Ok((json, out.warnings))
@@ -254,8 +265,8 @@ fn chain(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> 
     Ok(fid::chain::report(&stamped, &r))
 }
 
-/// (half_life, baseline, source_fidelity, echo JSON, fast JSON)
-type RegistryEntry = (String, Option<f64>, Option<f64>, Option<String>, Option<String>);
+/// (half_life, baseline, source_fidelity, echo JSON, fast JSON, shape)
+type RegistryEntry = (String, Option<f64>, Option<f64>, Option<String>, Option<String>, Option<f64>);
 
 /// Look up a half-life registry file.
 #[pyfunction]
@@ -264,7 +275,7 @@ fn half_lives_lookup(path: &str, info_type: &str, state: Option<&str>) -> PyResu
     let spec = HalfLives::load(path).map_err(err)?.lookup(info_type, state).map_err(err)?;
     let echo = spec.echo.map(|e| serde_json::to_string(&e)).transpose().map_err(err)?;
     let fast = spec.fast.map(|f| serde_json::to_string(&f)).transpose().map_err(err)?;
-    Ok((spec.half_life, spec.baseline, spec.source_fidelity, echo, fast))
+    Ok((spec.half_life, spec.baseline, spec.source_fidelity, echo, fast, spec.shape))
 }
 
 /// Look up a noise model file.

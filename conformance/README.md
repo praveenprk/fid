@@ -91,7 +91,7 @@ otherwise                    → half_life × log2((f − b) / (floor − b))
 
 An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
 `source_class`, `source_fidelity` (optional; see Source classes),
-`echo` and `fast` (optional; see Echo and Fast share),
+`echo`, `fast` and `shape` (optional; see Echo, and Fast share and shape),
 `measured_at` (RFC 3339), `half_life` (a duration string or null),
 `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 `transforms[].noise`, `integrity`.
@@ -133,15 +133,18 @@ closed form; any search is fine that finds the first crossing within
 1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
 after `expires_at`.
 
-## Fast share
+## Fast share and shape
 
 Some facts go stale on two clocks (`fid_version` 0.4 envelopes and
 registries): `fast: {share, half_life}`. `share` is between 0 and 1;
 `half_life` is a finite duration, shorter than the envelope's finite
-`half_life`. Anything else is invalid.
+`half_life`. A fact that goes wrong by crossing a threshold holds, then
+drops: `shape` k, a number from 0.1 to 10 (1 when absent), bends both
+clocks. Anything else is invalid, and both need a finite half-life.
 
 ```
-temporal = (1 − share) × 0.5^(age / half_life) + share × 0.5^(age / fast.half_life)
+clock(h) = 0.5^((max(age, 0) / h)^k)
+temporal = (1 − share) × clock(half_life) + share × clock(fast.half_life)
            (+ strength × echoes, capped at 1, when there is also an echo)
 fidelity = b + (f − b) × temporal                 (b clamped as above)
 ```
@@ -158,8 +161,10 @@ A fact re-checked every `T` seconds is served wrong, on average,
 staleness(T) = 1 − (1 / T) × ∫₀ᵀ fidelity(t) dt          (1 − f when T is 0)
 ```
 
-with fidelity as above (`f` at measurement). For the exponentials the
-integral has a closed form; each echo return integrates as
+with fidelity as above (`f` at measurement). Each clock integrates in
+closed form, `∫₀ᵀ clock(h) = h × ln2^(−1/k) / k × Γ(1/k) × P(1/k, ln2 ×
+(T/h)^k)` with P the regularized lower incomplete gamma (for k = 1,
+`h / ln2 × (1 − 0.5^(T/h))`); each echo return integrates as
 `∫₀ᵀ 0.5^(|t − nP| / w) dt`, and where the cap at 1 binds the excess is
 subtracted.
 
