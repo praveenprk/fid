@@ -34,3 +34,26 @@ jobs:
           pip install "maturin>=1.5,<2"
           maturin develop --release
           python -m unittest discover -s tests -v
+
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install kramdown-rfc and xml2rfc
+        run: |
+          gem install --no-document kramdown-rfc -v 1.7.43
+          pip install xml2rfc==3.34.1
+      - name: Build the draft (fails on any error or kramdown-rfc warning)
+        run: spec/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: draft-kumar-fid
+          path: |
+            spec/build/*.txt
+            spec/build/*.html
