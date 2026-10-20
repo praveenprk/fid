@@ -17,7 +17,7 @@ jobs:
       - name: Conformance vectors match the spec
         run: python3 conformance/generate.py && git diff --exit-code conformance/
       - name: Every requirement in the draft is tested or a listed gap
-        run: python3 spec/trace.py && git diff --exit-code spec/TRACEABILITY.md
+        run: python3 spec/traceability.py && git diff --exit-code spec/TRACEABILITY.md
       - run: cargo test
 
   python:
@@ -54,6 +54,8 @@ jobs:
         run: |
           gem install --no-document kramdown-rfc -v 1.7.43
           pip install xml2rfc==3.34.1
+      - name: Tests of the spec tools
+        run: python3 -m unittest discover -s spec -p 'test_*.py' -v
       - name: Build the draft (fails on any error or kramdown-rfc warning)
         run: spec/build.sh
       - uses: actions/upload-artifact@v4

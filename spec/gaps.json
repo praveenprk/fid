@@ -17,7 +17,7 @@
  "calibrator": [{"issue": 12, "what": "row-order invariance and maximum-likelihood estimation not implemented"}],
  "reference-procedure": [{"issue": 12, "what": "fits are least squares, not maximum likelihood; ties in bins follow row order"}],
  "cli": [{"issue": 13, "what": "unimplemented commands exit 2; calibrate refusal exits 3"}],
- "conformance": [{"exempt": "enforced by spec/trace.py in CI", "what": "every MUST has a vector or a listed gap"}],
+ "conformance": [{"exempt": "enforced by spec/traceability.py in CI", "what": "every MUST has a vector or a listed gap"}],
  "security": [
   {"exempt": "a rule for consumers of envelopes, not testable in fid", "what": "authenticity by other means; no monotonic decay assumed with an echo"},
   {"issue": 16, "what": "no test that scoring work is bounded on the longest-period, narrowest-width curve"}
