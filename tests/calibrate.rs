@@ -36,6 +36,7 @@ fn ledger() -> String {
     csv
 }
 
+// spec: calibrator, cli
 #[test]
 fn calibrate_writes_registry_and_report() {
     let out = fid(&["calibrate", "-", "--type", "policy_claim"], &ledger());
@@ -47,6 +48,7 @@ fn calibrate_writes_registry_and_report() {
     assert!(report.contains("held-out Brier"));
 }
 
+// spec: calibrator, stamping
 #[test]
 fn calibrated_registry_feeds_stamp() {
     let out = fid(&["calibrate", "-", "--type", "policy_claim"], &ledger());
@@ -73,6 +75,7 @@ fn calibrated_registry_feeds_stamp() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+// spec: calibrator, cli (deviation #13)
 #[test]
 fn calibrate_refuses_an_uncertain_half_life() {
     // 60 re-checks, a few at each age: the half-life cannot be pinned down
@@ -106,6 +109,7 @@ fn calibrate_errors_exit_3() {
     }
 }
 
+// spec: drift, cli
 #[test]
 fn drift_against_a_calibrated_registry() {
     let dir = std::env::temp_dir().join(format!("fid-drift-{}", std::process::id()));
@@ -137,6 +141,7 @@ fn drift_against_a_calibrated_registry() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+// spec: calibrator, reference-procedure
 #[test]
 fn calibrate_period_writes_an_echo() {
     // A daily fact: right when fresh, back at every multiple of 24h, wrong in between
@@ -157,6 +162,7 @@ fn calibrate_period_writes_an_echo() {
     assert!(spec.echo.unwrap().strength > 0.2);
 }
 
+// spec: calibrator, reference-procedure
 #[test]
 fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     // 30% of facts go stale with a 2-day half-life, the rest with 60 days; exact counts per lag

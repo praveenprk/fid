@@ -284,12 +284,14 @@ conditional_only:
         NoiseModel::from_yaml(NOISE).unwrap()
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_simple_half_life() {
         let spec = half_lives().lookup("employee_role", None).unwrap();
         assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None, fast: None, shape: None });
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_half_life_with_baseline() {
         let spec = half_lives().lookup("airport_flight_category", None).unwrap();
@@ -297,6 +299,7 @@ conditional_only:
         assert_eq!(spec.baseline, Some(0.73));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_state_half_life() {
         let h = half_lives();
@@ -306,6 +309,7 @@ conditional_only:
         assert_eq!(moored.baseline, Some(0.1));
     }
 
+    // spec: half-life-registry (deviation #11)
     #[test]
     fn test_state_inherits_type_baseline() {
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
@@ -313,6 +317,7 @@ conditional_only:
         assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_state_overrides_source_fidelity() {
         let spec = half_lives().lookup("with_default", Some("checked")).unwrap();
@@ -320,6 +325,7 @@ conditional_only:
         assert_eq!(spec.baseline, Some(0.2));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_echo_lookup_and_validation() {
         let h = HalfLives::from_yaml(
@@ -336,6 +342,7 @@ conditional_only:
         assert!(HalfLives::from_yaml("x: { half_life: 1h, echo: { period: 24h, strength: 0.3, width: 3h } }").is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_fast_lookup_and_validation() {
         let h = HalfLives::from_yaml(
@@ -354,6 +361,7 @@ conditional_only:
         assert!(HalfLives::from_yaml("x: { half_life: 1h, fast: { share: 0.3 } }").is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_shape_lookup_and_validation() {
         let h = HalfLives::from_yaml(
@@ -367,18 +375,21 @@ conditional_only:
         assert!(h.lookup("bad", None).unwrap_err().contains("shape"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_bad_source_fidelity_is_error() {
         let h = HalfLives::from_yaml("x: { half_life: 1d, source_fidelity: 1.2 }").unwrap();
         assert!(h.lookup("x", None).unwrap_err().contains("source fidelity"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_stateful_type_without_state_is_error() {
         let err = half_lives().lookup("vessel_position", None).unwrap_err();
         assert!(err.contains("needs a state") && err.contains("underway"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unknown_type_state_is_error() {
         let h = half_lives();
@@ -387,6 +398,7 @@ conditional_only:
         assert!(h.lookup("employee_role", Some("x")).unwrap_err().contains("no states"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unparseable_half_life_fails_on_lookup_only() {
         let h = half_lives();
@@ -394,18 +406,21 @@ conditional_only:
         assert!(h.lookup("legal_name", None).is_ok());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_bad_baseline_is_error() {
         let h = HalfLives::from_yaml("x: { half_life: 1d, baseline: 1.5 }").unwrap();
         assert!(h.lookup("x", None).is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unknown_field_is_error() {
         assert!(HalfLives::from_yaml("x: { half_life: 1d, baselin: 0.5 }").is_err());
         assert!(NoiseModel::from_yaml("x: { noise: 0.1, condition: {} }").is_err());
     }
 
+    // spec: noise-model
     #[test]
     fn test_noise_lookup() {
         let n = noise();
@@ -414,6 +429,7 @@ conditional_only:
         assert_eq!(n.lookup("flight_leg", Some("previous_leg_late")).unwrap(), 0.54);
     }
 
+    // spec: noise-model
     #[test]
     fn test_noise_lookup_errors() {
         let n = noise();
@@ -425,6 +441,7 @@ conditional_only:
         assert!(bad.lookup("x", None).is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_example_files_parse() {
         let root = env!("CARGO_MANIFEST_DIR");

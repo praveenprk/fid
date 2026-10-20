@@ -25,6 +25,7 @@ fn stdout_json(out: &Output) -> Value {
     serde_json::from_slice(&out.stdout).expect("stdout is not JSON")
 }
 
+// spec: stamping, cli
 #[test]
 fn stamp_root_wraps_content() {
     let out = fid(
@@ -40,6 +41,7 @@ fn stamp_root_wraps_content() {
     assert!(v["fid"]["integrity"].as_str().unwrap().starts_with("sha256:"));
 }
 
+// spec: stamping, cli
 #[test]
 fn stamp_pipeline_composes() {
     let first = fid(&["stamp", "--source", "db", "--source-class", "database"], "{}");
@@ -58,6 +60,7 @@ fn stamp_pipeline_composes() {
     assert!((f - 0.90 * 0.95 * 0.92).abs() < 1e-9);
 }
 
+// spec: stamping
 #[test]
 fn stamp_derived_from_file() {
     let upstream = fid(&["stamp", "--source", "db", "--source-class", "database"], "{}");
@@ -76,6 +79,7 @@ fn stamp_derived_from_file() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+// spec: stamping, source-classes
 #[test]
 fn stamp_unknown_source_is_indeterminate() {
     let v = stdout_json(&fid(&["stamp", "--source", "mystery"], "{}"));
@@ -83,6 +87,7 @@ fn stamp_unknown_source_is_indeterminate() {
     assert!(v["fid"]["fid_at_stamp"].is_null());
 }
 
+// spec: cli
 #[test]
 fn stamp_rejects_bad_input() {
     let cases: &[&[&str]] = &[
@@ -98,6 +103,7 @@ fn stamp_rejects_bad_input() {
     }
 }
 
+// spec: structure, cli
 #[test]
 fn stamp_rejects_malformed_envelope() {
     let out = fid(&["stamp", "--source", "x"], r#"{"fid": {"broken": true}, "content": 1}"#);
@@ -109,6 +115,7 @@ fn example(name: &str) -> String {
     format!("{}/examples/{}", env!("CARGO_MANIFEST_DIR"), name)
 }
 
+// spec: half-life-registry
 #[test]
 fn stamp_looks_up_state_half_life() {
     let registry = example("half-lives.yaml");
@@ -124,6 +131,7 @@ fn stamp_looks_up_state_half_life() {
     assert_eq!(v["fid"]["state"], "underway");
 }
 
+// spec: stamping
 #[test]
 fn stamp_flags_override_registry() {
     let registry = example("half-lives.yaml");
@@ -137,6 +145,7 @@ fn stamp_flags_override_registry() {
     assert_eq!(v["fid"]["baseline"], 0.5);
 }
 
+// spec: noise-model
 #[test]
 fn stamp_looks_up_conditional_noise() {
     let model = example("noise-model.yaml");
@@ -178,6 +187,7 @@ fn stamp_registry_errors_exit_3() {
     }
 }
 
+// spec: half-life-registry, stamping
 #[test]
 fn stamp_carries_a_fast_share_from_the_registry() {
     let dir = std::env::temp_dir().join(format!("fid-stamp-fast-{}", std::process::id()));
