@@ -25,12 +25,6 @@ has no name for it, no measurement for it, and no primitive for it.
 ## Usage
 
 ```bash
-# Measure fidelity of a data artifact
-fid report.json
-
-# Scan a data store
-fid scan ./records/
-
 # Check fidelity against a threshold (exit codes carry epistemic state)
 fid check patient-record.json --floor 0.70
 
@@ -51,9 +45,6 @@ fid ttl record.json --floor 0.70      # prints expires_at, or "never"
 
 # Measure your own half-lives from facts you re-checked, instead of guessing
 fid calibrate ledger.csv --type policy_claim > half-lives.yaml
-
-# Filter to signal only
-cat records.jsonl | fid filter --floor 0.50 > signal.jsonl
 ```
 
 ## Exit Codes
