@@ -156,3 +156,36 @@ fn calibrate_period_writes_an_echo() {
     let spec = fid::registry::HalfLives::from_yaml(&yaml).unwrap().lookup("load", None).unwrap();
     assert!(spec.echo.unwrap().strength > 0.2);
 }
+
+#[test]
+fn calibrate_finds_two_clocks_and_stamp_uses_them() {
+    // 30% of facts go stale with a 2-day half-life, the rest with 60 days; exact counts per lag
+    let mut csv = String::from("entity,age,correct\n");
+    for day in [0.0_f64, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0] {
+        let p = 0.07 + 0.93 * (0.7 * 0.5_f64.powf(day / 60.0) + 0.3 * 0.5_f64.powf(day / 2.0));
+        let n = 1000;
+        let k = (p * n as f64).round() as usize;
+        for i in 0..n {
+            csv.push_str(&format!("pkg-{}-{},{}d,{}\n", day, i, day, i < k));
+        }
+    }
+    let out = fid(&["calibrate", "-", "--type", "pkg"], &csv);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let yaml = String::from_utf8(out.stdout).unwrap();
+    assert!(yaml.contains("fast: { share: "), "{}", yaml);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("fast share kept"));
+
+    let dir = std::env::temp_dir().join(format!("fid-calibrate-fast-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let registry = dir.join("half-lives.yaml");
+    std::fs::write(&registry, &yaml).unwrap();
+    let stamped = fid(&["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"], "{}");
+    assert!(stamped.status.success(), "{}", String::from_utf8_lossy(&stamped.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&stamped.stdout).unwrap();
+    let share = v["fid"]["fast"]["share"].as_f64().unwrap();
+    assert!((share - 0.3).abs() < 0.05, "{}", share);
+    // fresh, the fact is near certain: one clock would have said 0.94 or so
+    assert!(v["fid"]["fid_at_stamp"].as_f64().unwrap() > 0.97, "{}", v);
+    let schedule = fid(&["schedule", "-", "--price", "0.001"], &String::from_utf8(stamped.stdout).unwrap());
+    assert_eq!(schedule.status.code(), Some(0), "{}", String::from_utf8_lossy(&schedule.stderr));
+}

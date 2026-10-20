@@ -28,6 +28,10 @@
 //! than a factor of `max_spread`, the data cannot pin it down and
 //! calibrate refuses, as it does for too little data.
 //!
+//! Every state is also fitted on two clocks (see `crate::fast`); the
+//! fast share is written only when it beats one clock on the held-out
+//! half, so a quick first drop is not read as an unreliable source.
+//!
 //! The split and the method match calibration/fidcal.py, so the same
 //! data gives the same answer as the published study.
 
@@ -149,12 +153,22 @@ pub struct StateFit {
     pub brier_constant: f64,
     /// The echo test, when a period was given
     pub echo: Option<crate::echo::EchoFit>,
+    /// The two-clock test
+    pub fast: crate::fast::FastFit,
 }
 
 impl StateFit {
     /// The echo, if one was tested and kept.
     pub fn kept_echo(&self) -> Option<&crate::echo::EchoFit> {
         self.echo.as_ref().filter(|e| e.kept)
+    }
+
+    /// The fast share, if it was kept and no echo was (an echo takes precedence).
+    pub fn kept_fast(&self) -> Option<&crate::fast::FastFit> {
+        if self.kept_echo().is_some() {
+            return None;
+        }
+        Some(&self.fast).filter(|f| f.kept)
     }
 }
 
@@ -543,6 +557,7 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
         brier_zero,
         brier_constant,
         echo: period.map(|p| crate::echo::test_echo(group, &train, &test, p)),
+        fast: crate::fast::test_fast(group, &train, &test, uses_baseline),
     })
 }
 
@@ -675,6 +690,29 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
                 trim(m.echo.strength),
                 format_half_life(m.echo.width),
                 m.echo.fade.map_or("infinite".to_string(), format_half_life)
+            ));
+            return s;
+        }
+        if let Some(fast) = f.kept_fast() {
+            let m = &fast.model;
+            let mut s = format!(
+                "{}# fast share kept: held-out Brier {:.4} vs one clock {:.4}\n{}half_life: {}\n{}baseline: {}\n",
+                indent,
+                fast.brier_fast,
+                fast.brier_plain,
+                indent,
+                format_half_life(m.half_life),
+                indent,
+                trim(m.baseline)
+            );
+            if fast.source_fidelity.is_some() {
+                s.push_str(&format!("{}source_fidelity: {}\n", indent, trim3(m.s0)));
+            }
+            s.push_str(&format!(
+                "{}fast: {{ share: {}, half_life: {} }}\n",
+                indent,
+                trim3(m.share),
+                format_half_life(m.fast_half_life)
             ));
             return s;
         }
@@ -811,6 +849,22 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
                 }
             ));
         }
+        let fast = &f.fast;
+        lines.push(format!(
+            "  two clocks: {:.0}% on a {} clock, the rest {}; held-out Brier {:.4} vs one clock {:.4}, largest gap {:.3} vs {:.3}  {}",
+            100.0 * fast.model.share,
+            format_half_life(fast.model.fast_half_life),
+            format_half_life(fast.model.half_life),
+            fast.brier_fast,
+            fast.brier_plain,
+            fast.gap_fast,
+            fast.gap_plain,
+            match (fast.kept, f.kept_echo().is_some()) {
+                (true, true) => "→ fast share passed, but the echo is kept",
+                (true, false) => "→ fast share kept",
+                _ => "→ not kept (needs a 0.1% better Brier and a smaller gap)",
+            }
+        ));
         lines.push(format!("  {:<10} {:>8} {:>8} {:>9}", "age", "correct", "model", "n"));
         for b in &f.bins {
             lines.push(format!(
