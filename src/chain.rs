@@ -130,7 +130,7 @@ pub fn report(stamped: &Stamped, result: &CheckResult) -> String {
 mod tests {
     use super::*;
     use crate::check::assess;
-    use crate::envelope::{integrity_hash, FidEnvelope, SourceClass, TransformStep, FID_VERSION};
+    use crate::envelope::{integrity_for, FidEnvelope, SourceClass, TransformStep, FID_VERSION};
     use chrono::{DateTime, Duration, TimeZone, Utc};
     use serde_json::json;
 
@@ -149,6 +149,7 @@ mod tests {
                 half_life: half_life.map(str::to_string),
                 baseline: None,
                 source_fidelity: None,
+                ext: None,
                 echo: None,
                 fast: None,
                 shape: None,
@@ -160,7 +161,7 @@ mod tests {
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
-                integrity: integrity_hash(&content),
+                integrity: integrity_for(FID_VERSION, &content),
             },
             content,
         }

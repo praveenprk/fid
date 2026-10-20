@@ -75,18 +75,23 @@ fn calibrated_registry_feeds_stamp() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-// spec: calibrator, cli (deviation #13)
+// spec: calibrator, cli
 #[test]
 fn calibrate_refuses_an_uncertain_half_life() {
-    // 60 re-checks, a few at each age: the half-life cannot be pinned down
+    // 60 re-checks over five days of a fact that barely decays in that time: the
+    // half-life's range has no upper end. (A ledger at the edge of the limit is no
+    // test of refusal: the first fixture here gave ×2.66 by least squares, ×2.31 by
+    // maximum likelihood.)
     let mut csv = String::from("entity,age,correct\n");
-    for (i, (day, ok)) in [(0, 5), (2, 4), (4, 4), (6, 3), (8, 2), (10, 2)].iter().enumerate() {
+    for (i, (day, ok)) in [(0, 10), (1, 9), (2, 10), (3, 9), (4, 9), (5, 8)].iter().enumerate() {
         for j in 0..10 {
-            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok * 2));
+            csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok));
         }
     }
+    // a refusal is an answer about the evidence: exit 2, nothing written
     let out = fid(&["calibrate", "-", "--type", "t"], &csv);
-    assert_eq!(out.status.code(), Some(3));
+    assert_eq!(out.status.code(), Some(2));
+    assert!(out.stdout.is_empty());
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("too uncertain"), "{}", err);
     let relaxed = fid(&["calibrate", "-", "--type", "t", "--max-spread", "inf"], &csv);
@@ -94,11 +99,24 @@ fn calibrate_refuses_an_uncertain_half_life() {
     assert!(String::from_utf8_lossy(&relaxed.stdout).contains("# 95% range"));
 }
 
+// spec: calibrator, cli
+#[test]
+fn calibrate_refusals_exit_2() {
+    // too little data, and no rows at all: the evidence cannot tell
+    for stdin in ["entity,age,correct\nx,1,true\ny,2,false\n", "entity,age,correct\n"] {
+        let out = fid(&["calibrate", "-", "--type", "t"], stdin);
+        assert_eq!(out.status.code(), Some(2), "{:?}: {}", stdin, String::from_utf8_lossy(&out.stderr));
+        assert!(out.stdout.is_empty());
+    }
+}
+
+// spec: calibrator, cli
 #[test]
 fn calibrate_errors_exit_3() {
     let cases: &[(&[&str], &str)] = &[
         (&["calibrate", "-", "--type", "t"], "entity,correct\nx,true\n"),
-        (&["calibrate", "-", "--type", "t"], "entity,age,correct\nx,1,true\ny,2,false\n"),
+        (&["calibrate", "-", "--type", "t"], "entity,age,correct,state\nx,1,true,a\ny,2,false,\n"),
+        (&["calibrate", "-", "--type", "t", "--max-spread", "0.5"], "entity,age,correct\nx,1,true\n"),
         (&["calibrate", "/nonexistent.csv", "--type", "t"], ""),
         (&["calibrate", "-"], "entity,age,correct\n"),
     ];

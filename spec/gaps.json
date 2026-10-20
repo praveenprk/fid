@@ -1,26 +1,66 @@
 {
- "numbers": [{"issue": 16, "what": "no vector rejects a non-finite value in every numeric field"}],
- "durations": [{"issue": 10, "what": "strict grammar (no 1e3d, +5d, .5d, 5.d) and ISO 8601 durations not yet in vectors or fid"}],
- "timestamps": [{"issue": 16, "what": "no vector for rounding at exactly .5 ms"}],
- "temporal": [{"issue": 16, "what": "no vector combines an echo with a shape or a fast share"}],
- "structure": [{"issue": 16, "what": "no vector rejects a third top-level member"}],
+ "numbers": [
+  {
+   "issue": 16,
+   "what": "no vector rejects a non-finite value in every numeric field"
+  }
+ ],
+ "timestamps": [
+  {
+   "issue": 16,
+   "what": "no vector for rounding at exactly .5 ms"
+  }
+ ],
+ "temporal": [
+  {
+   "issue": 16,
+   "what": "no vector combines an echo with a shape or a fast share"
+  }
+ ],
+ "structure": [
+  {
+   "issue": 16,
+   "what": "no vector rejects a third top-level member"
+  }
+ ],
  "envelope-fields": [
-  {"issue": 16, "what": "no vectors for missing fields, out-of-range or mistyped values"},
-  {"issue": 9, "what": "null half-life must answer UNKNOWN, ext, I-JSON content: not in fid; the vector 'no half-life never decays' pins the old behaviour"}
+  {
+   "issue": 16,
+   "what": "no vectors for missing fields, out-of-range or mistyped values"
+  }
  ],
- "stamping": [{"issue": 16, "what": "derived-stamp rules tested only by Rust unit tests, no vectors"}],
- "integrity": [{"issue": 8, "what": "JCS (RFC 8785) for version 1.0 not implemented"}],
- "versioning": [{"issue": 9, "what": "unknown versions and members not yet answered UNKNOWN"}],
- "check": [{"issue": 9, "what": "UNKNOWN for a null half-life or an unknown member not implemented"}],
- "recheck": [{"issue": 16, "what": "no envelope-level vectors for recheck_at"}],
- "half-life-registry": [{"issue": 11, "what": "whole-state lookup not implemented (a test pins inheritance); no vectors"}],
- "calibrator": [{"issue": 12, "what": "row-order invariance and maximum-likelihood estimation not implemented"}],
- "reference-procedure": [{"issue": 12, "what": "fits are least squares, not maximum likelihood; ties in bins follow row order"}],
- "cli": [{"issue": 13, "what": "unimplemented commands exit 2; calibrate refusal exits 3"}],
- "conformance": [{"exempt": "enforced by spec/traceability.py in CI", "what": "every MUST has a vector or a listed gap"}],
+ "stamping": [
+  {
+   "issue": 16,
+   "what": "derived-stamp rules tested only by Rust unit tests, no vectors"
+  }
+ ],
+ "recheck": [
+  {
+   "issue": 16,
+   "what": "no envelope-level vectors for recheck_at"
+  }
+ ],
+ "conformance": [
+  {
+   "exempt": "enforced by spec/traceability.py in CI",
+   "what": "every MUST has a vector or a listed gap"
+  }
+ ],
  "security": [
-  {"exempt": "a rule for consumers of envelopes, not testable in fid", "what": "authenticity by other means; no monotonic decay assumed with an echo"},
-  {"issue": 16, "what": "no test that scoring work is bounded on the longest-period, narrowest-width curve"}
+  {
+   "exempt": "a rule for consumers of envelopes, not testable in fid",
+   "what": "authenticity by other means; no monotonic decay assumed with an echo"
+  },
+  {
+   "issue": 16,
+   "what": "no test that scoring work is bounded on the longest-period, narrowest-width curve"
+  }
  ],
- "privacy": [{"exempt": "guidance for producers of ledgers, not testable in fid", "what": "pseudonymize entity names; treat per-entity output as personal data"}]
+ "privacy": [
+  {
+   "exempt": "guidance for producers of ledgers, not testable in fid",
+   "what": "pseudonymize entity names; treat per-entity output as personal data"
+  }
+ ]
 }

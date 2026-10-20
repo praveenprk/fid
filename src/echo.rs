@@ -149,8 +149,9 @@ fn unpack(x: &[f64], period: f64, pinned: Option<f64>) -> EchoModel {
     }
 }
 
-fn sse(bins: &[Bin], m: &EchoModel) -> f64 {
-    bins.iter().map(|b| b.n as f64 * (b.correct - m.predict(b.age)).powi(2)).sum()
+/// Negative log-likelihood of the bins under the model (draft, Calibration, requirement 3).
+fn nll(bins: &[Bin], m: &EchoModel) -> f64 {
+    crate::calibrate::neg_log_lik(bins, |i| m.predict(bins[i].age))
 }
 
 /// Fit the echo model to bins, starting from a decay-to-baseline fit.
@@ -162,7 +163,7 @@ pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
         if !(m.half_life.is_finite() && m.echo.strength.is_finite() && m.echo.fade.unwrap().is_finite()) {
             return f64::INFINITY;
         }
-        sse(bins, &m)
+        nll(bins, &m)
     };
     // (r, h_r ÷ P, w ÷ P): a weak long echo, a strong short one, the study's temperature shape
     let starts = [(0.3, 4.0, 1.0 / 6.0), (0.6, 1.0, 1.0 / 5.0), (0.2, 15.0, 1.0 / 12.0)];

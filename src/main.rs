@@ -3,7 +3,7 @@ use std::io::Read;
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand};
 use fid::check::{assess, report};
-use fid::envelope::{SourceClass, Stamped};
+use fid::envelope::{FidStatus, Read as Artifact, SourceClass, Stamped};
 use fid::registry::{HalfLives, NoiseModel};
 use fid::stamp::{stamp, StampOptions};
 
@@ -21,10 +21,7 @@ use fid::stamp::{stamp, StampOptions};
 #[command(name = "fid", version, about)]
 struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
-
-    /// Path to a file to measure fidelity of (shorthand for `fid measure <path>`)
-    path: Option<String>,
+    command: Commands,
 }
 
 /// Options for `fid stamp`.
@@ -90,26 +87,6 @@ struct StampArgs {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Measure the fidelity of a single data artifact
-    Measure {
-        /// Path to the file
-        path: String,
-
-        /// Noise floor threshold (overrides domain default)
-        #[arg(long)]
-        floor: Option<f64>,
-    },
-
-    /// Scan a directory and report aggregate fidelity
-    Scan {
-        /// Directory path
-        path: String,
-
-        /// Only show records below the noise floor
-        #[arg(long)]
-        below_floor: bool,
-    },
-
     /// Check fidelity against a threshold (exit code is the answer)
     Check {
         /// Path to the fid-stamped file ("-" for stdin)
@@ -218,27 +195,6 @@ enum Commands {
         #[arg(long, default_value_t = fid::calibrate::MAX_SPREAD)]
         max_spread: f64,
     },
-
-    /// Filter stdin (jsonl) to records above the noise floor
-    Filter {
-        /// Fidelity floor threshold
-        #[arg(long, default_value = "0.50")]
-        floor: f64,
-    },
-
-    /// Watch a directory and alert when fidelity drops
-    Watch {
-        /// Directory path
-        path: String,
-
-        /// Check interval (e.g. "1h", "30m")
-        #[arg(long, default_value = "1h")]
-        interval: String,
-
-        /// Alert threshold
-        #[arg(long, default_value = "0.50")]
-        alert_below: f64,
-    },
 }
 
 /// Exit code for operational errors, kept distinct from the epistemic
@@ -253,78 +209,60 @@ fn main() {
     });
 
     match cli.command {
-        Some(Commands::Measure { path, .. }) => {
-            eprintln!("fid: measure not yet implemented — {}", path);
-            std::process::exit(2);
-        }
-        Some(Commands::Scan { path, .. }) => {
-            eprintln!("fid: scan not yet implemented — {}", path);
-            std::process::exit(2);
-        }
-        Some(Commands::Check { path, floor }) => match run_check(&path, floor) {
+        Commands::Check { path, floor } => match run_check(&path, floor) {
             Ok(code) => std::process::exit(code),
             Err(e) => {
                 eprintln!("fid check: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Stamp(args)) => {
+        Commands::Stamp(args) => {
             if let Err(e) = run_stamp(args) {
                 eprintln!("fid stamp: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         }
-        Some(Commands::Chain { path, floor }) => {
+        Commands::Chain { path, floor } => {
             if let Err(e) = run_chain(&path, floor) {
                 eprintln!("fid chain: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         }
-        Some(Commands::Ttl { path, floor }) => match run_ttl(&path, floor) {
+        Commands::Ttl { path, floor } => match run_ttl(&path, floor) {
             Ok(code) => std::process::exit(code),
             Err(e) => {
                 eprintln!("fid ttl: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Schedule { path, price, staleness, floor }) => match run_schedule(&path, price, staleness, floor) {
+        Commands::Schedule { path, price, staleness, floor } => match run_schedule(&path, price, staleness, floor) {
             Ok(code) => std::process::exit(code),
             Err(e) => {
                 eprintln!("fid schedule: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Some(Commands::Calibrate { path, info_type, max_spread, period, entity_baselines }) => {
-            if let Err(e) = run_calibrate(&path, &info_type, max_spread, period.as_deref(), entity_baselines.as_deref()) {
-                eprintln!("fid calibrate: {}", e);
-                std::process::exit(EXIT_ERROR);
+        Commands::Calibrate { path, info_type, max_spread, period, entity_baselines } => {
+            match run_calibrate(&path, &info_type, max_spread, period.as_deref(), entity_baselines.as_deref()) {
+                Ok(()) => {}
+                // The evidence cannot tell: an answer, like UNKNOWN, not an error
+                Err(fid::calibrate::CalibrateError::Refused(e)) => {
+                    eprintln!("fid calibrate: refused: {}", e);
+                    std::process::exit(2);
+                }
+                Err(fid::calibrate::CalibrateError::Invalid(e)) => {
+                    eprintln!("fid calibrate: {}", e);
+                    std::process::exit(EXIT_ERROR);
+                }
             }
         }
-        Some(Commands::Drift { path, info_type, half_lives, max_spread }) => {
+        Commands::Drift { path, info_type, half_lives, max_spread } => {
             match run_drift(&path, &info_type, &half_lives, max_spread) {
                 Ok(code) => std::process::exit(code),
                 Err(e) => {
                     eprintln!("fid drift: {}", e);
                     std::process::exit(EXIT_ERROR);
                 }
-            }
-        }
-        Some(Commands::Filter { .. }) => {
-            eprintln!("fid: filter not yet implemented");
-            std::process::exit(2);
-        }
-        Some(Commands::Watch { path, .. }) => {
-            eprintln!("fid: watch not yet implemented — {}", path);
-            std::process::exit(2);
-        }
-        None => {
-            // Bare `fid <path>` — shorthand for measure
-            if let Some(path) = cli.path {
-                eprintln!("fid: measure not yet implemented — {}", path);
-                std::process::exit(2);
-            } else {
-                eprintln!("fid: no command or path given. Try `fid --help`");
-                std::process::exit(2);
             }
         }
     }
@@ -362,9 +300,12 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
         Some(path) => {
             let text = std::fs::read_to_string(path)
                 .map_err(|e| format!("cannot read --derived-from {}: {}", path, e))?;
-            let upstream: Stamped = serde_json::from_str(&text)
-                .map_err(|e| format!("--derived-from {} is not a valid fid-stamped artifact: {}", path, e))?;
-            Some(upstream.fid)
+            match fid::envelope::read(&text) {
+                Ok(Artifact::Understood(upstream)) => Some(upstream.fid),
+                // A writer cannot carry forward fields it does not know
+                Ok(Artifact::NotUnderstood(why)) => return Err(format!("cannot derive from --derived-from {}: {}", path, why)),
+                Err(e) => return Err(format!("--derived-from {} is not a valid fid-stamped artifact: {}", path, e)),
+            }
         }
         None => None,
     };
@@ -400,7 +341,7 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
 }
 
 /// Read a stamped artifact from a path, or stdin if the path is "-".
-fn read_stamped(path: &str) -> Result<Stamped, String> {
+fn read_stamped(path: &str) -> Result<Artifact, String> {
     let text = if path == "-" {
         let mut input = String::new();
         std::io::stdin()
@@ -410,12 +351,31 @@ fn read_stamped(path: &str) -> Result<Stamped, String> {
     } else {
         std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?
     };
-    serde_json::from_str(&text).map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))
+    fid::envelope::read(&text).map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))
+}
+
+/// The artifact, when this fid understands its envelope. Otherwise say why on
+/// stderr, print `unknown` to stdout when the command prints a result, and
+/// give None: the answer is UNKNOWN (draft, Versioning).
+fn understood(read: Artifact, prints_result: bool) -> Option<Stamped> {
+    match read {
+        Artifact::Understood(stamped) => Some(stamped),
+        Artifact::NotUnderstood(why) => {
+            eprintln!("UNKNOWN  envelope not understood: {}", why);
+            if prints_result {
+                println!("unknown");
+            }
+            None
+        }
+    }
 }
 
 /// Read a stamped artifact, assess it, report to stderr, return the exit code.
 fn run_check(path: &str, floor: f64) -> Result<i32, String> {
-    let stamped = read_stamped(path)?;
+    fid::registry::check_unit(floor, "floor")?;
+    let Some(stamped) = understood(read_stamped(path)?, false) else {
+        return Ok(FidStatus::Unknown.exit_code());
+    };
     let result = assess(&stamped, floor, Utc::now())?;
     eprintln!("{}", report(&stamped, &result));
     Ok(result.assessment.status.exit_code())
@@ -423,14 +383,22 @@ fn run_check(path: &str, floor: f64) -> Result<i32, String> {
 
 /// Read a stamped artifact and print its fidelity chain to stdout.
 fn run_chain(path: &str, floor: f64) -> Result<(), String> {
-    let stamped = read_stamped(path)?;
+    let Some(stamped) = understood(read_stamped(path)?, false) else {
+        return Ok(());
+    };
     let result = assess(&stamped, floor, Utc::now())?;
     println!("{}", fid::chain::report(&stamped, &result));
     Ok(())
 }
 
 /// Fit decay from a CSV of re-checked facts: report to stderr, registry YAML to stdout.
-fn run_calibrate(path: &str, info_type: &str, max_spread: f64, period: Option<&str>, entity_baselines: Option<&str>) -> Result<(), String> {
+fn run_calibrate(
+    path: &str,
+    info_type: &str,
+    max_spread: f64,
+    period: Option<&str>,
+    entity_baselines: Option<&str>,
+) -> Result<(), fid::calibrate::CalibrateError> {
     let period = period
         .map(|p| fid::compute::parse_half_life(p)?.ok_or_else(|| "--period cannot be infinite".to_string()))
         .transpose()?;
@@ -477,10 +445,12 @@ fn run_drift(path: &str, info_type: &str, half_lives: &str, max_spread: f64) -> 
 
 /// Print when to re-check a stamped fact; exit code as `check` at the floor (0.5 if none).
 fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: Option<f64>) -> Result<i32, String> {
-    let stamped = read_stamped(path)?;
     if let Some(f) = floor {
         fid::registry::check_unit(f, "floor")?;
     }
+    let Some(stamped) = understood(read_stamped(path)?, true) else {
+        return Ok(FidStatus::Unknown.exit_code());
+    };
     let result = assess(&stamped, floor.unwrap_or(0.5), Utc::now())?;
     let at = match (price, staleness) {
         (Some(p), None) => stamped.fid.recheck_at(p, floor)?,
@@ -495,7 +465,7 @@ fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: O
     let guard = floor.map(|f| format!(", floor {:.2}", f)).unwrap_or_default();
     match at {
         None => {
-            eprintln!("UNKNOWN  source fidelity indeterminate; no schedule");
+            eprintln!("UNKNOWN  fidelity indeterminate (unknown source, or no half-life); no schedule");
             println!("unknown");
         }
         Some(fid::envelope::Expiry::Never) => {
@@ -513,13 +483,16 @@ fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: O
 
 /// Print when a stamped fact falls below the floor; exit code as `check`.
 fn run_ttl(path: &str, floor: f64) -> Result<i32, String> {
-    let stamped = read_stamped(path)?;
+    fid::registry::check_unit(floor, "floor")?;
+    let Some(stamped) = understood(read_stamped(path)?, true) else {
+        return Ok(FidStatus::Unknown.exit_code());
+    };
     let now = Utc::now();
     let result = assess(&stamped, floor, now)?;
     let expiry = stamped.fid.expires_at(floor)?;
     match expiry {
         None => {
-            eprintln!("UNKNOWN  source fidelity indeterminate; no TTL");
+            eprintln!("UNKNOWN  fidelity indeterminate (unknown source, or no half-life); no TTL");
             println!("unknown");
         }
         Some(fid::envelope::Expiry::Never) => {

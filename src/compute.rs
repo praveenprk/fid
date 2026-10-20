@@ -69,33 +69,96 @@ pub fn parse_half_life(s: &str) -> Result<Option<f64>, String> {
     Ok(Some(seconds))
 }
 
-/// Parse a duration ("30s", "5m", "6h", "7d", "3mo", "3y", or bare seconds)
-/// into seconds. Zero is allowed; negative, non-finite or unparseable is an error.
-pub fn parse_duration(s: &str) -> Result<f64, String> {
-    let s = s.trim().to_lowercase();
-    let (num_str, multiplier) = if let Some(n) = s.strip_suffix("mo") {
-        (n, 30.44 * 86400.0)
-    } else if let Some(n) = s.strip_suffix('s') {
-        (n, 1.0)
-    } else if let Some(n) = s.strip_suffix('m') {
-        (n, 60.0)
-    } else if let Some(n) = s.strip_suffix('h') {
-        (n, 3600.0)
-    } else if let Some(n) = s.strip_suffix('d') {
-        (n, 86400.0)
-    } else if let Some(n) = s.strip_suffix('y') {
-        (n, 365.25 * 86400.0)
-    } else {
-        // Assume seconds
-        (s.as_str(), 1.0)
-    };
-    let n: f64 = num_str
-        .parse()
-        .map_err(|_| format!("invalid duration '{}' (expected e.g. 30s, 5m, 6h, 7d, 3mo, 3y)", s))?;
-    if !n.is_finite() || n < 0.0 {
-        return Err(format!("invalid duration '{}' (must be zero or more)", s));
+/// Seconds per unit, short form and ISO 8601 alike (draft, Durations).
+const MINUTE: f64 = 60.0;
+const HOUR: f64 = 3600.0;
+const DAY_S: f64 = 86400.0;
+const MONTH: f64 = 30.44 * DAY_S;
+const YEAR: f64 = 365.25 * DAY_S;
+
+/// `1*DIGIT [ "." 1*DIGIT ]` at the start of `s`: its value and the rest.
+fn take_number(s: &str) -> Option<(f64, &str)> {
+    let digits = |t: &str| t.bytes().take_while(u8::is_ascii_digit).count();
+    let whole = digits(s);
+    if whole == 0 {
+        return None;
     }
-    Ok(n * multiplier)
+    let mut end = whole;
+    if s[end..].starts_with('.') {
+        let frac = digits(&s[end + 1..]);
+        if frac == 0 {
+            return None;
+        }
+        end += 1 + frac;
+    }
+    // Only digits and one dot reach the float parser, which rounds correctly
+    Some((s[..end].parse().ok()?, &s[end..]))
+}
+
+/// An ISO 8601 duration after its "p": `n W`, or `[n Y][n M][n D][T[n H][n M][n S]]`
+/// with at least one component, and at least one after a T.
+fn iso_duration(s: &str) -> Option<f64> {
+    if let Some((n, "w")) = take_number(s) {
+        return Some(n * 7.0 * DAY_S);
+    }
+    let (date, time) = match s.split_once('t') {
+        Some((d, t)) => (d, Some(t)),
+        None => (s, None),
+    };
+    let mut total = 0.0;
+    let mut parts = 0;
+    let mut sum = |mut rest: &str, units: &[(char, f64)]| -> Option<usize> {
+        let mut count = 0;
+        let mut next = 0;
+        while !rest.is_empty() {
+            let (n, after) = take_number(rest)?;
+            let unit = after.chars().next()?;
+            let k = units[next..].iter().position(|&(c, _)| c == unit)? + next;
+            total += n * units[k].1;
+            next = k + 1;
+            count += 1;
+            rest = &after[1..];
+        }
+        Some(count)
+    };
+    parts += sum(date, &[('y', YEAR), ('m', MONTH), ('d', DAY_S)])?;
+    if let Some(t) = time {
+        let n = sum(t, &[('h', HOUR), ('m', MINUTE), ('s', 1.0)])?;
+        if n == 0 {
+            return None;
+        }
+        parts += n;
+    }
+    (parts > 0).then_some(total)
+}
+
+/// Parse a duration into seconds, by the draft's grammar: a decimal number
+/// and an optional unit ("30s", "5m", "6h", "7d", "3mo", "3y", bare seconds),
+/// or an ISO 8601 duration ("PT5M", "P1D", "P2W"). Case-insensitive; spaces
+/// and tabs around it are allowed. Zero is allowed; anything else that does
+/// not match the grammar, or is not finite, is an error.
+pub fn parse_duration(s: &str) -> Result<f64, String> {
+    let t = s.trim_matches(|c| c == ' ' || c == '\t').to_lowercase();
+    let value = match t.strip_prefix('p') {
+        Some(iso) => iso_duration(iso),
+        None => take_number(&t).and_then(|(n, unit)| {
+            let per = match unit {
+                "" | "s" => 1.0,
+                "m" => MINUTE,
+                "h" => HOUR,
+                "d" => DAY_S,
+                "mo" => MONTH,
+                "y" => YEAR,
+                _ => return None,
+            };
+            Some(n * per)
+        }),
+    };
+    match value {
+        Some(v) if v.is_finite() => Ok(v),
+        Some(_) => Err(format!("invalid duration '{}' (too large)", t)),
+        None => Err(format!("invalid duration '{}' (expected e.g. 30s, 5m, 6h, 7d, 3mo, 3y, PT5M, P1D)", t)),
+    }
 }
 
 /// Compute temporal fidelity decay.

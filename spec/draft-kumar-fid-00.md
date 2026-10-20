@@ -107,10 +107,10 @@ floor is a policy decision and outside this document.
 
 ## Status of this draft
 
-This draft specifies envelope version 1.0. The reference implementation,
-fid, writes version 0.4; where it does not yet do what this document
-says, {{deviations}} lists the difference and the issue that tracks it
-{{ISSUES}}. Decisions taken in writing this draft, and their reasons,
+This draft specifies envelope version 1.0, which the reference
+implementation, fid, writes. Where fid does not yet do what this
+document says, {{deviations}} lists the difference and the issue that
+tracks it {{ISSUES}}. Decisions taken in writing this draft, and their reasons,
 are in {{decisions}}.
 
 A change to behaviour is made in this document first, then in the test
@@ -612,8 +612,11 @@ A calibrator reads a ledger and writes a registry entry per state.
    its age), or of bins of them. Any model selection by likelihood (BIC)
    MUST use these estimates.
 4. Refusal over guessing: a calibrator MUST refuse, with a reason, when
-   the data cannot determine the half-life to within its spread limit,
-   and MUST NOT write a value it refused.
+   the data cannot tell: the ledger has no rows, a state has less than
+   the minimum data, or the half-life is not determined to within the
+   spread limit. It MUST NOT write a value it refused. A refusal is an
+   answer about the evidence, distinct from an error in the input (a
+   malformed ledger, an invalid option), which is reported as an error.
 5. Uncertainty: every written half-life and baseline MUST carry a 95%
    range.
 6. A calibrator MUST NOT write `source_fidelity` unless checks at ages
@@ -703,7 +706,9 @@ standard error now adds one right and one wrong check, as the s0 rule
 of the reference procedure does. Results with this definition, fid 0.4
 through the full calibration path: false keeps 0 of 40; shape found in
 20 of 20, two clocks in 20 of 20; written curve right in every ledger
-where one was kept.
+where one was kept. With maximum-likelihood estimation ([#12](https://github.com/praveenprk/fid/issues/12)) the
+results are the same: 0 of 40, 20 of 20, 20 of 20, every written curve
+right.
 
 ## Drift {#drift}
 
@@ -830,20 +835,15 @@ It differs from JCS in number formatting (JCS writes `1.0` as `1` and
 switches to exponent form at 1e21 and below 1e-6) and in key order (JCS
 compares UTF-16 code units).
 
-# Deviations of fid 0.4 from this document {#deviations}
+# Deviations of fid from this document {#deviations}
 
 Where the reference implementation does not yet do what this document
 says. Each is tracked by an issue {{ISSUES}} and is fixed in code, with
-its test vectors first, before fid writes version 1.0.
+its test vectors first.
 
-| # | Deviation | Issue |
-|---|---|---|
-| 1 | Integrity uses the legacy form for every version; JCS is not implemented. | [#8](https://github.com/praveenprk/fid/issues/8) |
-| 2 | Envelope reading: unknown members and versions are ignored, not answered UNKNOWN; `ext` is not recognised; a null half-life is scored as no decay; non-I-JSON content is accepted. | [#9](https://github.com/praveenprk/fid/issues/9) |
-| 3 | Durations: any Rust float literal is accepted as the number (`1e3d`, `+5d`, `.5d`, `5.d`); ISO 8601 durations are not. | [#10](https://github.com/praveenprk/fid/issues/10) |
-| 4 | Registry lookup inherits each field a state does not give from its type. | [#11](https://github.com/praveenprk/fid/issues/11) |
-| 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
-| 6 | CLI: `fid measure`, `scan`, `filter` and `watch` are listed but not implemented and exit 2; `fid calibrate` exits 3 on refusal. | [#13](https://github.com/praveenprk/fid/issues/13) |
+None is known. Requirements fid meets but no test vector yet proves are
+listed in `spec/gaps.json` and tracked in
+[#16](https://github.com/praveenprk/fid/issues/16).
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
 its state's) are not part of this document. A first implementation is
@@ -882,3 +882,12 @@ the option that fails closed or uses an existing standard:
 differences are in {{deviations}}. Corrected during -00: the standard
 error in the "right curve" acceptance test was zero at a truth of 0 or
 1 ({{acceptance}}).
+
+Deviations fixed in code since -00 was first written, each with its
+tests: the CLI exit codes, [#13](https://github.com/praveenprk/fid/issues/13);
+durations, [#10](https://github.com/praveenprk/fid/issues/10); whole-state registry
+lookup, [#11](https://github.com/praveenprk/fid/issues/11); envelope version 1.0, with
+reading that fails closed, [#9](https://github.com/praveenprk/fid/issues/9), and JCS
+integrity, [#8](https://github.com/praveenprk/fid/issues/8); maximum-likelihood
+calibration with output independent of row order,
+[#12](https://github.com/praveenprk/fid/issues/12).

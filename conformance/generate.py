@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,21 +33,35 @@ SOURCE_CLASSES = {
 
 # ── the spec ─────────────────────────────────────────────────────────────
 
+NUMBER = r"[0-9]+(?:\.[0-9]+)?"
+SHORT = re.compile(rf"({NUMBER})(s|m|h|d|mo|y)?", re.I)
+ISO_UNITS = {"y": 365.25 * 86400.0, "mo": 30.44 * 86400.0, "w": 7 * 86400.0, "d": 86400.0,
+             "h": 3600.0, "mi": 60.0, "s": 1.0}
+ISO = re.compile(
+    rf"p(?:(?P<w>{NUMBER})w"
+    rf"|(?:(?P<y>{NUMBER})y)?(?:(?P<mo>{NUMBER})m)?(?:(?P<d>{NUMBER})d)?"
+    rf"(?:t(?:(?P<h>{NUMBER})h)?(?:(?P<mi>{NUMBER})m)?(?:(?P<s>{NUMBER})s)?)?)",
+    re.I,
+)
+
+
 def parse_duration(text):
-    t = text.strip().lower()
-    for suffix in ("mo", "s", "m", "h", "d", "y"):
-        if t.endswith(suffix):
-            number, unit = t[: -len(suffix)], UNITS[suffix]
-            break
+    """The draft's Durations grammar: the short form, or an ISO 8601 duration."""
+    t = text.strip(" \t")
+    m = SHORT.fullmatch(t)
+    if m:
+        n = float(m.group(1)) * UNITS[(m.group(2) or "s").lower()]
     else:
-        number, unit = t, 1.0
-    # Python's float() also takes surrounding spaces and "1_000"; the spec does not
-    if number != number.strip() or "_" in number:
+        m = ISO.fullmatch(t)
+        parts = {k: v for k, v in (m.groupdict() if m else {}).items() if v is not None}
+        has_t = m is not None and "t" in t.lower()
+        time_parts = {"h", "mi", "s"} & set(parts)
+        if not parts or (has_t and not time_parts):
+            raise ValueError(text)
+        n = sum(float(v) * ISO_UNITS[k] for k, v in parts.items())
+    if not math.isfinite(n):
         raise ValueError(text)
-    n = float(number)  # ValueError: not a number
-    if not math.isfinite(n) or n < 0:
-        raise ValueError(text)
-    return n * unit
+    return n
 
 
 def parse_half_life(text):
@@ -374,8 +389,86 @@ def canonical(value):
     return json.dumps(value, ensure_ascii=False)
 
 
-def integrity(content):
-    return "sha256:" + hashlib.sha256(canonical(content).encode("utf-8")).hexdigest()
+def es_number(x):
+    """A number as ECMAScript's Number.prototype.toString writes it (RFC 8785, 3.2.2.3)."""
+    x = float(x)
+    if not math.isfinite(x):
+        raise ValueError("JCS has no NaN or infinity")
+    if x == 0:
+        return "0"
+    sign = "-" if x < 0 else ""
+    mantissa, _, exp = repr(abs(x)).partition("e")  # repr is the shortest round-trip form
+    whole, _, frac = mantissa.partition(".")
+    digits = (whole + frac).lstrip("0").rstrip("0") or "0"
+    # n: position of the decimal point relative to the digits, as in ECMAScript
+    lead_zeros = len(whole + frac) - len((whole + frac).lstrip("0"))
+    n = len(whole) - lead_zeros + int(exp or 0)
+    k = len(digits)
+    if k <= n <= 21:
+        return sign + digits + "0" * (n - k)
+    if 0 < n <= 21:
+        return sign + digits[:n] + "." + digits[n:]
+    if -6 < n <= 0:
+        return sign + "0." + "0" * (-n) + digits
+    e = n - 1
+    return sign + digits[0] + ("." + digits[1:] if k > 1 else "") + "e" + ("+" if e > 0 else "-") + str(abs(e))
+
+
+def jcs(value):
+    """RFC 8785 JSON Canonicalization Scheme: keys sorted by UTF-16 code units, ECMAScript numbers."""
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda k: k.encode("utf-16-be"))
+        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + jcs(value[k]) for k in keys) + "}"
+    if isinstance(value, list):
+        return "[" + ",".join(jcs(v) for v in value) + "]"
+    if isinstance(value, bool) or value is None:
+        return json.dumps(value)
+    if isinstance(value, (int, float)):
+        return es_number(value)
+    return json.dumps(value, ensure_ascii=False)
+
+
+def major(version):
+    """The MAJOR of a version; 0 for one that is not MAJOR.MINOR (its envelope is not understood anyway)."""
+    m = re.fullmatch(r"([0-9]+)\.[0-9]+", version)
+    return int(m.group(1)) if m else 0
+
+
+def integrity(content, version="0.4"):
+    """The draft's Integrity: JCS from version 1.0, the legacy canonical form before."""
+    text = jcs(content) if major(version) >= 1 else canonical(content)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+# Envelope members by the version that introduced them (draft, Fields)
+MEMBERS = {
+    "fid_version": (0, 1), "source_class": (0, 1), "source_id": (0, 1), "measured_at": (0, 1),
+    "half_life": (0, 1), "transforms": (0, 1), "fid_at_stamp": (0, 1), "derived_from": (0, 1),
+    "integrity": (0, 1), "baseline": (0, 2), "info_type": (0, 2), "state": (0, 2),
+    "source_fidelity": (0, 3), "echo": (0, 3), "fast": (0, 4), "shape": (0, 4), "ext": (1, 0),
+}
+NESTED = {"echo": {"period", "strength", "width", "fade"}, "fast": {"share", "half_life"}}
+STEP_MEMBERS = {"step", "noise", "at", "condition"}
+READS = {0: 4, 1: 0}  # major -> highest minor this reader implements
+
+
+def not_understood(env):
+    """Why a scorer cannot read this envelope (draft, Versioning), or None."""
+    m = re.fullmatch(r"([0-9]+)\.([0-9]+)", str(env.get("fid_version", "")))
+    if not m:
+        return "malformed version"
+    version = (int(m.group(1)), int(m.group(2)))
+    if version[0] not in READS or version[1] > READS[version[0]]:
+        return "version not implemented"
+    for k, v in env.items():
+        if k not in MEMBERS or MEMBERS[k] > version:
+            return f"member '{k}' not defined for its version"
+        if k in NESTED and isinstance(v, dict) and set(v) - NESTED[k]:
+            return f"unknown member in '{k}'"
+    for t in env.get("transforms", []):
+        if set(t) - STEP_MEMBERS:
+            return "unknown member in a transform step"
+    return None
 
 
 def rfc3339(t):
@@ -389,16 +482,19 @@ T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
 def duration_cases():
-    good = ["30s", "5m", "6h", "7d", "3mo", "3y", "1.5d", "90", "0d", " 2H ", "0.25y"]
-    bad = ["7days", "30ms", "", "abc", "-1d", "inf", "nan", "infd", "1e400d"]
+    good = ["30s", "5m", "6h", "7d", "3mo", "3y", "1.5d", "90", "0d", " 2H ", "0.25y",
+            "PT5M", "P1D", "P2W", "P1Y2M3DT4H5M6.5S", "pt90s", "P0D", "PT0.5H", "P1M", "PT1M"]
+    bad = ["7days", "30ms", "", "abc", "-1d", "inf", "nan", "infd", "1e400d",
+           "1e3d", "+5d", ".5d", "5.d", "1,5d", "5 d",
+           "P", "PT", "P1H", "PT1D", "P1W2D", "P1DT", "P1D1Y", "1P"]
     out = [{"input": s, "seconds": parse_duration(s)} for s in good]
     out += [{"input": s, "error": True} for s in bad]
     return out
 
 
 def half_life_cases():
-    good = ["30s", "6h", "7d", "3mo", "5.8y", "infinite", "INF", "90"]
-    bad = ["0d", "0", "-5h", "7days", "nan", ""]
+    good = ["30s", "6h", "7d", "3mo", "5.8y", "infinite", "INF", "90", "P1D", "PT2.4H"]
+    bad = ["0d", "0", "-5h", "7days", "nan", "", "PT0S", "1e3d"]
     out = [{"input": s, "seconds": parse_half_life(s)} for s in good]
     out += [{"input": s, "error": True} for s in bad]
     return out
@@ -444,7 +540,9 @@ TTL = [
 ]
 
 
-def envelope(content, source_class, half_life, baseline=None, transforms=(), measured=T0, version="0.2", **extra):
+def envelope(content, source_class, half_life, baseline=None, transforms=(), measured=T0, version=None, **extra):
+    if version is None:  # the oldest version that defines every member used
+        version = "0.4" if {"fast", "shape"} & set(extra) else "0.3" if {"echo", "source_fidelity"} & set(extra) else "0.2"
     hl = None if half_life is None else parse_half_life(half_life)
     source = envelope_source(source_class, extra.get("source_fidelity"))
     noise = [t[1] for t in transforms]
@@ -464,12 +562,23 @@ def envelope(content, source_class, half_life, baseline=None, transforms=(), mea
             if "echo" in extra or "fast" in extra
             else fidelity(source, 0.0, hl, noise, baseline or 0.0)),
         "derived_from": None,
-        "integrity": integrity(content),
+        "integrity": integrity(content, version),
     }
     if baseline is not None:
         env["baseline"] = baseline
     env.update(extra)
     return {"fid": env, "content": content}
+
+
+def bad_hash(stamped, as_version):
+    """The envelope with its content hashed as another version would."""
+    stamped["fid"]["integrity"] = integrity(stamped["content"], as_version)
+    return stamped
+
+
+def with_step_member(stamped):
+    stamped["fid"]["transforms"][0]["model"] = "x"
+    return stamped
 
 
 def envelope_source(source_class, source_fidelity):
@@ -484,6 +593,11 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     env = stamped["fid"]
     if tamper is not None:
         stamped = {"fid": env, "content": tamper}
+    reason = not_understood(env)
+    if reason is not None:
+        return {"name": name, "stamped": stamped, "now": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "floor": floor,
+                "status": "UNKNOWN", "fidelity": None, "integrity_ok": None, "expires_at": "unknown",
+                "not_understood": reason}
     hl = None if env["half_life"] is None else parse_half_life(env["half_life"])
     measured = datetime.fromisoformat(env["measured_at"].replace("Z", "+00:00"))
     age = (now - measured).total_seconds()
@@ -492,9 +606,11 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     source = envelope_source(env["source_class"], env.get("source_fidelity"))
     echo = env.get("echo")
     fast = env.get("fast")
-    ok = integrity(stamped["content"]) == env["integrity"]
+    ok = integrity(stamped["content"], env["fid_version"]) == env["integrity"]
+    # a null half-life is unknown decay (draft, Fields)
+    decay_known = env["half_life"] is not None
 
-    if source is None:
+    if source is None or not decay_known:
         f = None
     elif fast is not None:
         f = curve_fidelity(fidelity(source, 0.0, None, noise, 0.0), age, hl, baseline, fast, echo)
@@ -507,7 +623,7 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     else:
         status = "SIGNAL" if f >= floor else "NOISE"
 
-    if source is None:
+    if source is None or not decay_known:
         expires = "unknown"
     else:
         at_measurement = fidelity(source, 0.0, None, noise, 0.0)
@@ -558,7 +674,8 @@ def envelope_cases():
             envelope({"flight": "AA100"}, "database", "1d", transforms=[("next_leg", 0.30, "previous_leg_late")]),
             T0 + timedelta(hours=2), 0.60,
         ),
-        envelope_case("no half-life never decays", envelope(reading, "database", None), T0 + timedelta(days=3650), 0.85),
+        envelope_case("null half-life: decay unknown", envelope(reading, "database", None), T0 + timedelta(days=3650), 0.85),
+        envelope_case("infinite half-life never decays", envelope(reading, "database", "infinite"), T0 + timedelta(days=3650), 0.85),
         envelope_case("exactly at the floor is SIGNAL", envelope(reading, "instrument", "1d"), T0 + timedelta(days=1), 0.485),
         envelope_case("unknown source", envelope(reading, "unknown", "7d"), T0, 0.50),
         envelope_case("content changed since stamp", envelope(reading, "instrument", "7d"), T0, 0.50, tamper={"reading": 43}),
@@ -599,6 +716,29 @@ def envelope_cases():
                      source_fidelity=1.0, fast={"share": 0.3, "half_life": "3d"}),
             T0 + timedelta(days=90), 0.50,
         ),
+        envelope_case("version 1.0: JCS integrity", envelope({"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"),
+                      T0 + timedelta(days=1), 0.70),
+        envelope_case("version 1.0 hashed the legacy way does not verify",
+                      bad_hash(envelope({"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"), "0.4"),
+                      T0 + timedelta(days=1), 0.70),
+        envelope_case("version 1.0 with ext: ignored",
+                      envelope(reading, "instrument", "7d", version="1.0", ext={"pipeline": "nightly"}), T0, 0.70),
+        envelope_case("ext in a 0.4 envelope: not understood",
+                      envelope(reading, "instrument", "7d", version="0.4", ext={"pipeline": "nightly"}), T0, 0.70),
+        envelope_case("newer minor version: not understood", envelope(reading, "instrument", "7d", version="1.1"), T0, 0.70),
+        envelope_case("unknown major version: not understood", envelope(reading, "instrument", "7d", version="2.0"), T0, 0.70),
+        envelope_case("malformed version: not understood", envelope(reading, "instrument", "7d", version="one"), T0, 0.70),
+        envelope_case("unknown member: not understood",
+                      envelope(reading, "instrument", "7d", version="1.0", colour="red"), T0, 0.70),
+        envelope_case("unknown member inside echo: not understood",
+                      envelope(reading, "instrument", "2.42h", version="1.0", baseline=0.13,
+                               echo={"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h", "phase": 1}),
+                      T0, 0.70),
+        envelope_case("member newer than its version: not understood",
+                      envelope(reading, "instrument", "80d", version="0.2", fast={"share": 0.3, "half_life": "3d"}), T0, 0.70),
+        envelope_case("unknown member in a transform step: not understood",
+                      with_step_member(envelope(reading, "instrument", "7d", transforms=[("clean.py", 0.05)], version="1.0")),
+                      T0, 0.70),
     ]
 
 
@@ -649,6 +789,78 @@ def integrity_cases():
         {"quote": "a \"b\" \\ c", "tab": "\t", "ctrl": "\u0001"},
     ]
     return [{"content": c, "canonical": canonical(c), "hash": integrity(c)} for c in contents]
+
+
+def jcs_cases():
+    """RFC 8785 canonical form (version 1.0). The first is the RFC's own example (section 3.2.2)."""
+    rfc = json.loads('{"numbers": [333333333.33333329, 1E30, 4.50, 2e-3, 0.000000000000000000000000001], '
+                     '"string": "\\u20ac$\\u000F\\u000aA\'\\u0042\\u0022\\u005c\\\\\\"\\/", '
+                     '"literals": [null, true, false]}')
+    contents = [
+        rfc,
+        {"reading": 42, "scale": 1.0},
+        [1e20, 1e21, 1.5e21, 1e-6, 9.99e-7, 1e-7, -2.5e-7, 5e-324, 1.7976931348623157e308, -0.0, 100.0],
+        {"\ue000": 1, "\U0001F600": 2, "b": 3, "a": {"z": [3, 2, 1], "a": None}},
+        {"name": "Zoë", "tab": "\t", "ctrl": "\u0001", "del": "\u007f", "slash": "/"},
+        "plain text",
+    ]
+    return [{"content": c, "canonical": jcs(c), "hash": integrity(c, "1.0")} for c in contents]
+
+
+def writer_error_cases():
+    """Content a writer must reject: not I-JSON (draft, Structure)."""
+    return [
+        {"content_json": '{"id": 9007199254740993}', "error": "integer beyond 2^53"},
+        {"content_json": '[-9007199254740993]', "error": "integer beyond -2^53"},
+    ]
+
+
+# A half-life registry as JSON text (YAML 1.2 reads JSON unchanged)
+REGISTRY = {
+    "plain": "1y",
+    "typed": {"half_life": "2.9h", "baseline": 0.73},
+    "shaped": {"half_life": "1h", "shape": 2.0, "baseline": 0.2, "source_fidelity": 0.9,
+               "states": {"bare": "30m", "full": {"half_life": "10m", "baseline": 0.05, "shape": 3.0}}},
+    "stateful": {"states": {"a": "1d", "b": {"half_life": "2d", "fast": {"share": 0.3, "half_life": "1d"}}}},
+}
+FIELDS = ("half_life", "baseline", "source_fidelity", "echo", "fast", "shape")
+
+
+def registry_lookup(registry, info_type, state):
+    """The draft's Half-life registry lookup: a state's entry alone, else the type's own fields."""
+    if info_type not in registry:
+        raise KeyError("unknown type")
+    entry = registry[info_type]
+    entry = {"half_life": entry} if isinstance(entry, str) else entry
+    if state is not None:
+        states = entry.get("states", {})
+        if not states:
+            raise KeyError("type has no states")
+        if state not in states:
+            raise KeyError("unknown state")
+        entry = states[state]
+        entry = {"half_life": entry} if isinstance(entry, str) else entry
+    if entry.get("half_life") is None:
+        raise KeyError("needs a state")
+    return {f: entry.get(f) for f in FIELDS}
+
+
+def registry_cases():
+    text = json.dumps(REGISTRY)
+    out = []
+    for t, st in [("plain", None), ("typed", None), ("shaped", None), ("shaped", "bare"), ("shaped", "full"),
+                  ("stateful", "b"), ("nope", None), ("stateful", None), ("plain", "a"), ("stateful", "zzz")]:
+        try:
+            out.append({"registry": text, "type": t, "state": st, "spec": registry_lookup(REGISTRY, t, st)})
+        except KeyError as e:
+            out.append({"registry": text, "type": t, "state": st, "error": e.args[0]})
+    for bad, reason in [({"x": {"half_life": "1d", "colour": 1}}, "unknown key"),
+                        ({"x": {"states": {"a": {"half_life": "1d", "states": {"b": "1h"}}}}}, "a state with states"),
+                        ({"x": {"half_life": "1d", "shape": 2.0, "states": {"a": "0d"}}}, "zero half-life"),
+                        ({"x": {"half_life": "1d", "fast": {"share": 0.3, "half_life": "2d"}}}, "fast clock not shorter")]:
+        state = "a" if "states" in bad["x"] else None
+        out.append({"registry": json.dumps(bad), "type": "x", "state": state, "error": reason})
+    return out
 
 
 def ledger_cases():
@@ -803,12 +1015,28 @@ GROUP_SECTIONS = {
     "schedule": ["staleness", "tolerances"],
     "staleness_target": ["staleness", "tolerances"],
     "integrity": ["integrity", "legacy-canonical"],
+    "integrity_jcs": ["integrity"],
+    "writer_errors": ["structure", "stamping"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
+    "registry": ["half-life-registry"],
 }
 
 # Envelope vectors that also test another section, by name
 ENVELOPE_SECTIONS = {
+    "null half-life: decay unknown": ["half-lives"],
+    "infinite half-life never decays": ["half-lives"],
+    "version 1.0: JCS integrity": ["integrity", "versioning"],
+    "version 1.0 hashed the legacy way does not verify": ["integrity"],
+    "version 1.0 with ext: ignored": ["versioning"],
+    "ext in a 0.4 envelope: not understood": ["versioning"],
+    "newer minor version: not understood": ["versioning"],
+    "unknown major version: not understood": ["versioning"],
+    "malformed version: not understood": ["versioning"],
+    "unknown member: not understood": ["versioning"],
+    "unknown member inside echo: not understood": ["versioning"],
+    "member newer than its version: not understood": ["versioning"],
+    "unknown member in a transform step: not understood": ["versioning"],
     "transform chain": ["at-measurement"],
     "conditioned transform": ["at-measurement"],
     "exactly at the floor is SIGNAL": ["time-to-floor"],
@@ -821,9 +1049,7 @@ ENVELOPE_SECTIONS = {
 }
 
 # Vectors that encode fid 0.4's behaviour where the draft says otherwise: the issue that changes them
-DEVIATIONS = {
-    "no half-life never decays": 9,
-}
+DEVIATIONS = {}
 
 
 def tag(vectors):
@@ -894,8 +1120,11 @@ def main():
             for n, f, h, b, t, fa, e, k in (c if len(c) == 8 else c + (None,) for c in STALENESS)
         ],
         "integrity": integrity_cases(),
+        "integrity_jcs": jcs_cases(),
+        "writer_errors": writer_error_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
+        "registry": registry_cases(),
         "ledger_example": {
             "file": "conformance/ledger-example.csv",
             "type": "company_ceo",

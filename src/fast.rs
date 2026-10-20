@@ -8,8 +8,9 @@
 //!
 //!   S(t) = b + (s0 − b) × [(1 − m) × 0.5^(t/h) + m × 0.5^(t/h_f)],   h_f < h
 //!
-//! is linear in b and s0 for fixed (h, h_f, m), so those two are solved in
-//! closed form and the other three searched by Nelder–Mead on fine bins.
+//! is linear in b and s0 for fixed (h, h_f, m), so those two are solved by
+//! maximum likelihood (`calibrate::fit_linear_from`) and the other three searched
+//! by Nelder–Mead on fine bins.
 //! A fact that goes wrong by crossing a threshold holds, then drops (a
 //! moving ship's 1 km); a shape k bends the clocks, 0.5^((t/h)^k).
 //!
@@ -206,7 +207,7 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
         out.push(Bin { age: 0.0, correct: k as f64 / n as f64, n });
     }
     let mut sorted: Vec<&Observation> = obs.iter().copied().filter(|o| o.age != 0.0).collect();
-    sorted.sort_by(|a, b| a.age.total_cmp(&b.age));
+    sorted.sort_by(|a, b| crate::calibrate::row_order(a, b));
     let per_bin = sorted.len().div_ceil(FINE_BINS).max(1);
     out.extend(sorted.chunks(per_bin).map(|chunk| Bin {
         age: chunk.iter().map(|o| o.age).sum::<f64>() / chunk.len() as f64,
@@ -216,55 +217,27 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
     out
 }
 
-/// Best (s0, b) for fixed clocks, by weighted least squares on y ≈ b (1 − d) + s0 d,
-/// with 0 ≤ b ≤ s0 ≤ 1; with `pinned`, s0 is that (measured at age zero) and only b
-/// is fitted. Returns the model and its weighted squared error.
+/// Maximum-likelihood (s0, b) for fixed clocks (`calibrate::fit_linear_from`); with
+/// `pinned`, s0 is that (measured at age zero) and only b is fitted. Returns
+/// the model and its negative log-likelihood.
 fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64, k: f64, pinned: Option<f64>) -> (FastModel, f64) {
-    let shape = FastModel {
-        s0: 1.0,
-        baseline: 0.0,
-        half_life,
-        share,
-        fast_half_life,
-        shape: k,
-    };
+    solve_from(bins, half_life, share, fast_half_life, k, pinned, None)
+}
+
+/// As `solve`, starting from a neighbouring fit's (s0, b).
+fn solve_from(
+    bins: &[Bin],
+    half_life: f64,
+    share: f64,
+    fast_half_life: f64,
+    k: f64,
+    pinned: Option<f64>,
+    start: Option<(f64, f64)>,
+) -> (FastModel, f64) {
+    let shape = FastModel { s0: 1.0, baseline: 0.0, half_life, share, fast_half_life, shape: k };
     let d: Vec<f64> = bins.iter().map(|b| shape.decay(b.age)).collect();
-    if let Some(s0) = pinned {
-        let (mut num, mut den) = (0.0, 0.0);
-        for (bin, &d) in bins.iter().zip(&d) {
-            num += bin.n as f64 * (1.0 - d) * (bin.correct - s0 * d);
-            den += bin.n as f64 * (1.0 - d) * (1.0 - d);
-        }
-        let b = if den > 0.0 { (num / den).clamp(0.0, s0) } else { 0.0 };
-        let m = FastModel { s0, baseline: b, ..shape };
-        let loss = bins.iter().map(|bin| bin.n as f64 * (bin.correct - m.predict(bin.age)).powi(2)).sum();
-        return (m, loss);
-    }
-    let (mut ee, mut ed, mut dd, mut ey, mut dy) = (0.0, 0.0, 0.0, 0.0, 0.0);
-    for (b, &d) in bins.iter().zip(&d) {
-        let (w, e, y) = (b.n as f64, 1.0 - d, b.correct);
-        ee += w * e * e;
-        ed += w * e * d;
-        dd += w * d * d;
-        ey += w * e * y;
-        dy += w * d * y;
-    }
-    let det = ee * dd - ed * ed;
-    let (mut b, mut s0) = if det.abs() < 1e-12 { (0.0, if dd > 0.0 { dy / dd } else { 0.0 }) } else { ((ey * dd - ed * dy) / det, (ee * dy - ed * ey) / det) };
-    if b < 0.0 {
-        b = 0.0;
-        s0 = if dd > 0.0 { dy / dd } else { 0.0 };
-    }
-    if s0 > 1.0 {
-        s0 = 1.0;
-        let num: f64 = bins.iter().zip(&d).map(|(bin, &d)| bin.n as f64 * (1.0 - d) * (bin.correct - d)).sum();
-        b = if ee > 0.0 { num / ee } else { 0.0 };
-    }
-    let s0 = s0.clamp(0.0, 1.0);
-    let b = b.clamp(0.0, s0);
-    let m = FastModel { s0, baseline: b, ..shape };
-    let loss = bins.iter().map(|bin| bin.n as f64 * (bin.correct - m.predict(bin.age)).powi(2)).sum();
-    (m, loss)
+    let (s0, baseline, loss) = crate::calibrate::fit_linear_from(bins, &d, true, pinned, start);
+    (FastModel { s0, baseline, ..shape }, loss)
 }
 
 fn sigmoid(x: f64) -> f64 {
@@ -314,12 +287,16 @@ pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
     let oldest = bins.iter().map(|b| b.age).fold(0.0, f64::max).max(1.0);
     let h0 = if start.half_life.is_finite() { start.half_life } else { oldest };
     let pinned = zero_age_s0(bins);
+    let last = std::cell::Cell::new(None);
     let loss = |x: &[f64]| {
         let (h, hf, m, k) = unpack(x, form);
         if !(h.is_finite() && hf.is_finite() && hf > 0.0 && k.is_finite()) {
             return f64::INFINITY;
         }
-        solve(bins, h, m, hf, k, pinned).1
+        // each point the simplex tries starts from the last one's fit
+        let (model, loss) = solve_from(bins, h, m, hf, k, pinned, last.get());
+        last.set(Some((model.s0, model.baseline)));
+        loss
     };
     let starts: Vec<Vec<f64>> = match form {
         Form::Shape => [(1.0, 0.7), (1.0, 1.5), (1.5, 3.0), (0.7, 2.0)]

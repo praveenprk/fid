@@ -38,9 +38,11 @@ within 1e-6 s.
 | `y` | 365.25 × 86400 |
 | none | 1 |
 
-The number is a decimal float (`1.5d`, `0.25y`). Negative, non-finite or
-unparseable is an error: `7days`, `30ms`, `-1d`, `inf`, `1e400d`. Zero is
-allowed.
+The number is digits with an optional decimal part (`1.5d`, `0.25y`);
+nothing else: `1e3d`, `+5d`, `.5d`, `5.d`, `7days`, `30ms`, `-1d`, `inf`
+are errors. ISO 8601 durations are accepted too (`PT5M`, `P1D`, `P2W`,
+`P1Y2M3DT4H5M6.5S`), with `Y` = 365.25 d and a date-part `M` = 30.44 d.
+Zero is allowed. The grammar is in the draft's Durations section.
 
 `parse_half_life(text)`: `infinite` or `inf` (any case) means no decay;
 otherwise `parse_duration`, and zero is also an error. Never treat a bad
@@ -189,6 +191,13 @@ A floor, when given, caps either interval at the time to floor.
 
 ## Integrity
 
+From `fid_version` 1.0: `"sha256:" + hex(sha256(JCS(content)))`, JCS being
+RFC 8785 (keys sorted by UTF-16 code units, numbers as ECMAScript writes
+them: `1.0` is `1`, exponent form from 1e21 and below 1e-6). The
+`integrity_jcs` vectors include the RFC's own example. Content must be
+I-JSON: a writer refuses integers beyond 2^53 (`writer_errors`).
+
+Versions 0.1 to 0.4 use the legacy form below, and are verified with it:
 `"sha256:" + hex(sha256(canonical JSON of content))`, where canonical is:
 
 - object keys sorted by code point; no whitespace

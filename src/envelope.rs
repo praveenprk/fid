@@ -9,8 +9,140 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
-/// Current envelope schema version.
-pub const FID_VERSION: &str = "0.4";
+/// The envelope version this implementation writes (spec/draft-kumar-fid-00.md, Versioning).
+pub const FID_VERSION: &str = "1.0";
+
+/// Versions this implementation reads, as (MAJOR, highest MINOR).
+const READS: &[(u32, u32)] = &[(0, 4), (1, 0)];
+
+/// Envelope members, by the version that introduced them (draft, Fields).
+const MEMBERS: &[(&str, (u32, u32))] = &[
+    ("fid_version", (0, 1)),
+    ("source_class", (0, 1)),
+    ("source_id", (0, 1)),
+    ("measured_at", (0, 1)),
+    ("half_life", (0, 1)),
+    ("transforms", (0, 1)),
+    ("fid_at_stamp", (0, 1)),
+    ("derived_from", (0, 1)),
+    ("integrity", (0, 1)),
+    ("baseline", (0, 2)),
+    ("info_type", (0, 2)),
+    ("state", (0, 2)),
+    ("source_fidelity", (0, 3)),
+    ("echo", (0, 3)),
+    ("fast", (0, 4)),
+    ("shape", (0, 4)),
+    ("ext", (1, 0)),
+];
+const ECHO_MEMBERS: &[&str] = &["period", "strength", "width", "fade"];
+const FAST_MEMBERS: &[&str] = &["share", "half_life"];
+const STEP_MEMBERS: &[&str] = &["step", "noise", "at", "condition"];
+
+/// "MAJOR.MINOR", each decimal digits only.
+pub fn parse_version(v: &str) -> Option<(u32, u32)> {
+    let (a, b) = v.split_once('.')?;
+    let num = |s: &str| if !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit()) { s.parse().ok() } else { None };
+    Some((num(a)?, num(b)?))
+}
+
+/// Why a scorer cannot read this envelope, or None (draft, Versioning): a
+/// version it does not implement, or a member not defined for the version,
+/// outside `ext`. A field it does not know may change fidelity, so it answers
+/// UNKNOWN rather than compute around it.
+pub fn not_understood(fid: &serde_json::Map<String, Value>) -> Option<String> {
+    let text = fid.get("fid_version").and_then(Value::as_str).unwrap_or("");
+    let Some(version) = parse_version(text) else {
+        return Some(format!("fid_version '{}' is not MAJOR.MINOR", text));
+    };
+    if !READS.iter().any(|&(major, minor)| version.0 == major && version.1 <= minor) {
+        return Some(format!("version {} is not one this fid reads (0.1 to 0.4, 1.0)", text));
+    }
+    let unknown_in = |v: &Value, known: &[&str]| v.as_object().and_then(|o| o.keys().find(|k| !known.contains(&k.as_str())).cloned());
+    for (k, v) in fid {
+        match MEMBERS.iter().find(|(m, _)| m == k) {
+            Some((_, since)) if *since <= version => {}
+            _ => return Some(format!("member '{}' is not defined for version {}", k, text)),
+        }
+        let nested = match k.as_str() {
+            "echo" => ECHO_MEMBERS,
+            "fast" => FAST_MEMBERS,
+            _ => continue,
+        };
+        if let Some(m) = unknown_in(v, nested) {
+            return Some(format!("member '{}' in '{}' is not defined for version {}", m, k, text));
+        }
+    }
+    if let Some(steps) = fid.get("transforms").and_then(Value::as_array) {
+        if let Some(m) = steps.iter().find_map(|t| unknown_in(t, STEP_MEMBERS)) {
+            return Some(format!("member '{}' in a transform step is not defined for version {}", m, text));
+        }
+    }
+    None
+}
+
+/// A stamped artifact as read: one a scorer understands, or why it does not.
+// Built once per artifact read and matched at once; boxing the large variant buys nothing
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
+pub enum Read {
+    Understood(Stamped),
+    /// Fidelity cannot be computed: scorers answer UNKNOWN (draft, Check)
+    NotUnderstood(String),
+}
+
+/// Read a stamped artifact. Malformed input (not JSON, other top-level
+/// members, missing or mistyped fields of a version it reads) is an error;
+/// a version or member it does not understand is `NotUnderstood`.
+pub fn read(text: &str) -> Result<Read, String> {
+    let value: Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {}", e))?;
+    read_value(value)
+}
+
+/// As `read`, from a parsed value.
+pub fn read_value(value: Value) -> Result<Read, String> {
+    let obj = value.as_object().ok_or("a stamped artifact is a JSON object")?;
+    if obj.len() != 2 || !obj.contains_key("content") {
+        return Err("a stamped artifact has exactly two members, 'fid' and 'content'".to_string());
+    }
+    let fid = obj.get("fid").and_then(Value::as_object).ok_or("'fid' must be an object")?;
+    // No version at all is malformed; a version string this fid does not read is not understood
+    if !fid.get("fid_version").is_some_and(Value::is_string) {
+        return Err("'fid_version' is missing or not a string".to_string());
+    }
+    if let Some(reason) = not_understood(fid) {
+        return Ok(Read::NotUnderstood(reason));
+    }
+    serde_json::from_value(value).map(Read::Understood).map_err(|e| e.to_string())
+}
+
+/// The integrity of `content` as an envelope of `version` computes it: SHA-256
+/// of the JCS text (RFC 8785) from 1.0, of the legacy canonical form before.
+pub fn integrity_for(version: &str, content: &Value) -> String {
+    match parse_version(version) {
+        Some((major, _)) if major >= 1 => {
+            let digest = Sha256::digest(crate::jcs::canonical(content).as_bytes());
+            format!("sha256:{}", digest.iter().map(|b| format!("{:02x}", b)).collect::<String>())
+        }
+        _ => integrity_hash(content),
+    }
+}
+
+/// Content a writer must refuse: not I-JSON (RFC 7493), here an integer that
+/// binary64 cannot hold exactly, which parsers would read as different numbers.
+pub fn not_ijson(content: &Value) -> Option<String> {
+    const LIMIT: u64 = 1 << 53;
+    match content {
+        Value::Number(n) => match (n.as_u64(), n.as_i64()) {
+            (Some(u), _) if u > LIMIT => Some(format!("integer {} is beyond 2^53", u)),
+            (_, Some(i)) if i.unsigned_abs() > LIMIT => Some(format!("integer {} is beyond -2^53", i)),
+            _ => None,
+        },
+        Value::Array(items) => items.iter().find_map(not_ijson),
+        Value::Object(map) => map.values().find_map(not_ijson),
+        _ => None,
+    }
+}
 
 /// Source class — determines initial fidelity ceiling.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -135,6 +267,10 @@ pub struct FidEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shape: Option<f64>,
 
+    /// Extensions that do not change fidelity; scorers ignore them (fid_version 1.0)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext: Option<serde_json::Map<String, Value>>,
+
     /// Information type, as named in a half-life registry (e.g. "vessel_position")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info_type: Option<String>,
@@ -164,10 +300,19 @@ impl FidEnvelope {
         Some(self.source_fidelity.unwrap_or(class))
     }
 
+    /// Is the decay known? A null half-life means it is not (draft, Fields): no
+    /// fidelity can be computed; "infinite" is how a fact that does not decay says so.
+    pub fn decay_known(&self) -> bool {
+        self.half_life.is_some()
+    }
+
     /// Total fidelity at `now`, accounting for age since measurement.
     ///
-    /// Ok(None) if the source class is Unknown (indeterminate).
+    /// Ok(None) if the source class is Unknown or the decay is unknown (indeterminate).
     pub fn fidelity_at(&self, now: DateTime<Utc>) -> Result<Option<f64>, String> {
+        if !self.decay_known() {
+            return Ok(None);
+        }
         let curve = self.curve()?;
         let age_seconds = (now - self.measured_at).num_milliseconds() as f64 / 1000.0;
         Ok(self.at_measurement().map(|f| {
@@ -191,6 +336,9 @@ impl FidEnvelope {
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn expires_at(&self, floor: f64) -> Result<Option<Expiry>, String> {
         let curve = self.curve()?;
+        if !self.decay_known() {
+            return Ok(None);
+        }
         let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
@@ -208,6 +356,9 @@ impl FidEnvelope {
     /// Ok(None) if the source class is Unknown (indeterminate).
     pub fn recheck_at(&self, price: f64, floor: Option<f64>) -> Result<Option<Expiry>, String> {
         let curve = self.curve()?;
+        if !self.decay_known() {
+            return Ok(None);
+        }
         let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
@@ -219,6 +370,9 @@ impl FidEnvelope {
     /// `target`, and never later than the floor's TTL when a floor is given.
     pub fn recheck_for_staleness(&self, target: f64, floor: Option<f64>) -> Result<Option<Expiry>, String> {
         let curve = self.curve()?;
+        if !self.decay_known() {
+            return Ok(None);
+        }
         let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
@@ -264,8 +418,8 @@ pub struct Stamped {
     pub content: Value,
 }
 
-/// Integrity hash of content: sha256 over its compact JSON serialization,
-/// formatted as `sha256:<hex>`.
+/// Integrity hash of content in the legacy canonical form (versions 0.1 to
+/// 0.4): sha256 over its compact JSON serialization, as `sha256:<hex>`.
 pub fn integrity_hash(content: &Value) -> String {
     let bytes = serde_json::to_vec(content).expect("serializing a JSON value cannot fail");
     let digest = Sha256::digest(&bytes);
@@ -334,6 +488,7 @@ mod tests {
             half_life: Some("30d".to_string()),
             baseline: None,
             source_fidelity: None,
+            ext: None,
             echo: None,
             fast: None,
             shape: None,
