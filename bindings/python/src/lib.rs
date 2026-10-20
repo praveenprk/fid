@@ -350,6 +350,8 @@ fn calibrate(
                 })),
                 "fast": json!({
                     "kept": f.fast.kept,
+                    "form": f.fast.form.name(),
+                    "shape": f.fast.model.shape,
                     "share": f.fast.model.share,
                     "fast_half_life_seconds": f.fast.model.fast_half_life,
                     "half_life_seconds": f.fast.model.half_life,
@@ -357,6 +359,7 @@ fn calibrate(
                     "correct_when_fresh": f.fast.model.s0,
                     "brier_fast": f.fast.brier_fast,
                     "brier_one_clock": f.fast.brier_plain,
+                    "too_uncertain": f.fast.too_uncertain,
                 }),
                 "shape_error": f.shape_error,
                 "empirical_half_life_seconds": f.empirical_half_life,

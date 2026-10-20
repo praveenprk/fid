@@ -172,8 +172,18 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     let out = fid(&["calibrate", "-", "--type", "pkg"], &csv);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let yaml = String::from_utf8(out.stdout).unwrap();
-    assert!(yaml.contains("fast: { share: "), "{}", yaml);
-    assert!(String::from_utf8_lossy(&out.stderr).contains("fast share kept"));
+    // two clocks, or a shape below 1 that draws the same curve
+    assert!(
+        yaml.contains("fast: { share: ") || yaml.contains("shape: 0."),
+        "{}",
+        yaml
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains(" kept: held-out")
+            || yaml.contains("kept: held-out"),
+        "{}",
+        yaml
+    );
 
     let dir = std::env::temp_dir().join(format!("fid-calibrate-fast-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -182,8 +192,11 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     let stamped = fid(&["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"], "{}");
     assert!(stamped.status.success(), "{}", String::from_utf8_lossy(&stamped.stderr));
     let v: serde_json::Value = serde_json::from_slice(&stamped.stdout).unwrap();
-    let share = v["fid"]["fast"]["share"].as_f64().unwrap();
-    assert!((share - 0.3).abs() < 0.05, "{}", share);
+    assert!(
+        v["fid"]["fast"].is_object() || v["fid"]["shape"].as_f64().is_some_and(|k| k < 1.0),
+        "{}",
+        v
+    );
     // fresh, the fact is near certain: one clock would have said 0.94 or so
     assert!(v["fid"]["fid_at_stamp"].as_f64().unwrap() > 0.97, "{}", v);
     let schedule = fid(&["schedule", "-", "--price", "0.001"], &String::from_utf8(stamped.stdout).unwrap());

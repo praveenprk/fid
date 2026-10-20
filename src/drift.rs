@@ -91,7 +91,7 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
     if max_spread.is_nan() || max_spread < 1.0 {
         return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
     }
-    let fits = calibrate::calibrate_with(obs, f64::INFINITY)?;
+    let fits = calibrate::calibrate_one_clock(obs, f64::INFINITY)?;
 
     let mut groups: BTreeMap<Option<String>, Vec<&Observation>> = BTreeMap::new();
     for o in obs {

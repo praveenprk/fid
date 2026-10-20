@@ -17,11 +17,13 @@
 //! refitted on all the data. Too little data is an error, never a guess.
 //!
 //! s0, the fraction correct when fresh, is the source's measured
-//! fidelity. With at least `MIN_FRESH` checks at age zero it is measured
-//! there directly, and the decay is fitted with s0 fixed: a fact that
-//! changes fast in its first hours is then a fast curve, not a source that
-//! is wrong when fresh. Otherwise s0 is the fitted curve's value at age
-//! zero. It is written to the registry only when enough checks fall in
+//! fidelity. When the checks at age zero measure it tightly (standard
+//! error under `MAX_PIN_SE`, counting one extra right and one extra wrong
+//! check, so 20 of 20 is not tight but 500 of 500 is) it is measured there
+//! directly, and the decay is fitted with s0 fixed: a fact that changes
+//! fast in its first hours is then a fast curve, not a source that is
+//! wrong when fresh. Otherwise s0 is the fitted curve's value at age zero:
+//! a noisy fresh rate fixed in place would bend the rest of the curve. It is written to the registry only when enough checks fall in
 //! fresh bins (the model has decayed less than a tenth of the way to the
 //! baseline at the bin's age); otherwise it is an extrapolation and the
 //! source class constant stays in force.
@@ -50,6 +52,8 @@ pub const MIN_OBSERVATIONS: usize = 50;
 pub const MIN_PER_HALF: usize = 10;
 /// Fewest fresh checks for s0 to count as measured, not extrapolated.
 pub const MIN_FRESH: usize = 20;
+/// Largest standard error of the age-zero rate for s0 to be fixed there.
+pub const MAX_PIN_SE: f64 = 0.005;
 /// A check is fresh while the decay factor 0.5^(age / h) is at least this.
 pub const FRESH_DECAY: f64 = 0.9;
 /// Bootstrap rounds, and the seed that makes them reproducible.
@@ -182,11 +186,15 @@ pub fn is_train(entity: &str) -> bool {
     Sha256::digest(entity.as_bytes())[0] % 2 == 0
 }
 
-/// The fraction correct among checks at age zero, when there are at
-/// least `MIN_FRESH` of them: s0 measured, not extrapolated.
+/// The fraction correct among checks at age zero, when they measure it
+/// tightly: at least `MIN_FRESH` of them, and a standard error under
+/// `MAX_PIN_SE` with one right and one wrong check added (so a perfect
+/// record needs about 400 checks).
 pub fn zero_age_s0(bins: &[Bin]) -> Option<f64> {
     let (k, n) = bins.iter().filter(|b| b.age == 0.0).fold((0.0, 0), |(k, n), b| (k + b.correct * b.n as f64, n + b.n));
-    (n >= MIN_FRESH).then(|| k / n as f64)
+    let p = (k + 1.0) / (n as f64 + 2.0);
+    let se = (p * (1.0 - p) / n as f64).sqrt();
+    (n >= MIN_FRESH && se < MAX_PIN_SE).then(|| k / n as f64)
 }
 
 /// Group observations into bins: exact ages when there are few distinct
@@ -457,11 +465,11 @@ pub fn bootstrap(group: &[&Observation], with_baseline: bool) -> Uncertainty {
     Uncertainty { half_life: Range::of(h), baseline: Range::of(b), s0: Range::of(s0) }
 }
 
-/// As `bootstrap`, for two clocks: the ranges of the slow half-life, baseline and s0.
-pub fn bootstrap_fast(group: &[&Observation], with_baseline: bool) -> Uncertainty {
+/// As `bootstrap`, for a richer form: the ranges of the main half-life, baseline and s0.
+pub fn bootstrap_fast(group: &[&Observation], with_baseline: bool, form: crate::fast::Form) -> Uncertainty {
     let (mut h, mut b, mut s0) = (Vec::new(), Vec::new(), Vec::new());
     for sample in bootstrap_samples(group) {
-        let m = crate::fast::fit_fast(&sample, &fit(&sample, with_baseline));
+        let m = crate::fast::fit_form(&sample, &fit(&sample, with_baseline), form);
         h.push(m.half_life);
         b.push(m.baseline);
         s0.push(m.s0);
@@ -537,6 +545,16 @@ pub fn calibrate_with(obs: &[Observation], max_spread: f64) -> Result<Vec<StateF
 /// As `calibrate_with`, and with a period, test an echo at that period
 /// on the held-out half (see `crate::echo`).
 pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f64>) -> Result<Vec<StateFit>, String> {
+    calibrate_inner(obs, max_spread, period, true)
+}
+
+/// As `calibrate_with`, one clock only: no richer form is tried. For callers
+/// that compare plain decay curves, such as `fid drift`.
+pub fn calibrate_one_clock(obs: &[Observation], max_spread: f64) -> Result<Vec<StateFit>, String> {
+    calibrate_inner(obs, max_spread, None, false)
+}
+
+fn calibrate_inner(obs: &[Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<Vec<StateFit>, String> {
     if let Some(p) = period {
         if !(p.is_finite() && p > 0.0) {
             return Err(format!("invalid period {} (must be a positive duration)", p));
@@ -562,10 +580,10 @@ pub fn calibrate_periodic(obs: &[Observation], max_spread: f64, period: Option<f
         groups.entry(o.state.clone()).or_default().push(o);
     }
 
-    groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread, period)).collect()
+    groups.into_iter().map(|(state, group)| fit_state(state, &group, max_spread, period, richer)).collect()
 }
 
-fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>) -> Result<StateFit, String> {
+fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, period: Option<f64>, richer: bool) -> Result<StateFit, String> {
     let name = state.as_deref().map(|s| format!("state '{}'", s)).unwrap_or_else(|| "data".to_string());
     let train: Vec<&Observation> = group.iter().copied().filter(|o| is_train(&o.entity)).collect();
     let test: Vec<&Observation> = group.iter().copied().filter(|o| !is_train(&o.entity)).collect();
@@ -600,25 +618,39 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
     // does not inform s0
     let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh_age(&model)).map(|b| b.n).sum();
     let echo = period.map(|p| crate::echo::test_echo(group, &train, &test, p));
-    let mut fast = crate::fast::test_fast(group, &train, &test, uses_baseline);
+    let mut fast = if richer {
+        crate::fast::test_fast(group, &train, &test, uses_baseline)
+    } else {
+        crate::fast::FastFit::not_tried(&model)
+    };
     let max_age = group.iter().map(|o| o.age).fold(0.0, f64::max);
     // The ranges, and the refusal, are for the curve the registry gets: two clocks when the
     // fast share is kept (and no echo is), else one. Two clocks too uncertain to write fall
     // back to one
     let mut written = None;
     if fast.kept && !echo.as_ref().is_some_and(|e| e.kept) {
-        let u = bootstrap_fast(group, uses_baseline);
-        let s = spread(&u.half_life, max_age);
-        if s <= max_spread {
-            written = Some((u, s));
-        } else {
-            fast.kept = false;
-            fast.too_uncertain = Some(format!(
-                "its slow half-life ranges {} to {} (×{:.1})",
+        // The chosen form, else the next that passed, whose curve is pinned down
+        let fallbacks = std::mem::take(&mut fast.fallbacks);
+        let mut refused = Vec::new();
+        for candidate in std::iter::once(fast.clone()).chain(fallbacks) {
+            let u = bootstrap_fast(group, uses_baseline, candidate.form);
+            let s = spread(&u.half_life, max_age);
+            if s <= max_spread {
+                fast = candidate;
+                written = Some((u, s));
+                break;
+            }
+            refused.push(format!(
+                "{}: main half-life ranges {} to {} (×{:.1})",
+                candidate.form.name(),
                 format_half_life(u.half_life.lo),
                 format_half_life(u.half_life.hi),
                 s
             ));
+        }
+        if written.is_none() {
+            fast.kept = false;
+            fast.too_uncertain = Some(refused.join("; "));
         }
     }
     let (uncertainty, spread) = match written {
@@ -914,8 +946,9 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
             let m = &fast.model;
             let u = &f.uncertainty;
             let mut s = format!(
-                "{}# fast share kept: held-out Brier {:.4} vs one clock {:.4}\n{}half_life: {}  # 95% range {} to {}\n{}baseline: {}  # 95% range {} to {}\n",
+                "{}# {} kept: held-out Brier {:.4} vs one clock {:.4}\n{}half_life: {}  # 95% range {} to {}\n{}baseline: {}  # 95% range {} to {}\n",
                 indent,
+                fast.form.name(),
                 fast.brier_fast,
                 fast.brier_plain,
                 indent,
@@ -930,12 +963,17 @@ pub fn registry_yaml(info_type: &str, fits: &[StateFit]) -> String {
             if fast.source_fidelity.is_some() {
                 s.push_str(&format!("{}source_fidelity: {}  # 95% range {} to {}\n", indent, trim3(m.s0), trim3(u.s0.lo), trim3(u.s0.hi)));
             }
-            s.push_str(&format!(
-                "{}fast: {{ share: {}, half_life: {} }}\n",
-                indent,
-                trim3(m.share),
-                format_half_life(m.fast_half_life)
-            ));
+            if fast.form.has_two_clocks() {
+                s.push_str(&format!(
+                    "{}fast: {{ share: {}, half_life: {} }}\n",
+                    indent,
+                    trim3(m.share),
+                    format_half_life(m.fast_half_life)
+                ));
+            }
+            if fast.form.has_shape() {
+                s.push_str(&format!("{}shape: {}\n", indent, trim3(m.shape)));
+            }
             return s;
         }
         let u = &f.uncertainty;
@@ -1072,20 +1110,35 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             ));
         }
         let fast = &f.fast;
+        let m = &fast.model;
+        let described = match fast.form {
+            crate::fast::Form::Shape => format!("a shape {:.2} on {}", m.shape, format_half_life(m.half_life)),
+            crate::fast::Form::TwoClocks => format!(
+                "{:.0}% on a {} clock, the rest {}",
+                100.0 * m.share,
+                format_half_life(m.fast_half_life),
+                format_half_life(m.half_life)
+            ),
+            crate::fast::Form::Both => format!(
+                "{:.0}% on a {} clock, the rest {}, shape {:.2}",
+                100.0 * m.share,
+                format_half_life(m.fast_half_life),
+                format_half_life(m.half_life),
+                m.shape
+            ),
+        };
         lines.push(format!(
-            "  two clocks: {:.0}% on a {} clock, the rest {}; held-out Brier {:.4} vs one clock {:.4}, largest gap {:.3} vs {:.3}  {}",
-            100.0 * fast.model.share,
-            format_half_life(fast.model.fast_half_life),
-            format_half_life(fast.model.half_life),
+            "  richer curve (a shape, two clocks, or both; lowest BIC of those that pass): {}; held-out Brier {:.4} vs one clock {:.4}, largest gap {:.3} vs {:.3}  {}",
+            described,
             fast.brier_fast,
             fast.brier_plain,
             fast.gap_fast,
             fast.gap_plain,
             match (fast.kept, f.kept_echo().is_some(), &fast.too_uncertain) {
-                (true, true, _) => "→ fast share passed, but the echo is kept".to_string(),
-                (true, false, _) => "→ fast share kept".to_string(),
-                (false, _, Some(why)) => format!("→ passed on held-out data but not written: {}; one clock instead", why),
-                _ => "→ not kept (needs a 0.1% better Brier and a smaller gap)".to_string(),
+                (true, true, _) => "→ passed, but the echo is kept".to_string(),
+                (true, false, _) => format!("→ {} kept", fast.form.name()),
+                (false, _, Some(why)) => format!("→ passed on held-out data but too uncertain to write ({}); one clock instead", why),
+                _ => "→ not kept (needs a 0.1% better held-out Brier, a 20% smaller largest gap and a lower BIC)".to_string(),
             }
         ));
         lines.push(format!("  {:<10} {:>8} {:>8} {:>9}", "age", "correct", "model", "n"));
@@ -1338,7 +1391,7 @@ mod tests {
         let (mut covered, mut s0_covered, trials) = (0, 0, 40);
         for _ in 0..trials {
             let obs = random_ledger(truth, 1500, 40.0 * DAY, &mut rng);
-            let f = &calibrate_with(&obs, f64::INFINITY).unwrap()[0];
+            let f = &calibrate_one_clock(&obs, f64::INFINITY).unwrap()[0];
             covered += f.uncertainty.half_life.contains(truth.half_life) as usize;
             s0_covered += f.uncertainty.s0.contains(truth.s0) as usize;
         }
@@ -1350,8 +1403,8 @@ mod tests {
     fn test_ranges_narrow_with_more_data() {
         let truth = Model { s0: 0.95, baseline: 0.0, half_life: 10.0 * DAY };
         let mut rng = Rng(11);
-        let small = &calibrate_with(&random_ledger(truth, 300, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
-        let large = &calibrate_with(&random_ledger(truth, 5000, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
+        let small = &calibrate_one_clock(&random_ledger(truth, 300, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
+        let large = &calibrate_one_clock(&random_ledger(truth, 5000, 40.0 * DAY, &mut rng), f64::INFINITY).unwrap()[0];
         assert!(large.spread < small.spread, "{} vs {}", large.spread, small.spread);
     }
 
@@ -1370,8 +1423,8 @@ mod tests {
     fn test_ranges_are_reproducible() {
         let truth = Model { s0: 0.9, baseline: 0.2, half_life: 3.0 * DAY };
         let obs = random_ledger(truth, 800, 20.0 * DAY, &mut Rng(5));
-        let a = calibrate_with(&obs, f64::INFINITY).unwrap();
-        let b = calibrate_with(&obs, f64::INFINITY).unwrap();
+        let a = calibrate_one_clock(&obs, f64::INFINITY).unwrap();
+        let b = calibrate_one_clock(&obs, f64::INFINITY).unwrap();
         assert_eq!(a[0].uncertainty, b[0].uncertainty);
     }
 
@@ -1425,7 +1478,7 @@ mod tests {
         // equal-count bins averages about a day, so s0 is extrapolated
         let truth = Model { s0: 1.0, baseline: 0.62, half_life: 3.0 * 3600.0 };
         let obs = random_ledger(truth, 50_000, 40.0 * DAY, &mut Rng(13));
-        let f = &calibrate_with(&obs, f64::INFINITY).unwrap()[0];
+        let f = &calibrate_one_clock(&obs, f64::INFINITY).unwrap()[0];
         assert!(obs.iter().filter(|o| o.age < 3600.0).count() >= MIN_FRESH);
         assert_eq!(f.source_fidelity, None, "{:?}", f.model);
     }

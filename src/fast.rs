@@ -1,4 +1,4 @@
-//! Fitting a fast share: two clocks, tested in every `fid calibrate`.
+//! Fitting a richer curve: two clocks, a shape, or both, tested in every `fid calibrate`.
 //!
 //! Some facts go stale on two clocks. Most PyPI releases stay the latest
 //! for months, but a share is replaced by a patch within days; fitted with
@@ -10,10 +10,18 @@
 //!
 //! is linear in b and s0 for fixed (h, h_f, m), so those two are solved in
 //! closed form and the other three searched by Nelder–Mead on fine bins.
-//! It is kept only if, fitted on the train half, it beats one clock on the
-//! held-out half by at least 0.1% (Brier), and its largest gap from the
-//! curve is smaller. Otherwise the registry gets one clock and the report
-//! says why.
+//! A fact that goes wrong by crossing a threshold holds, then drops (a
+//! moving ship's 1 km); a shape k bends the clocks, 0.5^((t/h)^k).
+//!
+//! Three forms are tried: a shape alone, two clocks, and both. A form is
+//! kept only if, fitted on the train half, it beats one clock on the
+//! held-out half by at least 0.1% (Brier), and fitted on all data it cuts
+//! one clock's largest gap from the binned data by at least 20% and has a
+//! lower BIC than one clock (each extra parameter costs ln n). Of those
+//! that pass, the one with the lowest BIC on all data is chosen (held-out
+//! Brier barely tells close forms apart; the likelihood does), the others
+//! kept in order as fallbacks for when its curve is too uncertain to write.
+//! When none passes the registry gets one clock and the report says why.
 
 use std::collections::BTreeMap;
 
@@ -25,24 +33,78 @@ const MAX_EXACT_AGES: usize = 2000;
 const FINE_BINS: usize = 200;
 /// Smallest held-out Brier improvement, relative, for the fast share to count.
 pub const MIN_GAIN: f64 = 0.001;
+/// A richer form must also cut one clock's largest gap by this share
+pub const MIN_GAP_CUT: f64 = 0.2;
 /// The fast clock is at least this much faster than the slow one.
 const MAX_RATIO: f64 = 0.5;
 
-/// Decay to a baseline on two clocks.
+/// Decay to a baseline on two clocks with a shape.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FastModel {
     pub s0: f64,
     pub baseline: f64,
     pub half_life: f64,
-    /// Share on the fast clock
+    /// Share on the fast clock (0: one clock)
     pub share: f64,
     pub fast_half_life: f64,
+    /// Shape of both clocks (1: exponential)
+    pub shape: f64,
+}
+
+/// Which richer curve a fit is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Form {
+    /// One clock with a shape
+    Shape,
+    /// Two exponential clocks
+    TwoClocks,
+    /// Two clocks with a shape
+    Both,
+}
+
+impl Form {
+    pub const ALL: [Form; 3] = [Form::Shape, Form::TwoClocks, Form::Both];
+
+    pub fn has_shape(self) -> bool {
+        self != Form::TwoClocks
+    }
+
+    pub fn has_two_clocks(self) -> bool {
+        self != Form::Shape
+    }
+
+    /// Decay parameters searched besides s0 and b: h and k, h, h_f and m, or all four.
+    pub fn parameters(self) -> usize {
+        match self {
+            Form::Shape => 2,
+            Form::TwoClocks => 3,
+            Form::Both => 4,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Form::Shape => "a shape",
+            Form::TwoClocks => "two clocks",
+            Form::Both => "two clocks with a shape",
+        }
+    }
 }
 
 impl FastModel {
     pub fn decay(&self, age: f64) -> f64 {
         let a = age.max(0.0);
-        (1.0 - self.share) * 0.5_f64.powf(a / self.half_life) + self.share * 0.5_f64.powf(a / self.fast_half_life)
+        let clock = |h: f64| {
+            if self.shape == 1.0 {
+                0.5_f64.powf(a / h)
+            } else {
+                0.5_f64.powf((a / h).powf(self.shape))
+            }
+        };
+        if self.share == 0.0 {
+            return clock(self.half_life);
+        }
+        (1.0 - self.share) * clock(self.half_life) + self.share * clock(self.fast_half_life)
     }
 
     pub fn predict(&self, age: f64) -> f64 {
@@ -84,13 +146,44 @@ pub struct FastFit {
     /// Largest gap from the fine-binned curve, all data
     pub gap_fast: f64,
     pub gap_plain: f64,
-    /// Did the fast share pass on the held-out half (and, in calibrate, is its curve pinned down)?
+    /// The chosen form: lowest BIC of those that passed, else the best on held-out Brier
+    pub form: Form,
+    /// Did it pass on the held-out half (and, in calibrate, is its curve pinned down)?
     pub kept: bool,
     /// Passed on the held-out half, but its curve was too uncertain to write
     pub too_uncertain: Option<String>,
     /// Checks in bins young enough to measure s0
     pub fresh_checks: usize,
     pub source_fidelity: Option<f64>,
+    /// The other forms that passed, best BIC first
+    pub fallbacks: Vec<FastFit>,
+}
+
+impl FastFit {
+    /// No richer form tried: one clock, not kept.
+    pub fn not_tried(plain: &Model) -> FastFit {
+        let model = FastModel {
+            s0: plain.s0,
+            baseline: plain.baseline,
+            half_life: plain.half_life,
+            share: 0.0,
+            fast_half_life: plain.half_life,
+            shape: 1.0,
+        };
+        FastFit {
+            model,
+            brier_fast: f64::NAN,
+            brier_plain: f64::NAN,
+            gap_fast: f64::NAN,
+            gap_plain: f64::NAN,
+            form: Form::Shape,
+            kept: false,
+            too_uncertain: None,
+            fresh_checks: 0,
+            source_fidelity: None,
+            fallbacks: Vec::new(),
+        }
+    }
 }
 
 /// Fine bins: exact ages, or `FINE_BINS` equal-count bins at their mean age.
@@ -126,8 +219,15 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
 /// Best (s0, b) for fixed clocks, by weighted least squares on y ≈ b (1 − d) + s0 d,
 /// with 0 ≤ b ≤ s0 ≤ 1; with `pinned`, s0 is that (measured at age zero) and only b
 /// is fitted. Returns the model and its weighted squared error.
-fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64, pinned: Option<f64>) -> (FastModel, f64) {
-    let shape = FastModel { s0: 1.0, baseline: 0.0, half_life, share, fast_half_life };
+fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64, k: f64, pinned: Option<f64>) -> (FastModel, f64) {
+    let shape = FastModel {
+        s0: 1.0,
+        baseline: 0.0,
+        half_life,
+        share,
+        fast_half_life,
+        shape: k,
+    };
     let d: Vec<f64> = bins.iter().map(|b| shape.decay(b.age)).collect();
     if let Some(s0) = pinned {
         let (mut num, mut den) = (0.0, 0.0);
@@ -176,69 +276,172 @@ fn logit(p: f64) -> f64 {
     (p / (1.0 - p)).ln()
 }
 
-/// x = (ln h, logit of h_f ÷ (h × MAX_RATIO), logit m)
-fn unpack(x: &[f64]) -> (f64, f64, f64) {
+/// Shapes searched: 0.2 to 8, on a logit scale.
+const SHAPE_LO: f64 = 0.2;
+const SHAPE_HI: f64 = 8.0;
+
+fn shape_of(x: f64) -> f64 {
+    (SHAPE_LO.ln() + (SHAPE_HI.ln() - SHAPE_LO.ln()) * sigmoid(x)).exp()
+}
+
+fn shape_x(k: f64) -> f64 {
+    logit((k.ln() - SHAPE_LO.ln()) / (SHAPE_HI.ln() - SHAPE_LO.ln()))
+}
+
+/// (h, h_f, m, k) from the search vector of a form: ln h, then logit of h_f ÷ (h × MAX_RATIO)
+/// and logit m for two clocks, then the shape's logit.
+fn unpack(x: &[f64], form: Form) -> (f64, f64, f64, f64) {
     let h = x[0].exp();
-    (h, h * MAX_RATIO * sigmoid(x[1]), sigmoid(x[2]))
+    match form {
+        Form::Shape => (h, h, 0.0, shape_of(x[1])),
+        Form::TwoClocks => (h, h * MAX_RATIO * sigmoid(x[1]), sigmoid(x[2]), 1.0),
+        Form::Both => (
+            h,
+            h * MAX_RATIO * sigmoid(x[1]),
+            sigmoid(x[2]),
+            shape_of(x[3]),
+        ),
+    }
 }
 
 /// Fit two clocks to bins, starting from a one-clock fit.
 pub fn fit_fast(bins: &[Bin], start: &Model) -> FastModel {
+    fit_form(bins, start, Form::TwoClocks)
+}
+
+/// Fit one form to bins, starting from a one-clock fit.
+pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
     let oldest = bins.iter().map(|b| b.age).fold(0.0, f64::max).max(1.0);
     let h0 = if start.half_life.is_finite() { start.half_life } else { oldest };
     let pinned = zero_age_s0(bins);
     let loss = |x: &[f64]| {
-        let (h, hf, m) = unpack(x);
-        if !(h.is_finite() && hf.is_finite() && hf > 0.0) {
+        let (h, hf, m, k) = unpack(x, form);
+        if !(h.is_finite() && hf.is_finite() && hf > 0.0 && k.is_finite()) {
             return f64::INFINITY;
         }
-        solve(bins, h, m, hf, pinned).1
+        solve(bins, h, m, hf, k, pinned).1
+    };
+    let starts: Vec<Vec<f64>> = match form {
+        Form::Shape => [(1.0, 0.7), (1.0, 1.5), (1.5, 3.0), (0.7, 2.0)]
+            .iter()
+            .map(|&(hs, k)| vec![(h0 * hs).ln(), shape_x(k)])
+            .collect(),
+        Form::TwoClocks => [
+            (1.0, 0.05, 0.2),
+            (2.0, 0.02, 0.3),
+            (1.5, 0.2, 0.1),
+            (3.0, 0.01, 0.5),
+        ]
+        .iter()
+        .map(|&(hs, r, m)| vec![(h0 * hs).ln(), logit(r / MAX_RATIO), logit(m)])
+        .collect(),
+        Form::Both => [
+            (1.0, 0.05, 0.2, 1.0),
+            (2.0, 0.2, 0.3, 2.5),
+            (1.5, 0.3, 0.6, 3.0),
+            (3.0, 0.02, 0.4, 0.7),
+        ]
+        .iter()
+        .map(|&(hs, r, m, k)| vec![(h0 * hs).ln(), logit(r / MAX_RATIO), logit(m), shape_x(k)])
+        .collect(),
     };
     let mut best: Option<(Vec<f64>, f64)> = None;
-    for (h_scale, ratio, share) in [(1.0, 0.05, 0.2), (2.0, 0.02, 0.3), (1.5, 0.2, 0.1), (3.0, 0.01, 0.5)] {
-        let x0 = [(h0 * h_scale).ln(), logit(ratio / MAX_RATIO), logit(share)];
+    for x0 in starts {
         let (x, _) = nelder_mead(&loss, &x0, 0.5, 400);
         let (x, v) = nelder_mead(&loss, &x, 0.1, 400);
         if best.as_ref().map_or(true, |(_, bv)| v < *bv) {
             best = Some((x, v));
         }
     }
-    let (h, hf, m) = unpack(&best.expect("four starts").0);
-    solve(bins, h, m, hf, pinned).0
+    let (h, hf, m, k) = unpack(&best.expect("four starts").0, form);
+    solve(bins, h, m, hf, k, pinned).0
 }
 
 fn gap(bins: &[Bin], predict: impl Fn(f64) -> f64) -> f64 {
     bins.iter().map(|b| (b.correct - predict(b.age)).abs()).fold(0.0, f64::max)
 }
 
-/// The fast-share test: fit on `train`, score on `test` against one clock
-/// (with a baseline when `with_baseline`), refit on all of `group`.
-pub fn test_fast(group: &[&Observation], train: &[&Observation], test: &[&Observation], with_baseline: bool) -> FastFit {
+/// The test: each form fitted on `train` and scored on `test` against one
+/// clock (with a baseline when `with_baseline`); the chosen form refitted on all of `group`.
+pub fn test_fast(
+    group: &[&Observation],
+    train: &[&Observation],
+    test: &[&Observation],
+    with_baseline: bool,
+) -> FastFit {
     let train_bins = fine_bins(train);
     let train_plain = fit(&train_bins, with_baseline);
-    let train_fast = fit_fast(&train_bins, &train_plain);
-    let brier_fast = brier(test, |a| train_fast.predict(a));
     let brier_plain = brier(test, |a| train_plain.predict(a));
-
     let all_bins = fine_bins(group);
     let plain = fit(&all_bins, with_baseline);
-    let model = fit_fast(&all_bins, &plain);
-    let gap_fast = gap(&all_bins, |a| model.predict(a));
     let gap_plain = gap(&all_bins, |a| plain.predict(a));
 
-    let fresh = model.fresh_age();
-    let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh).map(|b| b.n).sum();
-    FastFit {
-        model,
-        brier_fast,
-        brier_plain,
-        gap_fast,
-        gap_plain,
-        kept: brier_fast < brier_plain * (1.0 - MIN_GAIN) && gap_fast < gap_plain,
-        too_uncertain: None,
-        fresh_checks,
-        source_fidelity: (fresh_checks >= MIN_FRESH).then_some(model.s0),
+    // Binomial log-likelihood of the binned data, for BIC
+    let n: usize = all_bins.iter().map(|b| b.n).sum();
+    let log_lik = |predict: &dyn Fn(f64) -> f64| -> f64 {
+        all_bins
+            .iter()
+            .map(|b| {
+                let p = predict(b.age).clamp(1e-12, 1.0 - 1e-12);
+                b.n as f64 * (b.correct * p.ln() + (1.0 - b.correct) * (1.0 - p).ln())
+            })
+            .sum()
+    };
+    let bic_of =
+        |log_lik: f64, parameters: usize| -2.0 * log_lik + parameters as f64 * (n as f64).ln();
+    let bic = |form: Form, m: &FastModel| bic_of(log_lik(&|a| m.predict(a)), form.parameters());
+    let bic_plain = bic_of(log_lik(&|a| plain.predict(a)), 1);
+    let make = |form: Form, brier_fast: f64, model: FastModel, gap_fast: f64, kept: bool| {
+        let fresh = model.fresh_age();
+        let fresh_checks = all_bins
+            .iter()
+            .filter(|b| b.age <= fresh)
+            .map(|b| b.n)
+            .sum();
+        FastFit {
+            model,
+            brier_fast,
+            brier_plain,
+            gap_fast,
+            gap_plain,
+            form,
+            kept,
+            too_uncertain: None,
+            fresh_checks,
+            source_fidelity: (fresh_checks >= MIN_FRESH).then_some(model.s0),
+            fallbacks: Vec::new(),
+        }
+    };
+
+    let mut passed = Vec::new();
+    let mut failed = Vec::new();
+    for &form in &Form::ALL {
+        let on_train = fit_form(&train_bins, &train_plain, form);
+        let brier_fast = brier(test, |a| on_train.predict(a));
+        let model = fit_form(&all_bins, &plain, form);
+        let gap_fast = gap(&all_bins, |a| model.predict(a));
+        let passes = brier_fast < brier_plain * (1.0 - MIN_GAIN)
+            && gap_fast < gap_plain * (1.0 - MIN_GAP_CUT)
+            && bic(form, &model) < bic_plain;
+        let fit = make(form, brier_fast, model, gap_fast, passes);
+        if passes {
+            passed.push((bic(form, &model), fit));
+        } else {
+            failed.push(fit);
+        }
     }
+    if passed.is_empty() {
+        // None passed: report the one with the best held-out Brier
+        return failed
+            .into_iter()
+            .min_by(|a, b| a.brier_fast.total_cmp(&b.brier_fast))
+            .expect("three forms");
+    }
+    passed.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut ranked = passed.into_iter().map(|(_, f)| f);
+    let mut chosen = ranked.next().expect("one passed");
+    chosen.fallbacks = ranked.collect();
+    chosen
 }
 
 #[cfg(test)]
@@ -270,7 +473,14 @@ mod tests {
     }
 
     fn release() -> FastModel {
-        FastModel { s0: 1.0, baseline: 0.07, half_life: 60.0 * DAY, share: 0.3, fast_half_life: 2.0 * DAY }
+        FastModel {
+            s0: 1.0,
+            baseline: 0.07,
+            half_life: 60.0 * DAY,
+            share: 0.3,
+            fast_half_life: 2.0 * DAY,
+            shape: 1.0,
+        }
     }
 
     #[test]
@@ -280,15 +490,77 @@ mod tests {
         let m = f.model;
         eprintln!("RECOVERED {:?}; Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}", m, f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain);
         assert!(f.kept, "{:?}", f);
-        assert!((m.share - 0.3).abs() < 0.05, "{:?}", m);
-        assert!((m.half_life / DAY / 60.0 - 1.0).abs() < 0.15, "{:?}", m);
-        assert!((m.fast_half_life / DAY / 2.0 - 1.0).abs() < 0.4, "{:?}", m);
-        assert!((m.s0 - 1.0).abs() < 0.01 && (m.baseline - 0.07).abs() < 0.03, "{:?}", m);
+        // A shape below 1 is close to a mix of exponentials, so another form may be chosen.
+        // Either way the curve must be the true one, within 3 standard errors of 2000 checks
+        // (a shape alone misses by 3.7 at 7 days)
+        for lag in LAGS {
+            let p = truth.predict(lag * DAY);
+            let se = (p * (1.0 - p) / 2000.0).sqrt().max(1e-3);
+            assert!(
+                (m.predict(lag * DAY) - p).abs() < 3.0 * se,
+                "{}d: {:?}",
+                lag,
+                m
+            );
+        }
+        if f.form == Form::TwoClocks {
+            assert!(
+                (m.share - 0.3).abs() < 0.05 && (m.fast_half_life / DAY / 2.0 - 1.0).abs() < 0.4,
+                "{:?}",
+                m
+            );
+        }
         // s0 is measured at age zero: one clock cannot blame the quick drop on the source,
         // so it misfits the curve instead
         let plain = fit(&fine_bins(&ledger(|a| truth.predict(a), 2000, 1).iter().collect::<Vec<_>>()), true);
         assert_eq!(plain.s0, 1.0);
         assert!(f.gap_plain > 0.1, "{:?}", f);
+    }
+
+    /// A moving ship's 1 km: right while it has gone less than a kilometre, so the curve
+    /// holds, then drops; checked every minute for 30 minutes
+    fn ship() -> FastModel {
+        FastModel {
+            s0: 1.0,
+            baseline: 0.03,
+            half_life: 180.0,
+            share: 0.0,
+            fast_half_life: 180.0,
+            shape: 3.0,
+        }
+    }
+
+    fn minutes(predict: impl Fn(f64) -> f64, per_lag: usize, seed: u64) -> Vec<Observation> {
+        let mut rng = Rng(seed);
+        let mut out = Vec::new();
+        for lag in 0..=30 {
+            for i in 0..per_lag {
+                let age = lag as f64 * 60.0;
+                out.push(Observation {
+                    entity: format!("v{}-{}", lag, i),
+                    age,
+                    correct: rng.unit() < predict(age),
+                    state: None,
+                });
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_recovers_a_shape() {
+        let truth = ship();
+        let f = run(&minutes(|a| truth.predict(a), 400, 3));
+        eprintln!(
+            "SHAPE {:?} {:?}; Brier {:.5} vs {:.5}",
+            f.form, f.model, f.brier_fast, f.brier_plain
+        );
+        assert!(f.kept && f.form == Form::Shape, "{:?}", f);
+        assert!(
+            (f.model.shape - 3.0).abs() < 0.3 && (f.model.half_life / 180.0 - 1.0).abs() < 0.05,
+            "{:?}",
+            f.model
+        );
     }
 
     #[test]
@@ -333,11 +605,35 @@ mod tests {
     fn measure_fast_keeps() {
         let mut false_keeps = 0;
         for seed in 0..20 {
-            for truth in [Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY }, Model { s0: 0.95, baseline: 0.0, half_life: 20.0 * DAY }] {
-                false_keeps += run(&ledger(|a| truth.predict(a), 500, 100 + seed)).kept as usize;
+            for truth in [
+                Model {
+                    s0: 1.0,
+                    baseline: 0.1,
+                    half_life: 80.0 * DAY,
+                },
+                Model {
+                    s0: 0.95,
+                    baseline: 0.0,
+                    half_life: 20.0 * DAY,
+                },
+            ] {
+                let f = run(&ledger(|a| truth.predict(a), 500, 100 + seed));
+                if f.kept {
+                    let worst = LAGS
+                        .iter()
+                        .map(|&l| (f.model.predict(l * DAY) - truth.predict(l * DAY)).abs())
+                        .fold(0.0, f64::max);
+                    eprintln!("FALSE KEEP {:?} Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}; worst miss {:.3}; {:?}", f.form, f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain, worst, f.model);
+                }
+                false_keeps += f.kept as usize;
             }
         }
         eprintln!("FALSE KEEPS {} of 40", false_keeps);
+        let truth = ship();
+        let found = (0..20)
+            .filter(|&seed| run(&minutes(|a| truth.predict(a), 100, 300 + seed)).kept)
+            .count();
+        eprintln!("SHAPE KEPT {} of 20 at 100 checks per lag", found);
         let truth = release();
         let found = (0..20).filter(|&seed| run(&ledger(|a| truth.predict(a), 500, 200 + seed)).kept).count();
         eprintln!("TWO CLOCKS KEPT {} of 20 at 500 checks per lag", found);
