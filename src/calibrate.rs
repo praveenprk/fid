@@ -9,9 +9,12 @@
 //!
 //!   S(age) = b + (s0 − b) × 0.5^(age / h)
 //!
-//! For a fixed h this is linear in b and s0, so each candidate h is
-//! solved in closed form by weighted least squares, and h is searched on
-//! a log grid. The model is fitted on half the entities and scored on
+//! Parameters are maximum-likelihood estimates (each check right or wrong,
+//! binned). For a fixed h the chance is linear in b and s0, so each
+//! candidate h is solved by Fisher scoring (weighted least squares,
+//! reweighted until it settles), and h is searched on a log grid. Rows
+//! are taken in one canonical order, so the output does not depend on the
+//! order they arrive in. The model is fitted on half the entities and scored on
 //! the other half (Brier score); the baseline is kept only when it
 //! scores better there than decay to zero. The final values are then
 //! refitted on all the data. Too little data is an error, never a guess.
@@ -215,7 +218,7 @@ pub fn bins(obs: &[&Observation]) -> Vec<Bin> {
 
 fn binned(obs: &[&Observation]) -> Vec<Bin> {
     let mut sorted: Vec<&Observation> = obs.to_vec();
-    sorted.sort_by(|a, b| a.age.total_cmp(&b.age));
+    sorted.sort_by(|a, b| row_order(a, b));
 
     let mut distinct: BTreeMap<u64, (usize, usize)> = BTreeMap::new();
     for o in &sorted {
@@ -246,70 +249,132 @@ fn binned(obs: &[&Observation]) -> Vec<Bin> {
         .collect()
 }
 
-/// Best (s0, b) for a fixed half-life, and its weighted squared error.
-/// With `pinned`, s0 is that and only b is fitted.
-fn solve(bins: &[Bin], h: f64, with_baseline: bool, pinned: Option<f64>) -> (Model, f64) {
-    let d: Vec<f64> = bins.iter().map(|b| 0.5_f64.powf(b.age / h)).collect();
-    let w: Vec<f64> = bins.iter().map(|b| b.n as f64).collect();
-    let y: Vec<f64> = bins.iter().map(|b| b.correct).collect();
+/// Negative binomial log-likelihood of `bins` when bin `i` is right with chance `p(i)`.
+pub(crate) fn neg_log_lik(bins: &[Bin], p: impl Fn(usize) -> f64) -> f64 {
+    bins.iter()
+        .enumerate()
+        .map(|(i, bin)| {
+            let p = p(i).clamp(1e-12, 1.0 - 1e-12);
+            -(bin.n as f64) * (bin.correct * p.ln() + (1.0 - bin.correct) * (1.0 - p).ln())
+        })
+        .sum()
+}
 
+/// Weighted least squares for y ≈ b (1 − d) + s0 d with 0 ≤ b ≤ s0 ≤ 1;
+/// b = 0 without a baseline, s0 fixed when pinned.
+fn wls(d: &[f64], y: &[f64], w: &[f64], with_baseline: bool, pinned: Option<f64>) -> (f64, f64) {
+    let len = d.len();
     if let Some(s0) = pinned {
         // y − s0 d ≈ b (1 − d)
         let (mut num, mut den) = (0.0, 0.0);
-        for i in 0..bins.len() {
+        for i in 0..len {
             let e = 1.0 - d[i];
             num += w[i] * e * (y[i] - s0 * d[i]);
             den += w[i] * e * e;
         }
         let b = if with_baseline && den > 0.0 { (num / den).clamp(0.0, s0) } else { 0.0 };
-        let model = Model { s0, baseline: b, half_life: h };
-        let loss = bins.iter().map(|b| b.n as f64 * (b.correct - model.predict(b.age)).powi(2)).sum();
-        return (model, loss);
+        return (s0, b);
     }
-
     let zero_baseline = || {
-        let num: f64 = (0..bins.len()).map(|i| w[i] * d[i] * y[i]).sum();
-        let den: f64 = (0..bins.len()).map(|i| w[i] * d[i] * d[i]).sum();
-        let s0 = if den > 0.0 { (num / den).clamp(0.0, 1.0) } else { 0.0 };
-        Model { s0, baseline: 0.0, half_life: h }
+        let num: f64 = (0..len).map(|i| w[i] * d[i] * y[i]).sum();
+        let den: f64 = (0..len).map(|i| w[i] * d[i] * d[i]).sum();
+        (if den > 0.0 { (num / den).clamp(0.0, 1.0) } else { 0.0 }, 0.0)
     };
-
-    let model = if !with_baseline {
+    if !with_baseline {
+        return zero_baseline();
+    }
+    let (mut ee, mut ed, mut dd, mut ey, mut dy) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for i in 0..len {
+        let e = 1.0 - d[i];
+        ee += w[i] * e * e;
+        ed += w[i] * e * d[i];
+        dd += w[i] * d[i] * d[i];
+        ey += w[i] * e * y[i];
+        dy += w[i] * d[i] * y[i];
+    }
+    let det = ee * dd - ed * ed;
+    if det.abs() < 1e-12 {
+        return zero_baseline();
+    }
+    let b = (ey * dd - ed * dy) / det;
+    let s0 = (ee * dy - ed * ey) / det;
+    if b < 0.0 {
+        zero_baseline()
+    } else if s0 > 1.0 {
+        // s0 at 1, refit b
+        let num: f64 = (0..len).map(|i| w[i] * (1.0 - d[i]) * (y[i] - d[i])).sum();
+        (1.0, if ee > 0.0 { (num / ee).clamp(0.0, 1.0) } else { 0.0 })
+    } else if b > s0 {
+        // Fidelity never rises: no decay at all fits better
         zero_baseline()
     } else {
-        // y ≈ b × (1 − d) + s0 × d, weighted least squares
-        let e: Vec<f64> = d.iter().map(|d| 1.0 - d).collect();
-        let (mut ee, mut ed, mut dd, mut ey, mut dy) = (0.0, 0.0, 0.0, 0.0, 0.0);
-        for i in 0..bins.len() {
-            ee += w[i] * e[i] * e[i];
-            ed += w[i] * e[i] * d[i];
-            dd += w[i] * d[i] * d[i];
-            ey += w[i] * e[i] * y[i];
-            dy += w[i] * d[i] * y[i];
-        }
-        let det = ee * dd - ed * ed;
-        if det.abs() < 1e-12 {
-            zero_baseline()
-        } else {
-            let b = (ey * dd - ed * dy) / det;
-            let s0 = (ee * dy - ed * ey) / det;
-            if b < 0.0 {
-                zero_baseline()
-            } else if s0 > 1.0 {
-                // Pin s0 at 1 and refit b
-                let num: f64 = (0..bins.len()).map(|i| w[i] * e[i] * (y[i] - d[i])).sum();
-                let b = if ee > 0.0 { (num / ee).clamp(0.0, 1.0) } else { 0.0 };
-                Model { s0: 1.0, baseline: b, half_life: h }
-            } else if b > s0 {
-                // Fidelity never rises: no decay at all fits better
-                zero_baseline()
-            } else {
-                Model { s0, baseline: b, half_life: h }
-            }
-        }
+        (s0, b)
+    }
+}
+
+/// Maximum-likelihood (s0, b) for bins right with chance b (1 − d) + s0 d,
+/// 0 ≤ b ≤ s0 ≤ 1 (draft, Calibration, requirement 3). The chance is linear
+/// in (b, s0), so Fisher scoring is the weighted least-squares solve
+/// repeated with weights n / (p (1 − p)); a step that would lower the
+/// likelihood is halved (the feasible set is convex, so every point on the
+/// way stays feasible). Returns (s0, b, negative log-likelihood).
+///
+/// `start` (s0, b), when given, is the fit of a neighbouring curve, which a
+/// search over curves passes along. The likelihood is concave in (s0, b), so
+/// the start changes only how fast it settles, not where.
+pub(crate) fn fit_linear_from(
+    bins: &[Bin],
+    d: &[f64],
+    with_baseline: bool,
+    pinned: Option<f64>,
+    start: Option<(f64, f64)>,
+) -> (f64, f64, f64) {
+    let n: Vec<f64> = bins.iter().map(|b| b.n as f64).collect();
+    let y: Vec<f64> = bins.iter().map(|b| b.correct).collect();
+    let nll = |s0: f64, b: f64| neg_log_lik(bins, |i| b * (1.0 - d[i]) + s0 * d[i]);
+    let feasible = |(s0, b): (f64, f64)| {
+        let b = if with_baseline { b } else { 0.0 };
+        let s0 = pinned.unwrap_or(s0);
+        (s0, b.clamp(0.0, s0))
     };
-    let loss = bins.iter().map(|b| b.n as f64 * (b.correct - model.predict(b.age)).powi(2)).sum();
-    (model, loss)
+    let (mut s0, mut b) = match start {
+        Some(st) => feasible(st),
+        None => wls(d, &y, &n, with_baseline, pinned),
+    };
+    let mut cur = nll(s0, b);
+    for _ in 0..50 {
+        let w: Vec<f64> = (0..d.len())
+            .map(|i| {
+                let p = (b * (1.0 - d[i]) + s0 * d[i]).clamp(1e-9, 1.0 - 1e-9);
+                n[i] / (p * (1.0 - p))
+            })
+            .collect();
+        let (s1, b1) = wls(d, &y, &w, with_baseline, pinned);
+        let (mut t, mut next) = (1.0, nll(s1, b1));
+        while next > cur && t > 1e-9 {
+            t /= 2.0;
+            next = nll(s0 + t * (s1 - s0), b + t * (b1 - b));
+        }
+        if next > cur {
+            break;
+        }
+        let (sn, bn) = (s0 + t * (s1 - s0), b + t * (b1 - b));
+        // settled: the likelihood no longer moves (relative 1e-10), or the estimates do not
+        let settled = cur - next <= 1e-10 * cur.abs().max(1.0) || ((sn - s0).abs() < 1e-12 && (bn - b).abs() < 1e-12);
+        (s0, b, cur) = (sn, bn, next);
+        if settled {
+            break;
+        }
+    }
+    (s0, b, cur)
+}
+
+/// Maximum-likelihood (s0, b) for one clock of half-life `h`; the loss is the
+/// negative log-likelihood.
+fn solve(bins: &[Bin], h: f64, with_baseline: bool, pinned: Option<f64>, start: Option<(f64, f64)>) -> (Model, f64) {
+    let d: Vec<f64> = bins.iter().map(|b| 0.5_f64.powf(b.age / h)).collect();
+    let (s0, baseline, loss) = fit_linear_from(bins, &d, with_baseline, pinned, start);
+    (Model { s0, baseline, half_life: h }, loss)
 }
 
 /// Fit the model to binned data. Infinite half-life when no decay fits best.
@@ -321,7 +386,7 @@ pub fn fit(bins: &[Bin], with_baseline: bool) -> Model {
     let mean = bins.iter().map(|b| b.correct * b.n as f64).sum::<f64>() / total;
     let level = pinned.unwrap_or(mean);
     let no_decay = Model { s0: level, baseline: 0.0, half_life: f64::INFINITY };
-    let no_decay_loss: f64 = bins.iter().map(|b| b.n as f64 * (b.correct - level).powi(2)).sum();
+    let no_decay_loss = neg_log_lik(bins, |_| level);
 
     let positive: Vec<f64> = bins.iter().map(|b| b.age).filter(|&a| a > 0.0).collect();
     if positive.is_empty() {
@@ -330,11 +395,14 @@ pub fn fit(bins: &[Bin], with_baseline: bool) -> Model {
     let lo_age = positive.iter().cloned().fold(f64::INFINITY, f64::min);
     let hi_age = positive.iter().cloned().fold(0.0, f64::max);
     let (mut lo, mut hi) = ((lo_age / 100.0).ln(), (hi_age * 1000.0).ln());
-    let mut best = solve(bins, lo.exp(), with_baseline, pinned);
+    let mut best = solve(bins, lo.exp(), with_baseline, pinned, None);
     for _ in 0..4 {
+        // each half-life starts from its neighbour's fit
+        let mut prev = Some((best.0.s0, best.0.baseline));
         for i in 0..=200 {
             let h = (lo + (hi - lo) * i as f64 / 200.0).exp();
-            let candidate = solve(bins, h, with_baseline, pinned);
+            let candidate = solve(bins, h, with_baseline, pinned, prev);
+            prev = Some((candidate.0.s0, candidate.0.baseline));
             if candidate.1 < best.1 {
                 best = candidate;
             }
@@ -419,10 +487,17 @@ pub(crate) fn random_ledger(truth: Model, entities: usize, max_age: f64, rng: &m
         .collect()
 }
 
+/// The canonical row order (draft, Calibration, requirement 1): by age, then
+/// entity (bytewise), then outcome (false first), so nothing depends on the
+/// order rows arrive in.
+pub(crate) fn row_order(a: &Observation, b: &Observation) -> std::cmp::Ordering {
+    a.age.total_cmp(&b.age).then_with(|| a.entity.as_bytes().cmp(b.entity.as_bytes())).then(a.correct.cmp(&b.correct))
+}
+
 /// Bin index of each observation, as `bins` would group the whole group.
 fn bin_index(group: &[&Observation]) -> (Vec<usize>, usize) {
     let mut order: Vec<usize> = (0..group.len()).collect();
-    order.sort_by(|&a, &b| group[a].age.total_cmp(&group[b].age));
+    order.sort_by(|&a, &b| row_order(group[a], group[b]));
     let mut index = vec![0; group.len()];
     let distinct: Vec<u64> = {
         let mut d: Vec<u64> = order.iter().map(|&i| group[i].age.to_bits()).collect();
@@ -612,8 +687,11 @@ fn calibrate_inner(obs: &[Observation], max_spread: f64, period: Option<f64>, ri
         )));
     }
 
+    // One canonical order for everything downstream, float sums included
+    let mut sorted: Vec<&Observation> = obs.iter().collect();
+    sorted.sort_by(|a, b| row_order(a, b));
     let mut groups: BTreeMap<Option<String>, Vec<&Observation>> = BTreeMap::new();
-    for o in obs {
+    for o in sorted {
         groups.entry(o.state.clone()).or_default().push(o);
     }
 
@@ -1421,6 +1499,56 @@ mod tests {
     }
 
     // spec: acceptance
+    // spec: calibrator
+    #[test]
+    fn test_output_does_not_depend_on_row_order() {
+        // 60 distinct ages with 50 checks each: equal-count bins cut through runs of tied ages
+        let truth = Model { s0: 0.95, baseline: 0.2, half_life: 10.0 * DAY };
+        let mut rng = Rng(21);
+        let mut obs = Vec::new();
+        for a in 0..60 {
+            for i in 0..50 {
+                let age = a as f64 * DAY;
+                obs.push(Observation { entity: format!("e{}-{}", a, i), age, correct: rng.unit() < truth.predict(age), state: None });
+            }
+        }
+        let yaml = |o: &[Observation]| registry_yaml("t", &calibrate(o).unwrap());
+        let first = yaml(&obs);
+        for seed in [1, 2, 3] {
+            // a deterministic shuffle (Fisher–Yates)
+            let mut shuffled = obs.clone();
+            let mut r = Rng(seed);
+            for i in (1..shuffled.len()).rev() {
+                shuffled.swap(i, (r.next() % (i as u64 + 1)) as usize);
+            }
+            assert_eq!(yaml(&shuffled), first, "row order changed the output (shuffle {})", seed);
+        }
+    }
+
+    // spec: calibrator, reference-procedure
+    #[test]
+    fn test_one_clock_is_the_maximum_likelihood_fit() {
+        // No small step in s0, b or h may raise the binomial likelihood of the binned checks
+        let truth = Model { s0: 0.9, baseline: 0.25, half_life: 5.0 * DAY };
+        let obs = random_ledger(truth, 4000, 30.0 * DAY, &mut Rng(31));
+        let refs: Vec<&Observation> = obs.iter().collect();
+        let b = bins(&refs);
+        let m = fit(&b, true);
+        let ll = |m: &Model| -> f64 {
+            b.iter()
+                .map(|bin| {
+                    let p = m.predict(bin.age).clamp(1e-12, 1.0 - 1e-12);
+                    bin.n as f64 * (bin.correct * p.ln() + (1.0 - bin.correct) * (1.0 - p).ln())
+                })
+                .sum()
+        };
+        let best = ll(&m);
+        for (ds0, db, dh) in [(1e-3, 0.0, 1.0), (-1e-3, 0.0, 1.0), (0.0, 1e-3, 1.0), (0.0, -1e-3, 1.0), (0.0, 0.0, 1.001), (0.0, 0.0, 0.999)] {
+            let step = Model { s0: (m.s0 + ds0).min(1.0), baseline: (m.baseline + db).max(0.0), half_life: m.half_life * dh };
+            assert!(ll(&step) <= best + 1e-6, "step {:?} raises the likelihood: {} > {} ({:?})", (ds0, db, dh), ll(&step), best, m);
+        }
+    }
+
     #[test]
     fn test_ranges_cover_the_truth() {
         // 40 independent ledgers from a known model: the 95% half-life
