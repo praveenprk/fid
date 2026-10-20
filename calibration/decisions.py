@@ -280,7 +280,9 @@ def write_ledger(path, rows, with_state):
         w.writerow(["entity", "age", "correct"] + (["state"] if with_state else []))
         n = 0
         for entity, age, correct, state in rows:
-            w.writerow([entity, f"{age:.0f}", "true" if correct else "false"] + ([state] if with_state else []))
+            # fid calibrate splits entities with the same hash as this benchmark, so every training
+            # entity would land in one of its halves; a fixed prefix gives it a split of its own
+            w.writerow([f"ledger/{entity}", f"{age:.0f}", "true" if correct else "false"] + ([state] if with_state else []))
             n += 1
     return n
 
