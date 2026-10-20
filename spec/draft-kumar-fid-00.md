@@ -688,13 +688,22 @@ The generator's seeds are free; the bounds must hold for any seeds.
 | No false richer curve | 20 ledgers of (s0 1, b 0.1, h 80 d) and 20 of (s0 0.95, b 0, h 20 d); 500 checks per days age | a richer curve kept in ≤ 3 of 40 |
 | Shape found | s0 1, b 0.03, h 180 s, k 3; 100 checks per minutes age; 20 ledgers | kept in ≥ 18 of 20 |
 | Two clocks found | s0 1, b 0.07, h 60 d, m 0.3, h_f 2 d; 500 checks per days age; 20 ledgers | kept in ≥ 18 of 20 |
-| Right curve | the two "found" truths, in every ledger where a richer curve is kept | written curve within 3 standard errors of the truth at every age, sqrt(p(1 − p)/n) with p the truth and n the checks at that age |
+| Right curve | the two "found" truths, in every ledger where a richer curve is kept | written curve within 3 standard errors of the truth at every age: sqrt(p̃(1 − p̃)/n), with n the checks at that age and p̃ = (np + 1)/(n + 2) for the truth p |
 
 The bounds for the last four tests were fixed after the reference
 implementation's results on the same truths were known: richer curve
 kept on one-clock truths in 1 of 40 ledgers, a shape in 20 of 20, two
-clocks in 20 of 20 (fid 0.4). They bind every later change. The "right
-curve" test has not yet been run in this form ({{deviations}}).
+clocks in 20 of 20 (fid 0.4). They bind every later change.
+
+The "right curve" test first used sqrt(p(1 − p)/n), which is zero where
+the truth is 0 or 1, so it demanded an exact value there. Its first run
+failed for that reason alone: in 7 of 20 shape ledgers the written s0
+was 0.984 to 0.995 against a truth of 1, and no other age missed. The
+standard error now adds one right and one wrong check, as the s0 rule
+of the reference procedure does. Results with this definition, fid 0.4
+through the full calibration path: false keeps 0 of 40; shape found in
+20 of 20, two clocks in 20 of 20; written curve right in every ledger
+where one was kept.
 
 ## Drift {#drift}
 
@@ -833,7 +842,7 @@ its test vectors first, before fid writes version 1.0.
 | 2 | Envelope reading: unknown members and versions are ignored, not answered UNKNOWN; `ext` is not recognised; a null half-life is scored as no decay; non-I-JSON content is accepted. | [#9](https://github.com/praveenprk/fid/issues/9) |
 | 3 | Durations: any Rust float literal is accepted as the number (`1e3d`, `+5d`, `.5d`, `5.d`); ISO 8601 durations are not. | [#10](https://github.com/praveenprk/fid/issues/10) |
 | 4 | Registry lookup inherits each field a state does not give from its type. | [#11](https://github.com/praveenprk/fid/issues/11) |
-| 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order; the "right curve" acceptance test and the false-keep and power bounds are not run as tests (only an ignored measurement). | [#12](https://github.com/praveenprk/fid/issues/12) |
+| 5 | Calibration: fits are least squares on bins, but richer curves are selected by a likelihood-based BIC; equal-count bins split ties in row order. | [#12](https://github.com/praveenprk/fid/issues/12) |
 | 6 | CLI: `fid measure`, `scan`, `filter` and `watch` are listed but not implemented and exit 2; `fid calibrate` exits 3 on refusal. | [#13](https://github.com/praveenprk/fid/issues/13) |
 
 Per-entity curves (each entity's own baseline and speed, shrunk toward
@@ -870,4 +879,6 @@ the option that fails closed or uses an existing standard:
 # Change Log
 
 -00: first version. Specifies envelope version 1.0; fid 0.4's
-differences are in {{deviations}}.
+differences are in {{deviations}}. Corrected during -00: the standard
+error in the "right curve" acceptance test was zero at a truth of 0 or
+1 ({{acceptance}}).
