@@ -1,5 +1,10 @@
 # Conformance
 
+> The normative definition of fid is now the draft in
+> [`spec/draft-kumar-fid-00.md`](../spec/draft-kumar-fid-00.md). This page
+> describes the vectors as fid 0.4 computes them; where the two differ, the
+> draft's Appendix *Deviations* names the issue that brings fid in line.
+
 What any implementation of fid's scoring must compute, and test vectors
 to prove it. Use this if you port the formula — into Cypher, SQL, plain
 Python, JavaScript — instead of calling fid.
@@ -13,7 +18,7 @@ Python, JavaScript — instead of calling fid.
 fid's Rust tests (`tests/conformance.rs`) and Python tests
 (`bindings/python/tests/test_conformance.py`) run every vector, so fid
 and `generate.py` have to agree. CI regenerates the file and fails if it
-changes. Change the spec here, then `generate.py`, then fid.
+changes. Change the draft, then `generate.py`, then fid.
 
 Floating-point results must match within `tolerance` (1e-9); durations
 within 1e-6 s.

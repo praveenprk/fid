@@ -1,6 +1,6 @@
 # fid specification
 
-`draft-fid-00.md` is fid written as an Internet-Draft, in kramdown-rfc
+`draft-kumar-fid-00.md` is fid written as an Internet-Draft, in kramdown-rfc
 markdown, the IETF's source format. It is the normative definition of
 fid; the code implements it.
 
@@ -24,8 +24,8 @@ that is judged by it.
 ```sh
 gem install kramdown-rfc
 pip install xml2rfc
-kramdown-rfc draft-fid-00.md > draft-fid-00.xml
-xml2rfc --text --html draft-fid-00.xml
+kramdown-rfc draft-kumar-fid-00.md > draft-kumar-fid-00.xml
+xml2rfc --text --html draft-kumar-fid-00.xml
 ```
 
 kramdown-rfc fetches references from bib.ietf.org; set
