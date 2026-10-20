@@ -600,13 +600,35 @@ fn fit_state(state: Option<String>, group: &[&Observation], max_spread: f64, per
     // does not inform s0
     let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh_age(&model)).map(|b| b.n).sum();
     let echo = period.map(|p| crate::echo::test_echo(group, &train, &test, p));
-    let fast = crate::fast::test_fast(group, &train, &test, uses_baseline);
-    // The ranges, and the refusal, are for the curve the registry gets: two clocks when the
-    // fast share is kept (and no echo is), else one
-    let fast_written = fast.kept && !echo.as_ref().is_some_and(|e| e.kept);
-    let uncertainty = if fast_written { bootstrap_fast(group, uses_baseline) } else { bootstrap(group, uses_baseline) };
+    let mut fast = crate::fast::test_fast(group, &train, &test, uses_baseline);
     let max_age = group.iter().map(|o| o.age).fold(0.0, f64::max);
-    let spread = spread(&uncertainty.half_life, max_age);
+    // The ranges, and the refusal, are for the curve the registry gets: two clocks when the
+    // fast share is kept (and no echo is), else one. Two clocks too uncertain to write fall
+    // back to one
+    let mut written = None;
+    if fast.kept && !echo.as_ref().is_some_and(|e| e.kept) {
+        let u = bootstrap_fast(group, uses_baseline);
+        let s = spread(&u.half_life, max_age);
+        if s <= max_spread {
+            written = Some((u, s));
+        } else {
+            fast.kept = false;
+            fast.too_uncertain = Some(format!(
+                "its slow half-life ranges {} to {} (×{:.1})",
+                format_half_life(u.half_life.lo),
+                format_half_life(u.half_life.hi),
+                s
+            ));
+        }
+    }
+    let (uncertainty, spread) = match written {
+        Some(w) => w,
+        None => {
+            let u = bootstrap(group, uses_baseline);
+            let s = spread(&u.half_life, max_age);
+            (u, s)
+        }
+    };
     if spread > max_spread {
         return Err(format!(
             "{}: half-life too uncertain: 95% range {} to {} (×{:.1}; limit ×{}). Re-check more entities, \
@@ -1059,10 +1081,11 @@ pub fn report(info_type: &str, fits: &[StateFit]) -> String {
             fast.brier_plain,
             fast.gap_fast,
             fast.gap_plain,
-            match (fast.kept, f.kept_echo().is_some()) {
-                (true, true) => "→ fast share passed, but the echo is kept",
-                (true, false) => "→ fast share kept",
-                _ => "→ not kept (needs a 0.1% better Brier and a smaller gap)",
+            match (fast.kept, f.kept_echo().is_some(), &fast.too_uncertain) {
+                (true, true, _) => "→ fast share passed, but the echo is kept".to_string(),
+                (true, false, _) => "→ fast share kept".to_string(),
+                (false, _, Some(why)) => format!("→ passed on held-out data but not written: {}; one clock instead", why),
+                _ => "→ not kept (needs a 0.1% better Brier and a smaller gap)".to_string(),
             }
         ));
         lines.push(format!("  {:<10} {:>8} {:>8} {:>9}", "age", "correct", "model", "n"));

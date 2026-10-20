@@ -164,6 +164,10 @@ class Curves(unittest.TestCase):
         self.assertEqual(dc.verdict({"ratio": 1.0, "low": 0.9, "high": 1.1}), "tie")
         self.assertEqual(dc.verdict({"ratio": 1.5, "low": 1.2, "high": 1.8}), "fid worse")
         self.assertEqual(dc.verdict({"ratio": None, "low": None, "high": None}), "not reached")
+        # no loss: not significantly worse, and within 5%
+        self.assertEqual(dc.verdict({"ratio": 1.01, "low": 0.9, "high": 1.12}, no_loss=True), "no loss")
+        self.assertEqual(dc.verdict({"ratio": 1.08, "low": 0.97, "high": 1.2}, no_loss=True), "loss")
+        self.assertEqual(dc.verdict({"ratio": 1.03, "low": 1.01, "high": 1.05}, no_loss=True), "loss")
 
 
 class Ledger(unittest.TestCase):
@@ -186,10 +190,13 @@ class Ledger(unittest.TestCase):
         self.assertEqual(halves, {True, False})
 
     def test_history_split(self):
-        e = dc.Series("g", 60.0, list(range(100)), lambda a, b: a == b)
+        e = dc.Series("g", 3600.0, list(range(1000)), lambda a, b: a == b)
         h, rest = dc.history_split(e)
-        self.assertEqual((len(h.values), len(rest.values)), (25, 75))
-        self.assertEqual(rest.values[0], 25)
+        # a quarter, then up to a day more, to start at the entity's own hour
+        self.assertTrue(250 <= len(h.values) < 274)
+        self.assertEqual(len(h.values) + len(rest.values), 1000)
+        self.assertEqual(rest.values[0], len(h.values))
+        self.assertEqual(len(dc.history_split(e)[0].values), len(h.values))  # the same every time
         c = dc.Changes("g", [0.0, 50.0], ["a", "b"], 0.0, 100.0)
         h, rest = dc.history_split(c)
         self.assertEqual((h.start, h.end, rest.start, rest.end), (0.0, 25.0, 25.0, 100.0))
