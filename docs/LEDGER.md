@@ -98,13 +98,9 @@ read as a fast curve, not as a source that is wrong when fresh.
 
 ## Baselines per entity
 
-`--entity-baselines out.csv` writes each entity's baseline, shrunk
-toward the state's own by how much history the entity has. Use it only
-for facts a stale value can still get right by chance: a reading, a
-category, a demand figure near yesterday's. Do not use it for facts that
-change and stay changed (a position, a version, a label): an entity
-that has not changed yet gets a baseline near 1, and is then never
-re-checked.
+Not available yet. Each entity's own baseline and speed are specified
+in the draft before any code merges
+([#14](https://github.com/praveenprk/fid/issues/14)).
 
 ## Choosing when to re-check
 
