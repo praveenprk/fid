@@ -1,0 +1,11 @@
+# Plans
+
+Working plans, kept for the record. A plan is not a decision or a spec:
+decisions live in docs/DECISIONS.md, behaviour in spec/draft-kumar-fid-00.md,
+and open work in GitHub issues. One row per plan. Newest first.
+
+| Date | Plan | Status | File |
+|------|------|--------|------|
+| 2026-10-18 | Where fid is, in plain language, and what comes next (cloud session) | Archived. Its spec and conformance steps landed in #7 (#15, #17). Open items are tracked as issues. Not re-checked item by item. | [2026-10-18-cloud-session.md](2026-10-18-cloud-session.md) |
+
+Status values: `Active`, `Done`, `Archived`, `Superseded by <file>`.

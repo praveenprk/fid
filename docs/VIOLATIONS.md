@@ -17,7 +17,7 @@
 
 | ID | Standard | Severity (proposed) | Status |
 |----|----------|---------------------|--------|
-| V-ENG-002-01 | ENG-STD-002 §1.1 | CRITICAL | OPEN |
+| V-ENG-002-01 | ENG-STD-002 §1.1 | CRITICAL | RESOLVED (forward only) |
 | V-ENG-004-01 | ENG-STD-004 §6.1 | CRITICAL | OPEN |
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | CRITICAL | PARTIALLY_RESOLVED |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | CRITICAL | PARTIALLY_RESOLVED |
@@ -30,9 +30,9 @@ SPEC says : ENG-STD-002 §1.1 — "All work passes through five gates, in order.
 Code does : fid ships stamp, check, chain, ttl, calibrate and drift (src/main.rs, `enum Commands`), released as fidmeter 0.1.0 and 0.1.1 (tags v0.1.0, v0.1.1). No RFC or SPEC exists at bff71b4: `git ls-tree -r --name-only bff71b4 | grep -iE 'rfc|spec'` prints nothing. conformance/README.md specifies the scoring formula, with test vectors, but has no RFC, no INV ids, and no RFC 2119 keywords: `grep -cE '\b(MUST|SHOULD|MAY)\b' conformance/README.md` → 0. MILESTONE.md and docs/DISCOVERY.md describe intent but are not gated specs.
 Severity  : CRITICAL (proposed). A MUST is broken now, and §4.1 names CRITICAL for this case.
 Impact    : The tests (tests/*.rs, bindings/python/tests) have no SPEC invariants to trace to. A change in behaviour cannot be checked against a contract.
-Fix       : Backfill (ENG-STD-002 §4.1): write an RFC and a SPEC that describe what was actually built, then map the existing tests to INV ids. Open PR #15 ("Spec draft-kumar-fid-00, and CI that enforces it") is not merged, and whether it closes this gap is for the governor to decide.
+Fix       : Backfill (ENG-STD-002 §4.1). Done in #7 (main c3768e1): spec/draft-kumar-fid-00.md describes what was built and is fid's RFC and SPEC (DECISION-001). Every section with MUST, SHOULD, SHALL or REQUIRED is tested or listed as a gap with an issue: spec/traceability.py, 31 sections, spec/TRACEABILITY.md. CI fails if any is untraced, and `spec-ref` requires behaviour changes to cite the draft. Code the draft does not specify was taken out before merge (#19, per-entity baselines, #14).
 When      : Before the next feature.
-Status    : OPEN
+Status    : RESOLVED — 2026-11-15, c3768e1 (#7). Forward only: releases v0.1.0 and v0.1.1 shipped before the gate.
 Anchor    : DECISION-001
 
 ### V-ENG-004-01
@@ -50,9 +50,9 @@ SPEC says : ENG-STD-005 §1.3 — "Every commit MUST carry at least one anchor t
 Code does : None of the 43 non-merge commits up to bff71b4 carries an anchor (`git log --no-merges --format=%s bff71b4`), e.g. fe44784 "fid: stamp and check commands, fidelity envelope". 20 non-merge commits went straight to main, the last being 2d30e81 on 2026-10-18 (`git log --first-parent --no-merges bff71b4`). No hooks were installed. GitHub ruleset `main-branch-integrity` (deletion, non_fast_forward, pull_request) has been active since 2026-10-20 (`gh api repos/praveenprk/fid/rulesets/25491223`).
 Severity  : CRITICAL (proposed). §1.3 is broken for every commit before adoption.
 Impact    : No machine can trace the reasons for changes made before adoption.
-Fix       : Vendor the eng-principles hooks into scripts/hooks/ with fid's anchors policy (this change). Host protection is already in place. History is not rewritten (append-only).
+Fix       : The `commit-check` workflow (scripts/commit_check.py) checks the PR title and every commit a PR brings to main: format and resolving anchors (DECISION-001). The ruleset requires it once this change is on main. Host protection is already in place. History is not rewritten (append-only). The 33 commits of #7, rebased onto main on 2026-11-15 before this check existed, are free-form like the rest of the history before adoption.
 When      : This change.
-Status    : PARTIALLY_RESOLVED — 2026-11-15, adoption change on branch chore/DECISION-001-adopt-eng-principles. Forward only: it takes effect on merge, and commits before it remain unanchored.
+Status    : PARTIALLY_RESOLVED — 2026-11-16, adoption change on branch chore/DECISION-001-adopt-eng-principles. Forward only: it takes effect when the ruleset requires `commit-check`, and commits before it remain unanchored.
 Anchor    : DECISION-001
 
 ### V-ENG-005-02
@@ -60,9 +60,9 @@ SPEC says : ENG-STD-005 §1.4 — "Commits MUST NOT carry AI co-author or attrib
 Code does : 23 commit messages up to bff71b4 carry a Co-authored-by line (`git log --format=%B bff71b4 | grep -ciE 'co-authored-by'` → 23), e.g. 4ce9c3a, 34f87d0, f369c37 (`Co-authored-by: Claude …`).
 Severity  : CRITICAL (proposed). A MUST NOT is broken in 23 commits.
 Impact    : The record shows an automated co-author where accountability must rest with the human who signs (ENG-P-11).
-Fix       : scripts/hooks/commit-msg refuses any co-authored-by line (this change). History is not rewritten.
+Fix       : The `commit-check` workflow refuses a co-author or tool attribution line in any commit a PR brings to main and in the PR description, which a squash merge turns into the commit body (this change). PR descriptions written by an automated contributor end with `Session-Id: <id>` instead (AGENTS.md). History is not rewritten.
 When      : This change.
-Status    : PARTIALLY_RESOLVED — 2026-11-15, adoption change on branch chore/DECISION-001-adopt-eng-principles. Forward only: it takes effect on merge, and the 23 commits remain as they are.
+Status    : PARTIALLY_RESOLVED — 2026-11-16, adoption change on branch chore/DECISION-001-adopt-eng-principles. Forward only: it takes effect when the ruleset requires `commit-check`, and the 23 commits remain as they are.
 Anchor    : DECISION-001
 
 ### V-ENG-006-01
