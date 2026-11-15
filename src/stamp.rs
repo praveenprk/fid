@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::compute::parse_half_life;
 use crate::registry::check_unit;
-use crate::envelope::{integrity_hash, FidEnvelope, SourceClass, Stamped, TransformStep, FID_VERSION};
+use crate::envelope::{integrity_for, not_ijson, FidEnvelope, Read, SourceClass, Stamped, TransformStep, FID_VERSION};
 
 /// Options for a single stamp.
 #[derive(Debug, Clone)]
@@ -29,6 +29,10 @@ pub struct StampOptions {
     pub source_fidelity: Option<f64>,
     /// Periodic return; overrides any inherited echo
     pub echo: Option<crate::compute::Echo>,
+    /// Fast share; overrides any inherited fast share
+    pub fast: Option<crate::compute::Fast>,
+    /// Shape of the clocks; overrides any inherited shape
+    pub shape: Option<f64>,
     /// Information type (e.g. "vessel_position"); overrides any inherited type
     pub info_type: Option<String>,
     /// State of the observed thing (e.g. "underway"); overrides any inherited state
@@ -37,6 +41,28 @@ pub struct StampOptions {
     pub condition: Option<String>,
     /// Path to the upstream fid-stamped artifact, recorded as given
     pub derived_from: Option<String>,
+}
+
+impl StampOptions {
+    /// Options for `source` with nothing else given: an unknown source class,
+    /// no noise, no decay values (fill in what is known).
+    pub fn new(source: &str) -> StampOptions {
+        StampOptions {
+            source: source.to_string(),
+            source_class: None,
+            noise: 0.0,
+            half_life: None,
+            baseline: None,
+            source_fidelity: None,
+            echo: None,
+            fast: None,
+            shape: None,
+            info_type: None,
+            state: None,
+            condition: None,
+            derived_from: None,
+        }
+    }
 }
 
 /// Result of a stamp: the artifact plus any warnings for stderr.
@@ -53,11 +79,12 @@ pub struct StampOutput {
 /// a malformed envelope is an error, never silently re-rooted.
 pub fn parse_input(input: &str) -> Result<(Value, Option<FidEnvelope>), String> {
     match serde_json::from_str::<Value>(input) {
-        Ok(Value::Object(map)) if map.contains_key("fid") => {
-            let stamped: Stamped = serde_json::from_value(Value::Object(map))
-                .map_err(|e| format!("input has a 'fid' key but is not a valid fid-stamped artifact: {}", e))?;
-            Ok((stamped.content, Some(stamped.fid)))
-        }
+        Ok(Value::Object(map)) if map.contains_key("fid") => match crate::envelope::read_value(Value::Object(map)) {
+            Ok(Read::Understood(stamped)) => Ok((stamped.content, Some(stamped.fid))),
+            // A writer cannot carry forward fields it does not know
+            Ok(Read::NotUnderstood(why)) => Err(format!("cannot derive from this fid-stamped artifact: {}", why)),
+            Err(e) => Err(format!("input has a 'fid' key but is not a valid fid-stamped artifact: {}", e)),
+        },
         Ok(value) => Ok((value, None)),
         Err(_) => Ok((Value::String(input.to_string()), None)),
     }
@@ -82,6 +109,12 @@ pub fn stamp(
     if let Some(e) = &opts.echo {
         e.params()?;
     }
+    if let Some(f) = &opts.fast {
+        f.params()?;
+    }
+    if let Some(k) = opts.shape {
+        crate::compute::check_shape(k)?;
+    }
     if let Some(b) = opts.baseline {
         check_unit(b, "baseline")?;
     }
@@ -91,6 +124,9 @@ pub fn stamp(
 
     let mut warnings = Vec::new();
     let (content, upstream_stdin) = parse_input(input)?;
+    if let Some(why) = not_ijson(&content) {
+        return Err(format!("content is not I-JSON (RFC 7493): {}; write it as a string", why));
+    }
 
     if upstream_stdin.is_some() && upstream_file.is_some() {
         warnings.push("input is already stamped; using its envelope, not --derived-from".to_string());
@@ -126,6 +162,12 @@ pub fn stamp(
             if opts.echo.is_some() {
                 upstream.echo = opts.echo.clone();
             }
+            if opts.fast.is_some() {
+                upstream.fast = opts.fast.clone();
+            }
+            if opts.shape.is_some() {
+                upstream.shape = opts.shape;
+            }
             if opts.info_type.is_some() {
                 upstream.info_type = opts.info_type.clone();
             }
@@ -149,7 +191,10 @@ pub fn stamp(
                 half_life: opts.half_life.clone(),
                 baseline: opts.baseline,
                 source_fidelity: opts.source_fidelity,
+                ext: None,
                 echo: opts.echo.clone(),
+                fast: opts.fast.clone(),
+                shape: opts.shape,
                 info_type: opts.info_type.clone(),
                 state: opts.state.clone(),
                 // A lossless root has no transform step, unless it records a condition
@@ -161,8 +206,15 @@ pub fn stamp(
         }
     };
 
+    if envelope.half_life.is_none() {
+        warnings.push(
+            "no half-life: the decay is unknown, so checks of this artifact answer UNKNOWN; \
+             give --half-life (\"infinite\" for a fact that does not decay) or --half-lives with --type"
+                .to_string(),
+        );
+    }
     envelope.fid_version = FID_VERSION.to_string();
-    envelope.integrity = integrity_hash(&content);
+    envelope.integrity = integrity_for(FID_VERSION, &content);
     envelope.fid_at_stamp = envelope.fidelity_at(now)?;
 
     Ok(StampOutput {
@@ -181,25 +233,29 @@ mod tests {
     }
 
     fn opts(source: &str) -> StampOptions {
-        StampOptions {
-            source: source.to_string(),
-            source_class: None,
-            noise: 0.0,
-            half_life: None,
-            baseline: None,
-            source_fidelity: None,
-            echo: None,
-            info_type: None,
-            state: None,
-            condition: None,
-            derived_from: None,
-        }
+        StampOptions::new(source)
+    }
+
+    // spec: stamping
+    #[test]
+    fn test_fast_share_is_stamped_and_inherited() {
+        let mut o = opts("pypi");
+        o.source_class = Some(SourceClass::Instrument);
+        o.half_life = Some("80d".into());
+        o.fast = Some(crate::compute::Fast { share: 0.3, half_life: "3d".into() });
+        let root = stamp("{}", &o, None, t0()).unwrap();
+        assert_eq!(root.stamped.fid.fast, o.fast);
+        let again = stamp(&to_json(&root), &opts("copy"), None, t0() + Duration::hours(1)).unwrap();
+        assert_eq!(again.stamped.fid.fast, o.fast);
+        o.fast = Some(crate::compute::Fast { share: 2.0, half_life: "3d".into() });
+        assert!(stamp("{}", &o, None, t0()).unwrap_err().contains("share"));
     }
 
     fn to_json(out: &StampOutput) -> String {
         serde_json::to_string(&out.stamped).unwrap()
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_json_content() {
         let o = StampOptions {
@@ -215,21 +271,24 @@ mod tests {
         assert_eq!(env.measured_at, t0());
         assert!(env.transforms.is_empty());
         assert_eq!(env.fid_at_stamp, Some(0.97));
-        assert_eq!(env.integrity, integrity_hash(&out.stamped.content));
+        assert_eq!(env.integrity, integrity_for(FID_VERSION, &out.stamped.content));
         assert!(out.warnings.is_empty());
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_text_content_is_string() {
         let out = stamp("hello\n", &opts("x"), None, t0()).unwrap();
         assert_eq!(out.stamped.content, Value::String("hello\n".to_string()));
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_with_noise_records_step() {
         let o = StampOptions {
             source_class: Some(SourceClass::Database),
             noise: 0.10,
+            half_life: Some("infinite".into()),
             ..opts("transform.py")
         };
         let out = stamp("{}", &o, None, t0()).unwrap();
@@ -239,6 +298,7 @@ mod tests {
         assert!((f - 0.90 * 0.90).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_root_stamp_unknown_source_is_indeterminate() {
         let out = stamp("{}", &opts("mystery"), None, t0()).unwrap();
@@ -246,6 +306,7 @@ mod tests {
         assert_eq!(out.stamped.fid.fid_at_stamp, None);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_appends_to_chain() {
         let root = StampOptions {
@@ -272,15 +333,17 @@ mod tests {
         assert!((f - 0.97 * 0.5 * 0.90).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_ignores_source_class_with_warning() {
-        let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Instrument), ..opts("s") }, None, t0()).unwrap();
+        let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Instrument), half_life: Some("1d".into()), ..opts("s") }, None, t0()).unwrap();
         let o = StampOptions { source_class: Some(SourceClass::Hearsay), ..opts("step") };
         let second = stamp(&to_json(&first), &o, None, t0()).unwrap();
         assert_eq!(second.stamped.fid.source_class, SourceClass::Instrument);
         assert_eq!(second.warnings.len(), 1);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_half_life_override() {
         let first = stamp("{}", &StampOptions { half_life: Some("1d".into()), ..opts("s") }, None, t0()).unwrap();
@@ -289,6 +352,7 @@ mod tests {
         assert_eq!(second.stamped.fid.half_life.as_deref(), Some("1y"));
     }
 
+    // spec: stamping
     #[test]
     fn test_derived_from_file_is_upstream() {
         let upstream = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("db") }, None, t0()).unwrap();
@@ -305,21 +369,48 @@ mod tests {
         assert_eq!(out.stamped.content, Value::String("plain text".into()));
     }
 
+    // spec: stamping
     #[test]
     fn test_stdin_envelope_beats_derived_from() {
-        let a = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("a") }, None, t0()).unwrap();
+        let a = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), half_life: Some("1y".into()), ..opts("a") }, None, t0()).unwrap();
         let b = stamp("{}", &StampOptions { source_class: Some(SourceClass::Hearsay), ..opts("b") }, None, t0()).unwrap();
         let out = stamp(&to_json(&a), &opts("step"), Some(b.stamped.fid), t0()).unwrap();
         assert_eq!(out.stamped.fid.source_id, "a");
         assert_eq!(out.warnings.len(), 1);
     }
 
+    // spec: stamping, versioning
+    #[test]
+    fn test_no_half_life_warns() {
+        let out = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("crm") }, None, t0()).unwrap();
+        assert_eq!(out.stamped.fid.half_life, None);
+        assert_eq!(out.stamped.fid.fid_at_stamp, None);
+        assert!(out.warnings.iter().any(|w| w.contains("no half-life")), "{:?}", out.warnings);
+    }
+
+    // spec: stamping, versioning
+    #[test]
+    fn test_cannot_derive_from_an_envelope_not_understood() {
+        let newer = r#"{"fid": {"fid_version": "2.0", "anything": 1}, "content": 1}"#;
+        assert!(stamp(newer, &opts("x"), None, t0()).unwrap_err().contains("cannot derive"));
+    }
+
+    // spec: stamping, structure
+    #[test]
+    fn test_content_beyond_ijson_is_refused() {
+        let o = StampOptions { source_class: Some(SourceClass::Database), half_life: Some("1d".into()), ..opts("x") };
+        assert!(stamp(r#"{"id": 9007199254740993}"#, &o, None, t0()).unwrap_err().contains("I-JSON"));
+        assert!(stamp(r#"{"id": 9007199254740992}"#, &o, None, t0()).is_ok());
+    }
+
+    // spec: stamping
     #[test]
     fn test_malformed_envelope_is_error() {
         let err = stamp(r#"{"fid": {"oops": 1}, "content": 1}"#, &opts("x"), None, t0()).unwrap_err();
         assert!(err.contains("not a valid fid-stamped artifact"));
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_noise_is_error() {
         for noise in [-0.1, 1.5, f64::NAN] {
@@ -327,12 +418,14 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_half_life_is_error() {
         let o = StampOptions { half_life: Some("7days".into()), ..opts("x") };
         assert!(stamp("{}", &o, None, t0()).is_err());
     }
 
+    // spec: stamping
     #[test]
     fn test_root_records_type_state_baseline() {
         let o = StampOptions {
@@ -350,6 +443,7 @@ mod tests {
         assert_eq!(env.state.as_deref(), Some("vfr"));
     }
 
+    // spec: stamping
     #[test]
     fn test_baseline_slows_decay_at_stamp() {
         let root = StampOptions {
@@ -364,6 +458,7 @@ mod tests {
         assert!((later.stamped.fid.fid_at_stamp.unwrap() - 0.80).abs() < 1e-10);
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_inherits_and_overrides_state() {
         let root = StampOptions { state: Some("underway".into()), baseline: Some(0.1), ..opts("ais") };
@@ -376,6 +471,7 @@ mod tests {
         assert_eq!(second.stamped.fid.state.as_deref(), Some("moored"));
     }
 
+    // spec: stamping
     #[test]
     fn test_condition_recorded_on_step() {
         let first = stamp("{}", &StampOptions { source_class: Some(SourceClass::Database), ..opts("schedule") }, None, t0()).unwrap();
@@ -384,11 +480,13 @@ mod tests {
         assert_eq!(second.stamped.fid.transforms[0].condition.as_deref(), Some("previous_leg_late"));
     }
 
+    // spec: stamping
     #[test]
     fn test_root_records_measured_source_fidelity() {
         let o = StampOptions {
             source_class: Some(SourceClass::Database),
             source_fidelity: Some(0.62),
+            half_life: Some("infinite".into()),
             ..opts("crm")
         };
         let out = stamp("{}", &o, None, t0()).unwrap();
@@ -397,9 +495,10 @@ mod tests {
         assert!(out.warnings.is_empty());
     }
 
+    // spec: stamping
     #[test]
     fn test_restamp_keeps_upstream_source_fidelity() {
-        let root = StampOptions { source_class: Some(SourceClass::Database), source_fidelity: Some(0.62), ..opts("crm") };
+        let root = StampOptions { source_class: Some(SourceClass::Database), source_fidelity: Some(0.62), half_life: Some("90d".into()), ..opts("crm") };
         let first = stamp("{}", &root, None, t0()).unwrap();
         let same = StampOptions { source_fidelity: Some(0.62), ..opts("step") };
         let kept = stamp(&to_json(&first), &same, None, t0()).unwrap();
@@ -411,6 +510,7 @@ mod tests {
         assert_eq!(ignored.warnings.len(), 1);
     }
 
+    // spec: stamping
     #[test]
     fn test_measured_source_fidelity_with_unknown_class_warns() {
         let o = StampOptions { source_fidelity: Some(0.9), ..opts("x") };
@@ -419,6 +519,7 @@ mod tests {
         assert!(out.warnings[0].contains("source class is unknown"));
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_source_fidelity_is_error() {
         for f in [-0.1, 1.1, f64::NAN] {
@@ -427,6 +528,7 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_invalid_baseline_is_error() {
         for baseline in [-0.1, 1.1, f64::NAN] {
@@ -435,13 +537,14 @@ mod tests {
         }
     }
 
+    // spec: stamping
     #[test]
     fn test_integrity_tracks_new_content() {
         let first = stamp(r#"{"v": 1}"#, &opts("s"), None, t0()).unwrap();
         let mut changed = first.stamped.clone();
         changed.content = serde_json::json!({"v": 2});
         let second = stamp(&serde_json::to_string(&changed).unwrap(), &opts("step"), None, t0()).unwrap();
-        assert_eq!(second.stamped.fid.integrity, integrity_hash(&serde_json::json!({"v": 2})));
+        assert_eq!(second.stamped.fid.integrity, integrity_for(FID_VERSION, &serde_json::json!({"v": 2})));
         assert_ne!(second.stamped.fid.integrity, first.stamped.fid.integrity);
     }
 }

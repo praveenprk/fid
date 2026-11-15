@@ -91,7 +91,7 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
     if max_spread.is_nan() || max_spread < 1.0 {
         return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
     }
-    let fits = calibrate::calibrate_with(obs, f64::INFINITY)?;
+    let fits = calibrate::calibrate_one_clock(obs, f64::INFINITY)?;
 
     let mut groups: BTreeMap<Option<String>, Vec<&Observation>> = BTreeMap::new();
     for o in obs {
@@ -102,6 +102,14 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
         .zip(fits)
         .map(|(group, recent)| {
             let spec = registry.lookup(info_type, recent.state.as_deref())?;
+            if spec.fast.is_some() || spec.shape.is_some() {
+                // The test compares plain decay curves; a fast share or shape would be dropped silently
+                return Err(format!(
+                    "'{}'{} has a fast share or a shape: drift tests plain decay only; refit with fid calibrate instead",
+                    info_type,
+                    recent.state.as_deref().map(|s| format!(" state '{}'", s)).unwrap_or_default()
+                ));
+            }
             let registered = Registered {
                 half_life: parse_half_life(&spec.half_life)?.unwrap_or(f64::INFINITY),
                 baseline: spec.baseline.unwrap_or(0.0),
@@ -318,6 +326,7 @@ mod tests {
         (current, drifted, unknown)
     }
 
+    // spec: drift
     #[test]
     fn test_unchanged_decay_is_mostly_current() {
         // Registry equals the truth: drift is a false alarm
@@ -328,6 +337,16 @@ mod tests {
         assert!(current >= 25, "current in {} of 30 ({} unknown)", current, unknown);
     }
 
+    // spec: drift
+    #[test]
+    fn test_fast_share_is_refused_not_dropped() {
+        let mut rng = Rng(5);
+        let obs = random_ledger(Model { s0: 1.0, baseline: 0.1, half_life: 10.0 * DAY }, 200, 60.0 * DAY, &mut rng);
+        let reg = registry("t: { half_life: 10d, baseline: 0.1, fast: { share: 0.2, half_life: 1d } }");
+        assert!(drift(&obs, &reg, "t", calibrate::MAX_SPREAD).unwrap_err().contains("fast share"));
+    }
+
+    // spec: drift
     #[test]
     fn test_halved_half_life_is_drift() {
         let truth = Model { s0: 0.95, baseline: 0.3, half_life: 5.0 * DAY };
@@ -336,6 +355,7 @@ mod tests {
         assert!(drifted >= 27, "detected in {} of 30", drifted);
     }
 
+    // spec: drift
     #[test]
     fn test_moved_baseline_is_drift() {
         let truth = Model { s0: 0.95, baseline: 0.5, half_life: 10.0 * DAY };
@@ -344,6 +364,7 @@ mod tests {
         assert!(drifted >= 27, "detected in {} of 30", drifted);
     }
 
+    // spec: drift
     #[test]
     fn test_worse_source_is_drift() {
         let truth = Model { s0: 0.80, baseline: 0.3, half_life: 10.0 * DAY };
@@ -355,6 +376,7 @@ mod tests {
         assert!(report("t", &drifts, 2.5).contains("recalibrate"));
     }
 
+    // spec: drift
     #[test]
     fn test_few_recent_checks_is_unknown() {
         let truth = Model { s0: 0.95, baseline: 0.0, half_life: 6.0 * DAY };
@@ -365,6 +387,7 @@ mod tests {
         assert!(report("t", &d, 2.5).contains("too few recent checks"));
     }
 
+    // spec: drift
     #[test]
     fn test_no_decay_matches_infinite() {
         let truth = Model { s0: 0.9, baseline: 0.0, half_life: f64::INFINITY };
@@ -382,6 +405,7 @@ mod tests {
         assert_eq!(chi2_survival(0.0, 3), 1.0);
     }
 
+    // spec: drift
     #[test]
     fn test_states_and_registry_errors() {
         let mut rng = Rng(5);

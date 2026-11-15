@@ -11,9 +11,9 @@ use fid::calibrate;
 use fid::check::assess;
 use fid::compute::{
     apply_decay, parse_duration, parse_half_life, temporal_factor, time_to_floor, time_to_floor_echo, total_fidelity,
-    transform_factor, Echo, TimeToFloor,
+    transform_factor, Curve, Echo, Fast, Recheck, TimeToFloor,
 };
-use fid::envelope::{integrity_hash, Expiry, FidStatus, SourceClass, Stamped};
+use fid::envelope::{integrity_hash, Expiry, FidStatus, SourceClass};
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -145,6 +145,80 @@ fn echoes() {
     }
 }
 
+/// The case's curve: half-life, fast share and echo (each may be null).
+fn case_curve(c: &Value) -> Curve {
+    let fast: Option<Fast> = serde_json::from_value(c["fast"].clone()).unwrap();
+    let echo: Option<Echo> = serde_json::from_value(c["echo"].clone()).unwrap();
+    let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+    fid::compute::curve(h.as_deref(), fast.as_ref(), echo.as_ref(), c["shape"].as_f64()).unwrap()
+}
+
+#[test]
+fn fast_shares() {
+    let v = vectors();
+    let tol = v["tolerance"].as_f64().unwrap();
+    for c in cases(&v, "fast") {
+        let got = apply_decay(
+            c["fidelity_at_measurement"].as_f64().unwrap(),
+            case_curve(c).temporal(c["age_seconds"].as_f64().unwrap()),
+            c["baseline"].as_f64().unwrap(),
+        );
+        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+    }
+    for c in cases(&v, "fast_time_to_floor") {
+        let name = c["name"].as_str().unwrap();
+        let got = case_curve(c).time_to_floor(
+            c["fidelity"].as_f64().unwrap(),
+            c["baseline"].as_f64().unwrap(),
+            c["floor"].as_f64().unwrap(),
+        );
+        match (got, c["seconds"].as_f64()) {
+            (TimeToFloor::After(s), Some(want)) => close(s, want, 1e-6, name),
+            (TimeToFloor::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+    for c in cases(&v, "shape_errors") {
+        let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+        assert!(fid::compute::curve(h.as_deref(), None, None, c["shape"].as_f64()).is_err(), "{}", c["error"]);
+    }
+    for c in cases(&v, "fast_errors") {
+        let fast: Fast = serde_json::from_value(c["fast"].clone()).unwrap();
+        let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
+        assert!(fid::compute::curve(h.as_deref(), Some(&fast), None, None).is_err(), "{}", c["error"]);
+    }
+}
+
+#[test]
+fn schedules() {
+    let v = vectors();
+    for c in cases(&v, "schedule") {
+        let name = c["name"].as_str().unwrap();
+        let curve = case_curve(c);
+        let (f, b, price) = (c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["price"].as_f64().unwrap());
+        let cost = |t: f64| curve.mean_staleness(f, b, t) + price * 86_400.0 / t;
+        match (fid::compute::best_interval(&curve, f, b, price).unwrap(), c["seconds"].as_f64()) {
+            (Recheck::Every(t), Some(want)) => {
+                // The same staleness at the spec's interval, and fid's interval at least as cheap
+                close(cost(want), c["cost"].as_f64().unwrap(), 1e-7, name);
+                assert!(cost(t) <= c["cost"].as_f64().unwrap() + 1e-7, "{}: {} at {} vs {} at {}", name, cost(t), t, c["cost"], want);
+            }
+            (Recheck::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+    for c in cases(&v, "staleness_target") {
+        let name = c["name"].as_str().unwrap();
+        let curve = case_curve(c);
+        let got = fid::compute::interval_for_staleness(&curve, c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["target"].as_f64().unwrap()).unwrap();
+        match (got, c["seconds"].as_f64()) {
+            (Recheck::Every(t), Some(want)) => assert!((t / want - 1.0).abs() < 1e-6, "{}: {} vs {}", name, t, want),
+            (Recheck::Never, None) => {}
+            (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+        }
+    }
+}
+
 #[test]
 fn integrity() {
     let v = vectors();
@@ -155,13 +229,42 @@ fn integrity() {
 }
 
 #[test]
+fn integrity_jcs() {
+    let v = vectors();
+    for c in cases(&v, "integrity_jcs") {
+        assert_eq!(fid::jcs::canonical(&c["content"]), c["canonical"].as_str().unwrap());
+        assert_eq!(fid::envelope::integrity_for("1.0", &c["content"]), c["hash"].as_str().unwrap(), "{}", c["content"]);
+    }
+}
+
+#[test]
+fn writer_errors() {
+    let v = vectors();
+    for c in cases(&v, "writer_errors") {
+        let opts = fid::stamp::StampOptions { source_class: Some(fid::envelope::SourceClass::Instrument), ..fid::stamp::StampOptions::new("w") };
+        let got = fid::stamp::stamp(c["content_json"].as_str().unwrap(), &opts, None, time("2026-01-01T00:00:00Z"));
+        assert!(got.is_err(), "{}: a writer must refuse", c["error"]);
+    }
+}
+
+#[test]
 fn envelopes() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
     for c in cases(&v, "envelope") {
         let name = c["name"].as_str().unwrap();
-        let stamped: Stamped = serde_json::from_value(c["stamped"].clone()).unwrap_or_else(|e| panic!("{}: {}", name, e));
         let floor = c["floor"].as_f64().unwrap();
+        let stamped = match fid::envelope::read_value(c["stamped"].clone()).unwrap_or_else(|e| panic!("{}: {}", name, e)) {
+            fid::envelope::Read::Understood(s) => s,
+            fid::envelope::Read::NotUnderstood(why) => {
+                // a scorer answers UNKNOWN: no fidelity, no expiry
+                assert!(c.get("not_understood").is_some(), "{}: not understood ({}), but the vector reads it", name, why);
+                assert_eq!(c["status"], "UNKNOWN", "{}", name);
+                assert_eq!(c["expires_at"], "unknown", "{}", name);
+                continue;
+            }
+        };
+        assert!(c.get("not_understood").is_none(), "{}: the vector says not understood, fid read it", name);
         let r = assess(&stamped, floor, time(c["now"].as_str().unwrap())).unwrap();
 
         let status = match r.assessment.status {
@@ -183,6 +286,28 @@ fn envelopes() {
             Some(Expiry::At(t)) => t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         };
         assert_eq!(expires, c["expires_at"].as_str().unwrap(), "{}: expires_at", name);
+    }
+}
+
+#[test]
+fn registry() {
+    let v = vectors();
+    for c in cases(&v, "registry") {
+        let info_type = c["type"].as_str().unwrap();
+        let state = c["state"].as_str();
+        let got = fid::registry::HalfLives::from_yaml(c["registry"].as_str().unwrap()).and_then(|r| r.lookup(info_type, state));
+        if let Some(reason) = c.get("error") {
+            assert!(got.is_err(), "{} {:?}: {} should be an error, got {:?}", info_type, state, reason, got);
+            continue;
+        }
+        let got = got.unwrap_or_else(|e| panic!("{} {:?}: {}", info_type, state, e));
+        let want = &c["spec"];
+        assert_eq!(got.half_life, want["half_life"].as_str().unwrap(), "{} {:?}", info_type, state);
+        assert_eq!(got.baseline, want["baseline"].as_f64(), "{} {:?} baseline", info_type, state);
+        assert_eq!(got.source_fidelity, want["source_fidelity"].as_f64(), "{} {:?} source_fidelity", info_type, state);
+        assert_eq!(got.shape, want["shape"].as_f64(), "{} {:?} shape", info_type, state);
+        assert_eq!(serde_json::to_value(&got.fast).unwrap(), want["fast"], "{} {:?} fast", info_type, state);
+        assert_eq!(serde_json::to_value(&got.echo).unwrap(), want["echo"], "{} {:?} echo", info_type, state);
     }
 }
 

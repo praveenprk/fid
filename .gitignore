@@ -9,4 +9,8 @@ __pycache__/
 /bindings/python/.venv
 *.so
 .env
-*.env
+*.envspec/.refcache/
+spec/*.xml
+spec/*.txt
+spec/*.html
+spec/build/

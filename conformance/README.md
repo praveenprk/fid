@@ -1,5 +1,10 @@
 # Conformance
 
+> The normative definition of fid is now the draft in
+> [`spec/draft-kumar-fid-00.md`](../spec/draft-kumar-fid-00.md). This page
+> describes the vectors as fid 0.4 computes them; where the two differ, the
+> draft's Appendix *Deviations* names the issue that brings fid in line.
+
 What any implementation of fid's scoring must compute, and test vectors
 to prove it. Use this if you port the formula — into Cypher, SQL, plain
 Python, JavaScript — instead of calling fid.
@@ -13,7 +18,8 @@ Python, JavaScript — instead of calling fid.
 fid's Rust tests (`tests/conformance.rs`) and Python tests
 (`bindings/python/tests/test_conformance.py`) run every vector, so fid
 and `generate.py` have to agree. CI regenerates the file and fails if it
-changes. Change the spec here, then `generate.py`, then fid.
+changes. Change the draft, then `generate.py`, then fid. Every vector
+carries `sections`, the draft anchors it tests; `spec/traceability.py` checks them.
 
 Floating-point results must match within `tolerance` (1e-9); durations
 within 1e-6 s.
@@ -32,9 +38,11 @@ within 1e-6 s.
 | `y` | 365.25 × 86400 |
 | none | 1 |
 
-The number is a decimal float (`1.5d`, `0.25y`). Negative, non-finite or
-unparseable is an error: `7days`, `30ms`, `-1d`, `inf`, `1e400d`. Zero is
-allowed.
+The number is digits with an optional decimal part (`1.5d`, `0.25y`);
+nothing else: `1e3d`, `+5d`, `.5d`, `5.d`, `7days`, `30ms`, `-1d`, `inf`
+are errors. ISO 8601 durations are accepted too (`PT5M`, `P1D`, `P2W`,
+`P1Y2M3DT4H5M6.5S`), with `Y` = 365.25 d and a date-part `M` = 30.44 d.
+Zero is allowed. The grammar is in the draft's Durations section.
 
 `parse_half_life(text)`: `infinite` or `inf` (any case) means no decay;
 otherwise `parse_duration`, and zero is also an error. Never treat a bad
@@ -91,6 +99,7 @@ otherwise                    → half_life × log2((f − b) / (floor − b))
 
 An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
 `source_class`, `source_fidelity` (optional; see Source classes),
+`echo`, `fast` and `shape` (optional; see Echo, and Fast share and shape),
 `measured_at` (RFC 3339), `half_life` (a duration string or null),
 `baseline` (absent in `fid_version` 0.1 envelopes: use 0),
 `transforms[].noise`, `integrity`.
@@ -132,8 +141,63 @@ closed form; any search is fine that finds the first crossing within
 1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
 after `expires_at`.
 
+## Fast share and shape
+
+Some facts go stale on two clocks (`fid_version` 0.4 envelopes and
+registries): `fast: {share, half_life}`. `share` is between 0 and 1;
+`half_life` is a finite duration, shorter than the envelope's finite
+`half_life`. A fact that goes wrong by crossing a threshold holds, then
+drops: `shape` k, a number from 0.1 to 10 (1 when absent), bends both
+clocks. Anything else is invalid, and both need a finite half-life.
+
+```
+clock(h) = 0.5^((max(age, 0) / h)^k)
+temporal = (1 − share) × clock(half_life) + share × clock(fast.half_life)
+           (+ strength × echoes, capped at 1, when there is also an echo)
+fidelity = b + (f − b) × temporal                 (b clamped as above)
+```
+
+Time to floor is the first time fidelity falls below the floor (`never`
+if floor ≤ b); with no echo the curve only falls, so any search that
+finds the crossing within 1e-6 s is fine.
+
+## Re-check schedule
+
+A fact re-checked every `T` seconds is served wrong, on average,
+
+```
+staleness(T) = 1 − (1 / T) × ∫₀ᵀ fidelity(t) dt          (1 − f when T is 0)
+```
+
+with fidelity as above (`f` at measurement). Each clock integrates in
+closed form, `∫₀ᵀ clock(h) = h × ln2^(−1/k) / k × Γ(1/k) × P(1/k, ln2 ×
+(T/h)^k)` with P the regularized lower incomplete gamma (for k = 1,
+`h / ln2 × (1 − 0.5^(T/h))`); each echo return integrates as
+`∫₀ᵀ 0.5^(|t − nP| / w) dt`, and where the cap at 1 binds the excess is
+subtracted.
+
+**best interval(price)** minimizes `staleness(T) + price × 86400 / T`
+over `T` from 1 s to 10,000 × the longest timescale (half-life, period,
+fade). It is `never` when not re-checking (staleness `1 − b`) costs no
+more than the minimum, and when there is no decay. `price` must be a
+positive number. Any search is fine whose cost is within 1e-7 of the
+minimum.
+
+**interval for staleness(target)** is the longest `T` before staleness
+first exceeds `target` (`never` if it does not); an error when
+`1 − f > target` or the target is outside 0 to 1.
+
+A floor, when given, caps either interval at the time to floor.
+
 ## Integrity
 
+From `fid_version` 1.0: `"sha256:" + hex(sha256(JCS(content)))`, JCS being
+RFC 8785 (keys sorted by UTF-16 code units, numbers as ECMAScript writes
+them: `1.0` is `1`, exponent form from 1e21 and below 1e-6). The
+`integrity_jcs` vectors include the RFC's own example. Content must be
+I-JSON: a writer refuses integers beyond 2^53 (`writer_errors`).
+
+Versions 0.1 to 0.4 use the legacy form below, and are verified with it:
 `"sha256:" + hex(sha256(canonical JSON of content))`, where canonical is:
 
 - object keys sorted by code point; no whitespace

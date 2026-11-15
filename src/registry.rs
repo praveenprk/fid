@@ -1,7 +1,7 @@
 //! Registries — measured decay and noise values, looked up by name.
 //!
 //! A half-life registry maps an information type to its half-life, and
-//! optionally a baseline and per-state overrides. A type's half-life can
+//! optionally a baseline and per-state entries. A type's half-life can
 //! depend on the state of the thing observed: a ship's position goes
 //! stale in minutes while it is underway and in days while it is moored.
 //!
@@ -13,6 +13,13 @@
 //! policy_clause:                        # measured fidelity when fresh
 //!   half_life: 90d
 //!   source_fidelity: 0.94
+//! package_latest_version:               # a share goes stale on a faster clock
+//!   half_life: 80d
+//!   baseline: 0.1
+//!   fast: { share: 0.3, half_life: 3d }
+//! vessel_underway:                      # holds, then drops: shape above 1
+//!   half_life: 3m
+//!   shape: 2.5
 //! airport_temperature:                  # comes back once a day
 //!   half_life: 2.42h
 //!   baseline: 0.13
@@ -41,7 +48,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::compute::{decay_curve, Echo};
+use crate::compute::{curve, Echo, Fast};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
@@ -61,6 +68,10 @@ pub struct HalfLifeSpec {
     pub source_fidelity: Option<f64>,
     /// Periodic return, for facts that come back (temperature, load)
     pub echo: Option<Echo>,
+    /// A share that goes stale on a faster clock
+    pub fast: Option<Fast>,
+    /// Shape of the clocks: 0.5^((t/h)^shape)
+    pub shape: Option<f64>,
     #[serde(default)]
     pub states: BTreeMap<String, HalfLifeEntry>,
 }
@@ -81,6 +92,8 @@ pub struct DecaySpec {
     pub baseline: Option<f64>,
     pub source_fidelity: Option<f64>,
     pub echo: Option<Echo>,
+    pub fast: Option<Fast>,
+    pub shape: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -99,7 +112,7 @@ impl HalfLives {
     }
 
     /// Resolve the half-life and baseline for a type, and state if given.
-    /// A state's values override the type's.
+    /// A state's entry is used whole: none of the type's own fields apply to it.
     pub fn lookup(&self, info_type: &str, state: Option<&str>) -> Result<DecaySpec, String> {
         let entry = self.0.get(info_type).ok_or_else(|| {
             format!("unknown information type '{}' (known: {})", info_type, names(self.0.keys()))
@@ -123,23 +136,29 @@ impl HalfLives {
             if !child.states.is_empty() {
                 return Err(format!("state '{}' of '{}' cannot have its own states", state, info_type));
             }
-            spec.half_life = child.half_life.or(spec.half_life);
-            spec.baseline = child.baseline.or(spec.baseline);
-            spec.source_fidelity = child.source_fidelity.or(spec.source_fidelity);
-            spec.echo = child.echo.or(spec.echo);
+            // A state's curve was fitted as a whole: nothing comes from the type's own fields
+            // (draft, Half-life registry)
+            spec = child;
         }
 
         let half_life = spec.half_life.ok_or_else(|| {
             format!("information type '{}' needs a state (one of: {})", info_type, names(spec.states.keys()))
         })?;
-        decay_curve(Some(&half_life), spec.echo.as_ref()).map_err(|e| format!("'{}': {}", info_type, e))?;
+        curve(Some(&half_life), spec.fast.as_ref(), spec.echo.as_ref(), spec.shape).map_err(|e| format!("'{}': {}", info_type, e))?;
         if let Some(b) = spec.baseline {
             check_unit(b, "baseline").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
         if let Some(s) = spec.source_fidelity {
             check_unit(s, "source fidelity").map_err(|e| format!("'{}': {}", info_type, e))?;
         }
-        Ok(DecaySpec { half_life, baseline: spec.baseline, source_fidelity: spec.source_fidelity, echo: spec.echo })
+        Ok(DecaySpec {
+            half_life,
+            baseline: spec.baseline,
+            source_fidelity: spec.source_fidelity,
+            echo: spec.echo,
+            fast: spec.fast,
+            shape: spec.shape,
+        })
     }
 }
 
@@ -262,12 +281,14 @@ conditional_only:
         NoiseModel::from_yaml(NOISE).unwrap()
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_simple_half_life() {
         let spec = half_lives().lookup("employee_role", None).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None });
+        assert_eq!(spec, DecaySpec { half_life: "1y".into(), baseline: None, source_fidelity: None, echo: None, fast: None, shape: None });
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_half_life_with_baseline() {
         let spec = half_lives().lookup("airport_flight_category", None).unwrap();
@@ -275,6 +296,7 @@ conditional_only:
         assert_eq!(spec.baseline, Some(0.73));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_state_half_life() {
         let h = half_lives();
@@ -284,20 +306,25 @@ conditional_only:
         assert_eq!(moored.baseline, Some(0.1));
     }
 
+    // spec: half-life-registry
     #[test]
-    fn test_state_inherits_type_baseline() {
+    fn test_state_is_whole() {
+        // the type's baseline and source fidelity do not reach its states
         let spec = half_lives().lookup("with_default", Some("fast")).unwrap();
-        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: Some(0.2), source_fidelity: Some(0.9), echo: None });
-        assert_eq!(half_lives().lookup("with_default", None).unwrap().half_life, "1d");
+        assert_eq!(spec, DecaySpec { half_life: "1h".into(), baseline: None, source_fidelity: None, echo: None, fast: None, shape: None });
+        let own = half_lives().lookup("with_default", None).unwrap();
+        assert_eq!((own.half_life.as_str(), own.baseline, own.source_fidelity), ("1d", Some(0.2), Some(0.9)));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_state_overrides_source_fidelity() {
         let spec = half_lives().lookup("with_default", Some("checked")).unwrap();
         assert_eq!(spec.source_fidelity, Some(0.75));
-        assert_eq!(spec.baseline, Some(0.2));
+        assert_eq!(spec.baseline, None);
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_echo_lookup_and_validation() {
         let h = HalfLives::from_yaml(
@@ -314,18 +341,55 @@ conditional_only:
         assert!(HalfLives::from_yaml("x: { half_life: 1h, echo: { period: 24h, strength: 0.3, width: 3h } }").is_err());
     }
 
+    // spec: half-life-registry
+    #[test]
+    fn test_fast_lookup_and_validation() {
+        let h = HalfLives::from_yaml(
+            "pkg: { half_life: 80d, baseline: 0.1, fast: { share: 0.3, half_life: 3d }, states: { quiet: { half_life: 120d }, fresh: { fast: { share: 0.5, half_life: 1d } } } }\n\
+             slow_fast: { half_life: 1d, fast: { share: 0.3, half_life: 3d } }\n\
+             big: { half_life: 80d, fast: { share: 1.5, half_life: 3d } }",
+        )
+        .unwrap();
+        let f = h.lookup("pkg", None).unwrap().fast.unwrap();
+        assert_eq!((f.share, f.half_life.as_str()), (0.3, "3d"));
+        // a state is whole: no fast share from the type, and no half-life borrowed either
+        assert_eq!(h.lookup("pkg", Some("quiet")).unwrap().fast, None);
+        assert!(h.lookup("pkg", Some("fresh")).is_err());
+        assert!(h.lookup("slow_fast", None).unwrap_err().contains("shorter"));
+        assert!(h.lookup("big", None).unwrap_err().contains("share"));
+        assert!(HalfLives::from_yaml("x: { half_life: 1h, fast: { share: 0.3 } }").is_err());
+    }
+
+    // spec: half-life-registry
+    #[test]
+    fn test_shape_lookup_and_validation() {
+        let h = HalfLives::from_yaml(
+            "ship: { half_life: 3m, baseline: 0.03, shape: 2.5, states: { slow: { half_life: 8m }, flat: { shape: 1 } } }\n\
+             bad: { half_life: 3m, shape: 0 }",
+        )
+        .unwrap();
+        assert_eq!(h.lookup("ship", None).unwrap().shape, Some(2.5));
+        // a state is whole: its own shape or none, and its own half-life
+        assert_eq!(h.lookup("ship", Some("slow")).unwrap().shape, None);
+        assert!(h.lookup("ship", Some("flat")).is_err());
+        assert!(h.lookup("bad", None).unwrap_err().contains("shape"));
+    }
+
+    // spec: half-life-registry
     #[test]
     fn test_bad_source_fidelity_is_error() {
         let h = HalfLives::from_yaml("x: { half_life: 1d, source_fidelity: 1.2 }").unwrap();
         assert!(h.lookup("x", None).unwrap_err().contains("source fidelity"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_stateful_type_without_state_is_error() {
         let err = half_lives().lookup("vessel_position", None).unwrap_err();
         assert!(err.contains("needs a state") && err.contains("underway"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unknown_type_state_is_error() {
         let h = half_lives();
@@ -334,6 +398,7 @@ conditional_only:
         assert!(h.lookup("employee_role", Some("x")).unwrap_err().contains("no states"));
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unparseable_half_life_fails_on_lookup_only() {
         let h = half_lives();
@@ -341,18 +406,21 @@ conditional_only:
         assert!(h.lookup("legal_name", None).is_ok());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_bad_baseline_is_error() {
         let h = HalfLives::from_yaml("x: { half_life: 1d, baseline: 1.5 }").unwrap();
         assert!(h.lookup("x", None).is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_unknown_field_is_error() {
         assert!(HalfLives::from_yaml("x: { half_life: 1d, baselin: 0.5 }").is_err());
         assert!(NoiseModel::from_yaml("x: { noise: 0.1, condition: {} }").is_err());
     }
 
+    // spec: noise-model
     #[test]
     fn test_noise_lookup() {
         let n = noise();
@@ -361,6 +429,7 @@ conditional_only:
         assert_eq!(n.lookup("flight_leg", Some("previous_leg_late")).unwrap(), 0.54);
     }
 
+    // spec: noise-model
     #[test]
     fn test_noise_lookup_errors() {
         let n = noise();
@@ -372,6 +441,7 @@ conditional_only:
         assert!(bad.lookup("x", None).is_err());
     }
 
+    // spec: half-life-registry
     #[test]
     fn test_example_files_parse() {
         let root = env!("CARGO_MANIFEST_DIR");

@@ -56,7 +56,7 @@ class Envelopes(unittest.TestCase):
         self.assertEqual(fid.expires_at(a, 0.45), T0 + timedelta(days=1))
 
     def test_pipeline_restamp(self):
-        a = fid.stamp({"v": 1}, source="sensor-12", source_class="instrument", now=T0)
+        a = fid.stamp({"v": 1}, source="sensor-12", source_class="instrument", half_life="infinite", now=T0)
         b = fid.stamp(a, source="normalize.py", noise=0.05, now=T0)
         c = fid.stamp(b, source="aggregate.py", noise=0.08, now=T0)
         self.assertEqual([t["step"] for t in c["fid"]["transforms"]], ["normalize.py", "aggregate.py"])
@@ -110,6 +110,34 @@ class Registries(unittest.TestCase):
     def test_noise_conditions(self):
         path = os.path.join(EXAMPLES, "noise-model.yaml")
         self.assertGreater(fid.noise(path, "flight_leg", "previous_leg_late"), fid.noise(path, "flight_leg"))
+
+
+class Schedules(unittest.TestCase):
+    def test_recheck_at(self):
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        s = fid.stamp({"latest": "2.32.3"}, source="pypi", source_class="instrument", source_fidelity=1.0,
+                      half_life="80d", baseline=0.1, fast={"share": 0.3, "half_life": "3d"}, now=now)
+        self.assertEqual(s["fid"]["fast"], {"share": 0.3, "half_life": "3d"})
+        cheap, dear = fid.recheck_at(s, price=1e-4), fid.recheck_at(s, price=1e-2)
+        self.assertLess(cheap, dear)
+        self.assertIsNone(fid.recheck_at(s, price=1e6))
+        # the floor caps it
+        self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.99), fid.expires_at(s, 0.99))
+        self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.5), dear)
+        at = fid.recheck_at(s, staleness=0.05)
+        every = at - now
+        self.assertAlmostEqual(fid.mean_staleness(1.0, "80d", every, baseline=0.1, fast={"share": 0.3, "half_life": "3d"}), 0.05, delta=1e-6)
+        with self.assertRaises(ValueError):
+            fid.recheck_at(s)
+        with self.assertRaises(fid.IndeterminateError):
+            fid.recheck_at(fid.stamp({}, source="x", half_life="1d"), price=1e-3)
+
+    def test_registry_fast_share(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "r.yaml")
+            with open(path, "w") as f:
+                f.write("pkg: { half_life: 80d, fast: { share: 0.3, half_life: 3d } }\n")
+            self.assertEqual(fid.registry(path, "pkg")["fast"], {"share": 0.3, "half_life": "3d"})
 
 
 class Calibration(unittest.TestCase):
