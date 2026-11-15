@@ -1,0 +1,16 @@
+# Anchor sources for eng-principles' shared commit check (ENG-DEC-009,
+# fid DECISION-006). One source per line, whitespace-separated:
+#   TYPE   FILES (glob, relative to repo root; '-' = exempt)   LINE-PREFIX
+# An anchor resolves if a matching file has a line '<LINE-PREFIX> <ANCHOR>'
+# followed by a space or end of line.
+#
+# ENG-* anchors name entries in eng-principles, not in fid: exempt here.
+# ISSUE allows #N anchors: on GitHub, #N must be an issue or PR of this
+# repository (spec gaps are issues, DECISION-001).
+DECISION  docs/DECISIONS.md    ##
+V-ENG     docs/VIOLATIONS.md   ###
+ENG-DEC   -                    -
+ENG-P     -                    -
+ENG-STD   -                    -
+ENG-V     -                    -
+ISSUE     -                    -
