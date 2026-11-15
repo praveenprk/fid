@@ -18,9 +18,9 @@ fact). Six kinds of fact, replayed on real histories:
 Entities are split in two (by vessel, airport, region, package, label).
 The scored half keeps the first quarter of each entity's window as its
 own history and is scored on the rest; every policy is scored on the
-same three quarters. fid is run, not re-implemented: `fid calibrate
---entity-baselines` fits on the training half and the scored half's
-history, and the fid Python package (the same Rust core) gives each
+same three quarters. fid is run, not re-implemented: `fid calibrate`
+fits on the training half and the scored half's history (per-entity
+baselines are parked until the draft specifies them, #14), and the fid Python package (the same Rust core) gives each
 fact's TTL and re-check schedule from its stamped envelope.
 
 Policies:
@@ -430,17 +430,15 @@ def run_fid(args):
     return subprocess.run([FID_BIN] + args, capture_output=True, text=True)
 
 
-def calibrate(ledger, kind, baselines_path, period=None):
-    """Registry YAML and per-entity baselines from `fid calibrate`, or (None, None, reason) when it refuses."""
-    out = run_fid(["calibrate", ledger, "--type", kind, "--entity-baselines", baselines_path]
-                  + (["--period", period] if period else []))
+def calibrate(ledger, kind, period=None):
+    """Registry YAML from `fid calibrate` and no per-entity baselines, or (None, None, reason) when it refuses.
+
+    Per-entity baselines are parked until the draft specifies them (#14), so every
+    fact uses its state's baseline."""
+    out = run_fid(["calibrate", ledger, "--type", kind] + (["--period", period] if period else []))
     if out.returncode != 0 or not out.stdout.strip():
         return None, None, (out.stderr.strip().splitlines() or ["no output"])[-1]
-    baselines = {}
-    with open(baselines_path, newline="") as f:
-        for row in csv.DictReader(f):
-            baselines[(row["entity"], row["state"] or None)] = float(row["baseline"])
-    return out.stdout, baselines, out.stderr.strip()
+    return out.stdout, {}, out.stderr.strip()
 
 
 class FidPolicy:
@@ -748,7 +746,7 @@ def run(all_kinds, work):
         ledger = os.path.join(work, f"{name}.csv")
         sources = list(train.values()) + [h for h, _ in halves.values()]
         info["ledger_rows"] = write_ledger(ledger, (r for e in sources for r in ledger_rows(e, lags, stride)), has_states)
-        registry, baselines, log = calibrate(ledger, name, os.path.join(work, f"{name}_baselines.csv"), period)
+        registry, baselines, log = calibrate(ledger, name, period)
         info["calibrate"] = log
         policy = None
         if registry is None:
