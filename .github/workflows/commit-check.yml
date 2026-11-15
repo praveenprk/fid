@@ -1,10 +1,10 @@
 name: Commit check
 
-# The PR title and every commit a PR brings to main follow eng-principles
-# ENG-STD-005 §1: format, anchors that resolve, no co-author or tool
-# attribution (scripts/commit_check.py, DECISION-001). Runs again when the
-# title or description changes. Text reaches the script only through
-# environment variables and files, never through the shell.
+# The PR title, description and every commit a PR brings to main follow
+# eng-principles ENG-STD-005 §1 (format, anchors that resolve, no co-author
+# or tool attribution). The check is eng-principles' shared workflow,
+# pinned to a commit (ENG-DEC-009, DECISION-006). fid's policy is
+# scripts/hooks/types and scripts/hooks/anchors.
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -16,24 +16,6 @@ permissions:
 
 jobs:
   commit-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Tests of the checker
-        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
-      - name: Commits and issues
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          git log --no-merges --format='%B%x1e' "$BASE..$HEAD" > "$RUNNER_TEMP/commits"
-          gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100" --jq '.[].number' > "$RUNNER_TEMP/issues"
-      - name: Title and commits follow ENG-STD-005 §1
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: COMMITS_FILE="$RUNNER_TEMP/commits" ISSUES_FILE="$RUNNER_TEMP/issues" python3 scripts/commit_check.py
+    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@74e7e7681063b9922f96f79149bfb7eb104cd108
+    with:
+      config: scripts/hooks

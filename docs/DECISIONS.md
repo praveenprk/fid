@@ -114,3 +114,25 @@ Reason  : #7 breaks behaviour: artifacts are written as envelope 1.0
 Risk    : Users who pin `fidmeter = "0.1"` do not receive 0.2.0 until they
           change the pin. This is intended: the change is breaking.
 Status  : PROPOSED
+
+---
+
+## DECISION-006 — The commit check is eng-principles' shared workflow
+
+Date    : 2026-11-16
+Refs    : eng-principles ENG-DEC-009 (ACCEPTED), ENG-STD-005 §1.5; eng-principles 74e7e76; DECISION-001
+Decision: fid's `commit-check` workflow calls eng-principles'
+          .github/workflows/commit-check.yml, pinned to 74e7e76. fid keeps
+          only its policy: scripts/hooks/types and scripts/hooks/anchors
+          (DECISION, V-ENG, ENG-* exempt, ISSUE for #N).
+          scripts/commit_check.py and its tests are removed. The required
+          check in the ruleset `main-branch-integrity` is
+          `commit-check / check`. This supersedes the enforcement
+          paragraph of DECISION-001; the rules checked are the same.
+Reason  : One implementation for every project, defined where the
+          standard is defined (ENG-DEC-009). fid's own checker was a copy
+          of the same rules.
+Risk    : fid's CI fetches eng-principles at the pinned commit. Moving the
+          pin is a deliberate change with its own PR. If the fetch fails,
+          the check fails and the merge is blocked (fail closed).
+Status  : PROPOSED
