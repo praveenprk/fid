@@ -66,7 +66,7 @@ import os
 import random
 import subprocess
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 import fidcal
 
@@ -630,8 +630,8 @@ def kinds(cache, which, ships_per_day):
         "airport_temperature": (weather[0], hourly_lags, 7 * H, False, "24h", True),
         "airport_flight_category": (weather[1], hourly_lags, 7 * H, True, None, True),
         "grid_demand": (grid, hourly_lags, 7 * H, False, "24h", True),
-        "package_latest_version": (packages, [float(l) for l in pypi_latest.LAGS], 30.44 * D, True, None, False),
-        "drug_label_warnings": (labels, [float(l) for l in dailymed_warnings.LAGS], 30.44 * D, False, None, False),
+        "package_latest_version": (packages, [float(lg) for lg in pypi_latest.LAGS], 30.44 * D, True, None, False),
+        "drug_label_warnings": (labels, [float(lg) for lg in dailymed_warnings.LAGS], 30.44 * D, False, None, False),
     }
     return {k: v for k, v in out.items() if v[0]}, unavailable
 
@@ -776,7 +776,8 @@ def run(all_kinds, work):
                 for which, settings, pick in (("fid_floor", FLOORS, 1), ("fid_schedule", PRICES, 2),
                                               ("fid_schedule_guarded", PRICES, 3)):
                     for setting in settings:
-                        ttl = (lambda s, setting=setting, pick=pick: table_for(s)[pick][setting])
+                        def ttl(s, setting=setting, pick=pick):
+                            return (table_for(s)[pick][setting])
                         fid_test[which].setdefault(setting, []).append(simulate(e, ttl, lambda s: table_for(s)[0]))
             info["fid_states"] = sorted({str(k[0]) for k in policy.cache})
             info["fid_models"] = {f"{k[0]}|{k[1]}": v[0] for k, v in sorted(policy.cache.items(), key=str)[:200]}

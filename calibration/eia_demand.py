@@ -175,7 +175,8 @@ def run(counts, scan=True):
 
 def rule(result):
     s, splits = result["splits"], list(wp.SPLITS)
-    best_echo = lambda k: min(s[k]["brier_test"]["echo_24h"], s[k]["brier_test"]["echo_24h_and_168h"])
+    def best_echo(k):
+        return min(s[k]["brier_test"]["echo_24h"], s[k]["brier_test"]["echo_24h_and_168h"])
     echo_wins = all(s[k]["brier_test"]["echo_24h"] < s[k]["brier_test"]["decay_to_baseline"] for k in splits)
     reliable = all(s[k]["reliability_error_test"]["echo_24h"] <= s[k]["reliability_error_test"]["decay_to_baseline"]
                    for k in splits)
@@ -221,7 +222,8 @@ def markdown(r, regions):
     for m in wp.NAMES:
         lines.append(f"| {m.replace('_', ' ')} | {r['splits']['station']['brier_test'][m]:.5f} | "
                      f"{r['splits']['time']['brier_test'][m]:.5f} | {r['gap_all'][m]:.3f} |")
-    yes = lambda v: "yes" if v else "no"
+    def yes(v):
+        return "yes" if v else "no"
     lines += ["", f"- Echo beats decay to baseline in both splits: **{yes(rule['echo_beats_baseline_both_splits'])}**",
               f"- Echo reliability no worse in both splits: **{yes(rule['echo_reliability_no_worse_both_splits'])}**",
               f"- Echo largest gap under 0.10: **{yes(rule['echo_gap_under_0_10'])}**",
@@ -250,8 +252,8 @@ def markdown(r, regions):
     lines += ["", "## By region (all data)", "",
               "| Region | Correct at 1h | 12h | 24h | 144h | 168h |", "|---|---|---|---|---|---|"]
     for region, at in regions.items():
-        lines.append(f"| {region} | " + " | ".join(f"{at[l]:.3f}" if at[l] is not None else "—"
-                                                   for l in (1, 12, 24, 144, 168)) + " |")
+        lines.append(f"| {region} | " + " | ".join(f"{at[lg]:.3f}" if at[lg] is not None else "—"
+                                                   for lg in (1, 12, 24, 144, 168)) + " |")
     return "\n".join(lines) + "\n"
 
 

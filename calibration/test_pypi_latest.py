@@ -47,7 +47,8 @@ class Timeline(unittest.TestCase):
         self.assertEqual([v for _, v in self.changes], ["1.0", "2.0", "2.2"])
 
     def test_latest_at(self):
-        day = lambda d: datetime(2020, 1, 1, tzinfo=timezone.utc) + timedelta(days=d)
+        def day(d):
+            return datetime(2020, 1, 1, tzinfo=timezone.utc) + timedelta(days=d)
         self.assertIsNone(pl.latest_at(self.changes, day(-1)))
         self.assertEqual(pl.latest_at(self.changes, day(9))[0], "1.0")
         self.assertEqual(pl.latest_at(self.changes, day(25))[0], "2.0")

@@ -89,7 +89,8 @@ def datasets(results):
 
     flights = results["Flight legs"]
     sf, after = flights["source_fidelity"], flights["after_previous_leg"]
-    rate = lambda rows, key: [{key: x[key], "on_time": round(x["on_time"], 4), "n": x["n"]} for x in rows]
+    def rate(rows, key):
+        return [{key: x[key], "on_time": round(x["on_time"], 4), "n": x["n"]} for x in rows]
     n_on, n_late = after["on_time"]["n"], after["late"]["n"]
     legs = [
         {"condition": "After an on-time leg", "on_time": round(after["on_time"]["on_time"], 4), "n": n_on},

@@ -475,8 +475,10 @@ def noise_yaml(b):
 
 def markdown(result):
     b, h = result["breakdown"], result["held_out"]
-    pct = lambda v: "—" if v is None else f"{100 * v:.1f}%"
-    rng = lambda r: "—" if r[0] is None else f"{100 * r[0]:.1f}–{100 * r[1]:.1f}%"
+    def pct(v):
+        return "—" if v is None else f"{100 * v:.1f}%"
+    def rng(r):
+        return "—" if r[0] is None else f"{100 * r[0]:.1f}–{100 * r[1]:.1f}%"
     corpus_name = " — hard corpus" if result.get("hard") else ""
     lines = [f"### AI transform noise: {result['model']} (effort {result['effort'] or 'default'}){corpus_name}", "",
              f"- {result['documents']} documents, {b['all']['n']} field checks; {result['refused']} documents left out for refusals",

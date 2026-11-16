@@ -1,7 +1,7 @@
 //! End-to-end tests for `fid check`, run against the built binary.
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 use serde_json::Value;
@@ -38,7 +38,7 @@ fn temp_file(name: &str, text: &str) -> PathBuf {
     path
 }
 
-fn check(path: &PathBuf, floor: &str) -> Output {
+fn check(path: &Path, floor: &str) -> Output {
     fid(&["check", path.to_str().unwrap(), "--floor", floor], "")
 }
 

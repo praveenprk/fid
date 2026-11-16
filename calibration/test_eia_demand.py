@@ -50,8 +50,8 @@ class Counting(unittest.TestCase):
 
     def at(self, lag):
         k, n = [0, 0]
-        for (_r, _h1, l), (kk, nn) in self.counts.items():
-            if l == lag:
+        for (_r, _h1, lg), (kk, nn) in self.counts.items():
+            if lg == lag:
                 k, n = k + kk, n + nn
         return k / n, n
 
@@ -73,7 +73,7 @@ class Counting(unittest.TestCase):
         self.assertEqual(t.entities, {"A"})
         lags = {lag for lag, _, _ in t.items()}
         self.assertEqual(lags, {0.0, 24 * fidcal.HOUR})
-        self.assertEqual(t.total(), sum(n for (_, _, l), (_, n) in self.counts.items() if l in (0, 24)))
+        self.assertEqual(t.total(), sum(n for (_, _, lg), (_, n) in self.counts.items() if lg in (0, 24)))
 
 
 class Rule(unittest.TestCase):

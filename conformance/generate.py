@@ -132,7 +132,8 @@ def echo_time_to_floor(f, half_life, baseline, floor, echo):
     if floor <= b:
         return None
     period, _, width, _ = echo_seconds(echo)
-    below = lambda t: echo_fidelity(f, t, half_life, [], baseline, echo) < floor
+    def below(t):
+        return echo_fidelity(f, t, half_life, [], baseline, echo) < floor
     step = min(half_life, width) / 100.0
     t = 0.0
     while t <= 10_000 * period:
@@ -212,7 +213,8 @@ def curve_time_to_floor(f, half_life, baseline, floor, fast=None, echo=None, sha
     b = min(max(baseline, 0.0), max(f, 0.0))
     if half_life is None or floor <= b:
         return None
-    below = lambda t: curve_fidelity(f, t, half_life, baseline, fast, echo, shape) < floor
+    def below(t):
+        return curve_fidelity(f, t, half_life, baseline, fast, echo, shape) < floor
     step = shortest(half_life, fast, echo) / 100.0
     end = 10_000 * (echo_seconds(echo)[0] if echo else half_life)
     t = 0.0
@@ -296,7 +298,8 @@ def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
         total += strength * weight * part
         n += 1
     # The cap can bind only while plain decay is above 1 − strength × 2 / (1 − 0.5^(P/w))
-    plain = lambda u: curve_temporal(u, half_life, fast, None, shape)
+    def plain(u):
+        return curve_temporal(u, half_life, fast, None, shape)
     bound = 1 - strength * 2 / (1 - 0.5 ** (period / width))
     reach = t
     if bound > 0 and plain(t) <= bound:
@@ -305,7 +308,8 @@ def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
             mid = (lo + hi) / 2
             lo, hi = (mid, hi) if plain(mid) > bound else (lo, mid)
         reach = hi
-    excess = lambda u: max(0.0, plain(u) + uncapped_echo(u, period, strength, width, fade) - 1)
+    def excess(u):
+        return max(0.0, plain(u) + uncapped_echo(u, period, strength, width, fade) - 1)
     m = 4000
     h = reach / m
     cap = excess(0.0) + excess(reach) + sum(excess(i * h) * (4 if i % 2 else 2) for i in range(1, m))
@@ -330,7 +334,8 @@ def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=Non
     if echo is not None:
         period, _, _, fade = echo_seconds(echo)
         scale = max(scale, period, fade or period)
-    cost = lambda t: recheck_cost(f, half_life, baseline, price, t, fast, echo, shape)
+    def cost(t):
+        return recheck_cost(f, half_life, baseline, price, t, fast, echo, shape)
     lo, hi = 0.0, math.log(10_000 * scale)
     grid = [math.exp(lo + (hi - lo) * i / 400) for i in range(401)]
     costs = [cost(t) for t in grid]
@@ -352,7 +357,8 @@ def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=Non
 
 def interval_for_staleness(f, half_life, baseline, target, fast=None, echo=None, shape=None):
     """Seconds until mean staleness first exceeds target (bisection); None for never."""
-    stale = lambda t: mean_staleness(f, half_life, baseline, t, fast, echo, shape)
+    def stale(t):
+        return mean_staleness(f, half_life, baseline, t, fast, echo, shape)
     t, prev = 1.0, 0.0
     while t < 10_000 * half_life:
         if stale(t) > target:
