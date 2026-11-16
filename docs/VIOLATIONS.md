@@ -41,9 +41,9 @@ SPEC says : ENG-STD-004 §6.1 — "Each project MUST pin one formatter and one l
 Code does : .github/workflows/ci.yml runs `cargo test`, a vector-drift check, and the Python unittest suite. No formatter or linter is pinned or run, for Rust or for Python. `grep -nE 'fmt|clippy|ruff|black|flake8'` over .github/workflows/*.yml, Cargo.toml and bindings/python/pyproject.toml prints nothing, and there is no rustfmt.toml.
 Severity  : HIGH (governor, 2026-11-16; proposed CRITICAL). The MUST is not met at all.
 Impact    : Style and lint regressions are caught only if someone runs the tools by hand.
-Fix       : Pin rustfmt and clippy for Rust, and one formatter and one linter for Python, then run them in CI. That is a CI change, so it is outside this adoption change.
-When      : Next chore change.
-Status    : OPEN
+Fix       : The `lint` job in .github/workflows/ci.yml runs rustfmt and clippy (`-D warnings`) from the pinned toolchain 1.99.0, for both crates, and ruff 0.17.5 (check and format) with the rules in ruff.toml. The ruleset `main-branch-integrity` requires `lint`.
+When      : 2026-11-17
+Status    : RESOLVED
 Anchor    : DECISION-001
 
 ### V-ENG-005-01
