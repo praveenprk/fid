@@ -1,0 +1,8 @@
+# Python formatter and linter for fid (eng-principles ENG-STD-004 §6.1,
+# V-ENG-004-01). The version is pinned in .github/workflows/ci.yml.
+# Rules are listed explicitly, so a ruff upgrade cannot change them silently.
+target-version = "py39"
+extend-exclude = ["spec/build", "target", "bindings/python/target"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]

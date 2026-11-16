@@ -85,6 +85,8 @@ struct StampArgs {
     derived_from: Option<String>,
 }
 
+// Parsed once per run, so the size gap between variants costs nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Commands {
     /// Check fidelity against a threshold (exit code is the answer)

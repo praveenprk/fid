@@ -78,7 +78,7 @@ def test_tags():
                 m = TAG.match(line)
                 if not m:
                     continue
-                name = next((TEST_FN.match(l).group(1) for l in lines[i + 1:i + 6] if TEST_FN.match(l)), None)
+                name = next((TEST_FN.match(line).group(1) for line in lines[i + 1:i + 6] if TEST_FN.match(line)), None)
                 if name is None:
                     sys.exit(f"{os.path.relpath(path, ROOT)}:{i + 1}: spec tag not followed by a test function")
                 for anchor in (a.strip() for a in m.group(1).split(",")):

@@ -71,7 +71,8 @@ def count(all_series):
 
 def cached_counts(cache, all_series):
     """count(), kept in the cache dir: counting ~30M pairs per fact takes minutes."""
-    import pickle, os
+    import os
+    import pickle
     path = os.path.join(cache, "metar", f"periodic_counts_{MAX_LAG_H}h.pickle")
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -475,7 +476,8 @@ def main():
         results[fact] = run_fact(fact, counts[fact])
     stations = per_station(counts["temperature"])
 
-    import json, os
+    import json
+    import os
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     with open(os.path.join(out, "weather_periodic.json"), "w") as f:
         json.dump(fidcal._finite({"published_check": published, "facts": results, "temperature_by_station": stations}), f, indent=1)

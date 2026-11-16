@@ -98,6 +98,8 @@ fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: 
 /// baseline + (source × ∏(1 − noise) − baseline) × temporal, temporal with an optional fast share and echo
 #[pyfunction]
 #[pyo3(signature = (source, age_seconds, half_life_seconds, noise, baseline, echo_json=None, fast_json=None, shape=None))]
+// The arguments are the Python keyword API of fid.fidelity; changing them changes behaviour.
+#[allow(clippy::too_many_arguments)]
 fn fidelity(
     source: f64,
     age_seconds: f64,

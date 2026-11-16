@@ -181,10 +181,10 @@ def exp_model(lag, s0, h, b=0.0):
 
 def _fit_half_life(curve, s0, b):
     """Best half-life for fixed s0 and b. Returns (h, loss)."""
-    positive = [l for l, _, _ in curve if l > 0]
+    positive = [lg for lg, _, _ in curve if lg > 0]
 
     def loss(h):
-        return sum(n * (s - exp_model(l, s0, h, b)) ** 2 for l, s, n in curve)
+        return sum(n * (s - exp_model(lg, s0, h, b)) ** 2 for lg, s, n in curve)
 
     lo, hi = math.log(min(positive) / 100), math.log(max(positive) * 1000)
     best = None
@@ -207,7 +207,7 @@ def fit_exponential(curve, with_baseline=False):
     Grid search, refined — robust and dependency-free. Returns (s0, h, b).
     """
     s0 = curve[0][1] if curve and curve[0][0] == 0 else 1.0
-    if not any(l > 0 for l, _, _ in curve):
+    if not any(lg > 0 for lg, _, _ in curve):
         return s0, math.inf, 0.0
     if not with_baseline:
         h, _ = _fit_half_life(curve, s0, 0.0)
@@ -223,7 +223,7 @@ def fit_exponential(curve, with_baseline=False):
 
 def shape_error(curve, s0, h, b=0.0):
     """Largest gap between the real curve and the fitted model."""
-    return max(abs(s - exp_model(l, s0, h, b)) for l, s, _ in curve)
+    return max(abs(s - exp_model(lg, s0, h, b)) for lg, s, _ in curve)
 
 
 # ── calibration ──────────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
         "truth": truth,
         "entities": len(tally.entities),
         "observations": tally.total(),
-        "curve": [{"lag_s": l, "lag": fmt(l), "still_correct": s, "n": n} for l, s, n in curve],
+        "curve": [{"lag_s": lg, "lag": fmt(lg), "still_correct": s, "n": n} for lg, s, n in curve],
         "empirical_half_life_s": empirical_half_life(curve),
         "empirical_half_life": fmt(empirical_half_life(curve)),
         "fitted": {"s0": s0_all, "half_life_s": h_all, "half_life": fmt(h_all)},

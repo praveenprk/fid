@@ -33,8 +33,8 @@ import json
 import os
 import re
 import urllib.parse
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from datetime import date, datetime, timedelta
 
 import fidcal

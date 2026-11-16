@@ -53,8 +53,10 @@ class Replay(unittest.TestCase):
 
     def test_state_policy_matches_brute_force(self):
         rng = random.Random(2)
-        state = lambda t, since: "fresh" if t - since < 20 * DAY else "old"
-        ttl = lambda s: {"fresh": 2 * DAY, "old": 30 * DAY}[s]
+        def state(t, since):
+            return "fresh" if t - since < 20 * DAY else "old"
+        def ttl(s):
+            return {"fresh": 2 * DAY, "old": 30 * DAY}[s]
         for _ in range(20):
             e = random_changes(rng)
             e.state = state
@@ -67,7 +69,8 @@ class Replay(unittest.TestCase):
 
     def test_skipped_checks_keep_the_prediction(self):
         e = dc.Changes("g", [0.0, 100 * DAY], ["a", "b"], 0.0, 200 * DAY)
-        model = lambda s: (0.9, 5 * DAY, 0.1, 0.0, 0.0)
+        def model(s):
+            return (0.9, 5 * DAY, 0.1, 0.0, 0.0)
         fast = dc.simulate(e, 3600.0, model=model)
         e.state, e.boundaries = (lambda t, since: None), None  # forces every check to be replayed
         slow = dc.simulate(e, 3600.0, model=model)
@@ -99,7 +102,8 @@ class Replay(unittest.TestCase):
 class ByState(unittest.TestCase):
     def test_states_add_up(self):
         rng = random.Random(4)
-        state = lambda t, since: "fresh" if t - since < 20 * DAY else "old"
+        def state(t, since):
+            return "fresh" if t - since < 20 * DAY else "old"
         for _ in range(10):
             e = random_changes(rng)
             e.state, e.boundaries = state, (20 * DAY,)
@@ -181,7 +185,9 @@ class Ledger(unittest.TestCase):
 
     def test_ledger_gives_calibrate_both_halves(self):
         # Training entities all sit on one side of fidcal's split, which fid calibrate shares
-        import csv, os, tempfile
+        import csv
+        import os
+        import tempfile
         train = [f"vessel{i}" for i in range(200) if fidcal.split_train(f"vessel{i}")]
         path = os.path.join(tempfile.mkdtemp(), "ledger.csv")
         dc.write_ledger(path, ((e, 0, True, None) for e in train), with_state=False)
@@ -229,7 +235,8 @@ class AgainstFid(unittest.TestCase):
 
     def test_policy_keeps_the_shape(self):
         # a registry's shape reaches the stamped envelope, the TTL and the prediction
-        import os, tempfile
+        import os
+        import tempfile
         d = tempfile.mkdtemp()
         path = os.path.join(d, "r.yaml")
         with open(path, "w") as f:
@@ -244,7 +251,8 @@ class AgainstFid(unittest.TestCase):
                                dc.fid.mean_staleness(1.0, 180.0, 600.0, baseline=0.03, shape=3.0), delta=1e-12)
 
     def test_policy_reads_the_registry(self):
-        import os, tempfile
+        import os
+        import tempfile
         d = tempfile.mkdtemp()
         path = os.path.join(d, "r.yaml")
         with open(path, "w") as f:

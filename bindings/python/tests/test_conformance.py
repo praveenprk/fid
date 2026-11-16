@@ -4,7 +4,7 @@ import json
 import math
 import os
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import fid
 from fid import _fid
@@ -116,7 +116,8 @@ class Conformance(unittest.TestCase):
                 if c["seconds"] is None:
                     self.assertIsNone(got)
                 else:
-                    cost = lambda t: fid.mean_staleness(c["fidelity"], c["half_life_seconds"], t, **kw) + c["price"] * 86400 / t
+                    def cost(t):
+                        return fid.mean_staleness(c["fidelity"], c["half_life_seconds"], t, **kw) + c["price"] * 86400 / t
                     self.assertAlmostEqual(cost(c["seconds"]), c["cost"], delta=1e-7)
                     self.assertLessEqual(cost(got.total_seconds()), c["cost"] + 1e-7)
         for c in V["staleness_target"]:
