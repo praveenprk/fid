@@ -113,7 +113,7 @@ Reason  : #7 breaks behaviour: artifacts are written as envelope 1.0
           and the draft is -00.
 Risk    : Users who pin `fidmeter = "0.1"` do not receive 0.2.0 until they
           change the pin. This is intended: the change is breaking.
-Status  : PROPOSED
+Status  : ACCEPTED (governor, 2026-11-17)
 
 ---
 
