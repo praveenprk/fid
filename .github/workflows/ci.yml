@@ -9,6 +9,28 @@ permissions:
   contents: read
 
 jobs:
+  # Formatter and linter, pinned (eng-principles ENG-STD-004 §6.1, V-ENG-004-01).
+  # Rust: rustfmt and clippy from the pinned toolchain. Python: ruff, rules in ruff.toml.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: cargo fmt --check
+      - run: cargo fmt --check
+        working-directory: bindings/python
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: bindings/python
+      - run: pip install ruff==0.17.5
+      - run: ruff check .
+      - run: ruff format --check .
+
   rust:
     runs-on: ubuntu-latest
     steps:

@@ -51,6 +51,7 @@ fid follows eng-principles, mapped onto fid's own spec system
 | Rule | Mechanism |
 |------|-----------|
 | Title and commit format, anchors resolve, no co-author or attribution lines | `commit-check` workflow: eng-principles' shared check, with fid's scripts/hooks/types and anchors (DECISION-006) |
+| Rust formatted and clippy-clean; Python formatted and linted (ruff.toml) | `lint` job in the `ci` workflow: rustfmt, clippy, ruff, all pinned |
 | Behaviour changes cite the draft | `spec-ref` workflow (spec/spec_ref.py) |
 | Every requirement tested or a listed gap; vectors match | `rust` workflow (spec/traceability.py, conformance/generate.py) |
 | `main` changes only through a pull request with the checks green; no force-push or deletion | GitHub ruleset `main-branch-integrity` |

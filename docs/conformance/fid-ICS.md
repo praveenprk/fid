@@ -11,7 +11,7 @@ and CI fails if it is stale (DECISION-001: one fact, one register). Not to
 be confused with `conformance/` at the repository root, which holds the
 test vectors (DECISION-004).
 
-Date of last update: 2026-11-16
+Date of last update: 2026-11-17
 Baseline: main 99ff3c6 (#18); code unchanged since c3768e1 (#7). CI on c3768e1: success. `cargo test`: 230
 passed, 0 failed, 2 ignored (unit 181, integration 8 + 16 + 14 + 11),
 2026-11-16. spec/traceability.py: 31 sections traced.
@@ -29,7 +29,7 @@ requirement: spec/TRACEABILITY.md. Known gaps: spec/gaps.json and issues
 | ENG-STD-001 Language & IDs | not assessed | — | — |
 | ENG-STD-002 Lifecycle gates | conformant | The draft is the RFC and SPEC gate. Every normative section is tested or a listed gap: spec/TRACEABILITY.md, CI step "Every requirement in the draft is tested or a listed gap". `spec-ref` requires behaviour changes to cite the draft. Unspecified code was taken out before merge (#19). Releases v0.1.0 and v0.1.1 predate the gate (V-ENG-002-01, resolved forward only) | — |
 | ENG-STD-003 Design | not assessed | — | — |
-| ENG-STD-004 Construction | not yet | §6.1: no formatter or linter is pinned or run in CI. Other clauses not assessed | V-ENG-004-01 |
+| ENG-STD-004 Construction | partial | §6.1: rustfmt and clippy (toolchain 1.99.0) and ruff 0.17.5 (ruff.toml) run in the required `lint` job of .github/workflows/ci.yml (V-ENG-004-01, resolved). Other clauses not assessed | — |
 | ENG-STD-005 Change control | conformant | Ruleset `main-branch-integrity`: PR required, linear history, no force-push or deletion, required checks including `commit-check / check`, eng-principles' shared check on GitHub (ENG-STD-005 §1.5, DECISION-006). AGENTS.md. Commits before adoption stay unanchored and 23 carry co-author lines (V-ENG-005-01, -02, resolved forward only) | — |
 | ENG-STD-006 Registers | partial | docs/DECISIONS.md, docs/VIOLATIONS.md, this file, mapped onto the spec registers (DECISION-001). DECISION-001 is PROPOSED, pending the governor | — |
 | ENG-STD-007 Quality model | not assessed | — | — |
