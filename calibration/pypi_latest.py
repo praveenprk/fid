@@ -38,9 +38,15 @@ import fidcal
 TOP_URL = "https://raw.githubusercontent.com/hugovk/top-pypi-packages/main/top-pypi-packages.min.json"
 PYPI_URL = "https://pypi.org/pypi/{name}/json"
 
-SNAPSHOTS = [datetime(y, m, 1, tzinfo=timezone.utc) for y in range(2015, 2025) for m in range(1, 13)
-             if (y, m) <= (2024, 10)]
-LAGS = [round(d * fidcal.DAY) for d in (0, 1, 3, 7, 14, 30, 61, 91, 182, 274, 365, 548, 730)]
+SNAPSHOTS = [
+    datetime(y, m, 1, tzinfo=timezone.utc)
+    for y in range(2015, 2025)
+    for m in range(1, 13)
+    if (y, m) <= (2024, 10)
+]
+LAGS = [
+    round(d * fidcal.DAY) for d in (0, 1, 3, 7, 14, 30, 61, 91, 182, 274, 365, 548, 730)
+]
 JUST_RELEASED, DORMANT = 30 * fidcal.DAY, fidcal.YEAR
 
 # Final releases only: 1.2, 2.0.1, 1!2.0, 3.1.post1 (a post release replaces its base)
@@ -71,7 +77,9 @@ def releases(data):
         live = [f for f in files if not f.get("yanked")]
         if key is None or not live:
             continue
-        out.append((min(parse_time(f["upload_time_iso_8601"]) for f in live), key, version))
+        out.append(
+            (min(parse_time(f["upload_time_iso_8601"]) for f in live), key, version)
+        )
     return sorted(out)
 
 
@@ -124,7 +132,7 @@ def fetch(cache_dir, n, start=0):
     top_path = os.path.join(cache_dir, "pypi", "top-pypi-packages.json")
     fidcal.download(TOP_URL, top_path, pause=0)
     with open(top_path) as f:
-        names = [row["project"] for row in json.load(f)["rows"][start:start + n]]
+        names = [row["project"] for row in json.load(f)["rows"][start : start + n]]
     packages, skipped = {}, 0
     for i, name in enumerate(names):
         path = os.path.join(cache_dir, "pypi", "json", name + ".json")
@@ -145,18 +153,36 @@ def fetch(cache_dir, n, start=0):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--packages", type=int, default=1000, help="how many of the most downloaded packages")
+    ap.add_argument(
+        "--packages",
+        type=int,
+        default=1000,
+        help="how many of the most downloaded packages",
+    )
     args = ap.parse_args(argv)
 
     packages, skipped = fetch(fidcal.default_cache_dir(), args.packages)
-    fidcal.log(f"{len(packages):,} packages with final releases ({skipped} could not be fetched)")
+    fidcal.log(
+        f"{len(packages):,} packages with final releases ({skipped} could not be fetched)"
+    )
     obs = observations(packages)
     truth = "Y is still the highest final, unyanked release on PyPI"
-    labels = {"all": "all snapshots", "just_released": "latest released in the 30 days before",
-              "quiet": "latest is 30 days to 1 year old", "dormant": "no new latest version for over a year"}
-    results = [fidcal.analyze(f"PyPI latest version — {labels[s]}", "the latest version of package X is Y",
-                              obs[s], LAGS, truth=truth)
-               for s in ("all", "just_released", "quiet", "dormant")]
+    labels = {
+        "all": "all snapshots",
+        "just_released": "latest released in the 30 days before",
+        "quiet": "latest is 30 days to 1 year old",
+        "dormant": "no new latest version for over a year",
+    }
+    results = [
+        fidcal.analyze(
+            f"PyPI latest version — {labels[s]}",
+            "the latest version of package X is Y",
+            obs[s],
+            LAGS,
+            truth=truth,
+        )
+        for s in ("all", "just_released", "quiet", "dormant")
+    ]
     fidcal.write_results(results, "pypi_latest")
 
 

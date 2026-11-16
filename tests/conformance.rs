@@ -10,8 +10,8 @@ use serde_json::Value;
 use fid::calibrate;
 use fid::check::assess;
 use fid::compute::{
-    apply_decay, parse_duration, parse_half_life, temporal_factor, time_to_floor, time_to_floor_echo, total_fidelity,
-    transform_factor, Curve, Echo, Fast, Recheck, TimeToFloor,
+    apply_decay, parse_duration, parse_half_life, temporal_factor, time_to_floor,
+    time_to_floor_echo, total_fidelity, transform_factor, Curve, Echo, Fast, Recheck, TimeToFloor,
 };
 use fid::envelope::{integrity_hash, Expiry, FidStatus, SourceClass};
 
@@ -20,18 +20,27 @@ fn root() -> PathBuf {
 }
 
 fn vectors() -> Value {
-    let text = std::fs::read_to_string(root().join("conformance/vectors.json")).expect("conformance/vectors.json");
+    let text = std::fs::read_to_string(root().join("conformance/vectors.json"))
+        .expect("conformance/vectors.json");
     serde_json::from_str(&text).unwrap()
 }
 
 fn cases<'a>(v: &'a Value, section: &str) -> &'a Vec<Value> {
-    let list = v[section].as_array().unwrap_or_else(|| panic!("no section {}", section));
+    let list = v[section]
+        .as_array()
+        .unwrap_or_else(|| panic!("no section {}", section));
     assert!(!list.is_empty(), "empty section {}", section);
     list
 }
 
 fn close(got: f64, want: f64, tol: f64, what: &str) {
-    assert!((got - want).abs() <= tol, "{}: got {}, want {}", what, got, want);
+    assert!(
+        (got - want).abs() <= tol,
+        "{}: got {}, want {}",
+        what,
+        got,
+        want
+    );
 }
 
 fn time(s: &str) -> DateTime<Utc> {
@@ -44,14 +53,27 @@ fn durations() {
     for c in cases(&v, "parse_duration") {
         let input = c["input"].as_str().unwrap();
         match c.get("error") {
-            Some(_) => assert!(parse_duration(input).is_err(), "'{}' should be an error", input),
-            None => close(parse_duration(input).unwrap(), c["seconds"].as_f64().unwrap(), 1e-6, input),
+            Some(_) => assert!(
+                parse_duration(input).is_err(),
+                "'{}' should be an error",
+                input
+            ),
+            None => close(
+                parse_duration(input).unwrap(),
+                c["seconds"].as_f64().unwrap(),
+                1e-6,
+                input,
+            ),
         }
     }
     for c in cases(&v, "parse_half_life") {
         let input = c["input"].as_str().unwrap();
         match c.get("error") {
-            Some(_) => assert!(parse_half_life(input).is_err(), "'{}' should be an error", input),
+            Some(_) => assert!(
+                parse_half_life(input).is_err(),
+                "'{}' should be an error",
+                input
+            ),
             None => match (parse_half_life(input).unwrap(), c["seconds"].as_f64()) {
                 (Some(got), Some(want)) => close(got, want, 1e-6, input),
                 (None, None) => {}
@@ -67,8 +89,17 @@ fn source_classes() {
     for c in cases(&v, "source_fidelity") {
         let name = c["class"].as_str().unwrap();
         match c.get("error") {
-            Some(_) => assert!(SourceClass::from_str(name).is_err(), "'{}' should be an error", name),
-            None => assert_eq!(SourceClass::from_str(name).unwrap().default_fidelity(), c["fidelity"].as_f64(), "{}", name),
+            Some(_) => assert!(
+                SourceClass::from_str(name).is_err(),
+                "'{}' should be an error",
+                name
+            ),
+            None => assert_eq!(
+                SourceClass::from_str(name).unwrap().default_fidelity(),
+                c["fidelity"].as_f64(),
+                "{}",
+                name
+            ),
         }
     }
 }
@@ -78,7 +109,12 @@ fn fidelity() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
     for c in cases(&v, "fidelity") {
-        let noise: Vec<f64> = c["noise"].as_array().unwrap().iter().map(|n| n.as_f64().unwrap()).collect();
+        let noise: Vec<f64> = c["noise"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_f64().unwrap())
+            .collect();
         let got = total_fidelity(
             c["source"].as_f64(),
             c["age_seconds"].as_f64().unwrap(),
@@ -87,7 +123,12 @@ fn fidelity() {
             c["baseline"].as_f64().unwrap(),
         )
         .unwrap();
-        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+        close(
+            got,
+            c["fidelity"].as_f64().unwrap(),
+            tol,
+            c["name"].as_str().unwrap(),
+        );
     }
 }
 
@@ -111,7 +152,10 @@ fn ttl() {
 }
 
 fn echo(c: &Value) -> fid::compute::EchoParams {
-    serde_json::from_value::<Echo>(c["echo"].clone()).unwrap().params().unwrap()
+    serde_json::from_value::<Echo>(c["echo"].clone())
+        .unwrap()
+        .params()
+        .unwrap()
 }
 
 #[test]
@@ -119,10 +163,28 @@ fn echoes() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
     for c in cases(&v, "echo") {
-        let noise: Vec<f64> = c["noise"].as_array().unwrap().iter().map(|n| n.as_f64().unwrap()).collect();
-        let temporal = temporal_factor(c["age_seconds"].as_f64().unwrap(), c["half_life_seconds"].as_f64(), Some(&echo(c)));
-        let got = apply_decay(c["source"].as_f64().unwrap() * transform_factor(&noise), temporal, c["baseline"].as_f64().unwrap());
-        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+        let noise: Vec<f64> = c["noise"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_f64().unwrap())
+            .collect();
+        let temporal = temporal_factor(
+            c["age_seconds"].as_f64().unwrap(),
+            c["half_life_seconds"].as_f64(),
+            Some(&echo(c)),
+        );
+        let got = apply_decay(
+            c["source"].as_f64().unwrap() * transform_factor(&noise),
+            temporal,
+            c["baseline"].as_f64().unwrap(),
+        );
+        close(
+            got,
+            c["fidelity"].as_f64().unwrap(),
+            tol,
+            c["name"].as_str().unwrap(),
+        );
     }
     for c in cases(&v, "echo_time_to_floor") {
         let name = c["name"].as_str().unwrap();
@@ -150,7 +212,13 @@ fn case_curve(c: &Value) -> Curve {
     let fast: Option<Fast> = serde_json::from_value(c["fast"].clone()).unwrap();
     let echo: Option<Echo> = serde_json::from_value(c["echo"].clone()).unwrap();
     let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
-    fid::compute::curve(h.as_deref(), fast.as_ref(), echo.as_ref(), c["shape"].as_f64()).unwrap()
+    fid::compute::curve(
+        h.as_deref(),
+        fast.as_ref(),
+        echo.as_ref(),
+        c["shape"].as_f64(),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -163,7 +231,12 @@ fn fast_shares() {
             case_curve(c).temporal(c["age_seconds"].as_f64().unwrap()),
             c["baseline"].as_f64().unwrap(),
         );
-        close(got, c["fidelity"].as_f64().unwrap(), tol, c["name"].as_str().unwrap());
+        close(
+            got,
+            c["fidelity"].as_f64().unwrap(),
+            tol,
+            c["name"].as_str().unwrap(),
+        );
     }
     for c in cases(&v, "fast_time_to_floor") {
         let name = c["name"].as_str().unwrap();
@@ -180,12 +253,20 @@ fn fast_shares() {
     }
     for c in cases(&v, "shape_errors") {
         let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
-        assert!(fid::compute::curve(h.as_deref(), None, None, c["shape"].as_f64()).is_err(), "{}", c["error"]);
+        assert!(
+            fid::compute::curve(h.as_deref(), None, None, c["shape"].as_f64()).is_err(),
+            "{}",
+            c["error"]
+        );
     }
     for c in cases(&v, "fast_errors") {
         let fast: Fast = serde_json::from_value(c["fast"].clone()).unwrap();
         let h = c["half_life_seconds"].as_f64().map(|h| format!("{}s", h));
-        assert!(fid::compute::curve(h.as_deref(), Some(&fast), None, None).is_err(), "{}", c["error"]);
+        assert!(
+            fid::compute::curve(h.as_deref(), Some(&fast), None, None).is_err(),
+            "{}",
+            c["error"]
+        );
     }
 }
 
@@ -195,13 +276,28 @@ fn schedules() {
     for c in cases(&v, "schedule") {
         let name = c["name"].as_str().unwrap();
         let curve = case_curve(c);
-        let (f, b, price) = (c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["price"].as_f64().unwrap());
+        let (f, b, price) = (
+            c["fidelity"].as_f64().unwrap(),
+            c["baseline"].as_f64().unwrap(),
+            c["price"].as_f64().unwrap(),
+        );
         let cost = |t: f64| curve.mean_staleness(f, b, t) + price * 86_400.0 / t;
-        match (fid::compute::best_interval(&curve, f, b, price).unwrap(), c["seconds"].as_f64()) {
+        match (
+            fid::compute::best_interval(&curve, f, b, price).unwrap(),
+            c["seconds"].as_f64(),
+        ) {
             (Recheck::Every(t), Some(want)) => {
                 // The same staleness at the spec's interval, and fid's interval at least as cheap
                 close(cost(want), c["cost"].as_f64().unwrap(), 1e-7, name);
-                assert!(cost(t) <= c["cost"].as_f64().unwrap() + 1e-7, "{}: {} at {} vs {} at {}", name, cost(t), t, c["cost"], want);
+                assert!(
+                    cost(t) <= c["cost"].as_f64().unwrap() + 1e-7,
+                    "{}: {} at {} vs {} at {}",
+                    name,
+                    cost(t),
+                    t,
+                    c["cost"],
+                    want
+                );
             }
             (Recheck::Never, None) => {}
             (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
@@ -210,9 +306,17 @@ fn schedules() {
     for c in cases(&v, "staleness_target") {
         let name = c["name"].as_str().unwrap();
         let curve = case_curve(c);
-        let got = fid::compute::interval_for_staleness(&curve, c["fidelity"].as_f64().unwrap(), c["baseline"].as_f64().unwrap(), c["target"].as_f64().unwrap()).unwrap();
+        let got = fid::compute::interval_for_staleness(
+            &curve,
+            c["fidelity"].as_f64().unwrap(),
+            c["baseline"].as_f64().unwrap(),
+            c["target"].as_f64().unwrap(),
+        )
+        .unwrap();
         match (got, c["seconds"].as_f64()) {
-            (Recheck::Every(t), Some(want)) => assert!((t / want - 1.0).abs() < 1e-6, "{}: {} vs {}", name, t, want),
+            (Recheck::Every(t), Some(want)) => {
+                assert!((t / want - 1.0).abs() < 1e-6, "{}: {} vs {}", name, t, want)
+            }
             (Recheck::Never, None) => {}
             (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
         }
@@ -223,8 +327,16 @@ fn schedules() {
 fn integrity() {
     let v = vectors();
     for c in cases(&v, "integrity") {
-        assert_eq!(serde_json::to_string(&c["content"]).unwrap(), c["canonical"].as_str().unwrap());
-        assert_eq!(integrity_hash(&c["content"]), c["hash"].as_str().unwrap(), "{}", c["content"]);
+        assert_eq!(
+            serde_json::to_string(&c["content"]).unwrap(),
+            c["canonical"].as_str().unwrap()
+        );
+        assert_eq!(
+            integrity_hash(&c["content"]),
+            c["hash"].as_str().unwrap(),
+            "{}",
+            c["content"]
+        );
     }
 }
 
@@ -232,8 +344,16 @@ fn integrity() {
 fn integrity_jcs() {
     let v = vectors();
     for c in cases(&v, "integrity_jcs") {
-        assert_eq!(fid::jcs::canonical(&c["content"]), c["canonical"].as_str().unwrap());
-        assert_eq!(fid::envelope::integrity_for("1.0", &c["content"]), c["hash"].as_str().unwrap(), "{}", c["content"]);
+        assert_eq!(
+            fid::jcs::canonical(&c["content"]),
+            c["canonical"].as_str().unwrap()
+        );
+        assert_eq!(
+            fid::envelope::integrity_for("1.0", &c["content"]),
+            c["hash"].as_str().unwrap(),
+            "{}",
+            c["content"]
+        );
     }
 }
 
@@ -241,8 +361,16 @@ fn integrity_jcs() {
 fn writer_errors() {
     let v = vectors();
     for c in cases(&v, "writer_errors") {
-        let opts = fid::stamp::StampOptions { source_class: Some(fid::envelope::SourceClass::Instrument), ..fid::stamp::StampOptions::new("w") };
-        let got = fid::stamp::stamp(c["content_json"].as_str().unwrap(), &opts, None, time("2026-01-01T00:00:00Z"));
+        let opts = fid::stamp::StampOptions {
+            source_class: Some(fid::envelope::SourceClass::Instrument),
+            ..fid::stamp::StampOptions::new("w")
+        };
+        let got = fid::stamp::stamp(
+            c["content_json"].as_str().unwrap(),
+            &opts,
+            None,
+            time("2026-01-01T00:00:00Z"),
+        );
         assert!(got.is_err(), "{}: a writer must refuse", c["error"]);
     }
 }
@@ -254,17 +382,28 @@ fn envelopes() {
     for c in cases(&v, "envelope") {
         let name = c["name"].as_str().unwrap();
         let floor = c["floor"].as_f64().unwrap();
-        let stamped = match fid::envelope::read_value(c["stamped"].clone()).unwrap_or_else(|e| panic!("{}: {}", name, e)) {
+        let stamped = match fid::envelope::read_value(c["stamped"].clone())
+            .unwrap_or_else(|e| panic!("{}: {}", name, e))
+        {
             fid::envelope::Read::Understood(s) => s,
             fid::envelope::Read::NotUnderstood(why) => {
                 // a scorer answers UNKNOWN: no fidelity, no expiry
-                assert!(c.get("not_understood").is_some(), "{}: not understood ({}), but the vector reads it", name, why);
+                assert!(
+                    c.get("not_understood").is_some(),
+                    "{}: not understood ({}), but the vector reads it",
+                    name,
+                    why
+                );
                 assert_eq!(c["status"], "UNKNOWN", "{}", name);
                 assert_eq!(c["expires_at"], "unknown", "{}", name);
                 continue;
             }
         };
-        assert!(c.get("not_understood").is_none(), "{}: the vector says not understood, fid read it", name);
+        assert!(
+            c.get("not_understood").is_none(),
+            "{}: the vector says not understood, fid read it",
+            name
+        );
         let r = assess(&stamped, floor, time(c["now"].as_str().unwrap())).unwrap();
 
         let status = match r.assessment.status {
@@ -273,7 +412,12 @@ fn envelopes() {
             FidStatus::Unknown => "UNKNOWN",
         };
         assert_eq!(status, c["status"].as_str().unwrap(), "{}: status", name);
-        assert_eq!(r.integrity_ok, c["integrity_ok"].as_bool().unwrap(), "{}: integrity", name);
+        assert_eq!(
+            r.integrity_ok,
+            c["integrity_ok"].as_bool().unwrap(),
+            "{}: integrity",
+            name
+        );
         match (r.assessment.fidelity, c["fidelity"].as_f64()) {
             (Some(got), Some(want)) => close(got, want, tol, name),
             (None, None) => {}
@@ -285,7 +429,12 @@ fn envelopes() {
             Some(Expiry::Never) => "never".to_string(),
             Some(Expiry::At(t)) => t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         };
-        assert_eq!(expires, c["expires_at"].as_str().unwrap(), "{}: expires_at", name);
+        assert_eq!(
+            expires,
+            c["expires_at"].as_str().unwrap(),
+            "{}: expires_at",
+            name
+        );
     }
 }
 
@@ -295,19 +444,63 @@ fn registry() {
     for c in cases(&v, "registry") {
         let info_type = c["type"].as_str().unwrap();
         let state = c["state"].as_str();
-        let got = fid::registry::HalfLives::from_yaml(c["registry"].as_str().unwrap()).and_then(|r| r.lookup(info_type, state));
+        let got = fid::registry::HalfLives::from_yaml(c["registry"].as_str().unwrap())
+            .and_then(|r| r.lookup(info_type, state));
         if let Some(reason) = c.get("error") {
-            assert!(got.is_err(), "{} {:?}: {} should be an error, got {:?}", info_type, state, reason, got);
+            assert!(
+                got.is_err(),
+                "{} {:?}: {} should be an error, got {:?}",
+                info_type,
+                state,
+                reason,
+                got
+            );
             continue;
         }
         let got = got.unwrap_or_else(|e| panic!("{} {:?}: {}", info_type, state, e));
         let want = &c["spec"];
-        assert_eq!(got.half_life, want["half_life"].as_str().unwrap(), "{} {:?}", info_type, state);
-        assert_eq!(got.baseline, want["baseline"].as_f64(), "{} {:?} baseline", info_type, state);
-        assert_eq!(got.source_fidelity, want["source_fidelity"].as_f64(), "{} {:?} source_fidelity", info_type, state);
-        assert_eq!(got.shape, want["shape"].as_f64(), "{} {:?} shape", info_type, state);
-        assert_eq!(serde_json::to_value(&got.fast).unwrap(), want["fast"], "{} {:?} fast", info_type, state);
-        assert_eq!(serde_json::to_value(&got.echo).unwrap(), want["echo"], "{} {:?} echo", info_type, state);
+        assert_eq!(
+            got.half_life,
+            want["half_life"].as_str().unwrap(),
+            "{} {:?}",
+            info_type,
+            state
+        );
+        assert_eq!(
+            got.baseline,
+            want["baseline"].as_f64(),
+            "{} {:?} baseline",
+            info_type,
+            state
+        );
+        assert_eq!(
+            got.source_fidelity,
+            want["source_fidelity"].as_f64(),
+            "{} {:?} source_fidelity",
+            info_type,
+            state
+        );
+        assert_eq!(
+            got.shape,
+            want["shape"].as_f64(),
+            "{} {:?} shape",
+            info_type,
+            state
+        );
+        assert_eq!(
+            serde_json::to_value(&got.fast).unwrap(),
+            want["fast"],
+            "{} {:?} fast",
+            info_type,
+            state
+        );
+        assert_eq!(
+            serde_json::to_value(&got.echo).unwrap(),
+            want["echo"],
+            "{} {:?} echo",
+            info_type,
+            state
+        );
     }
 }
 
@@ -344,7 +537,10 @@ fn ledger_example_recovers_known_decay() {
 
     let truth_h = ex["truth"]["half_life_days"].as_f64().unwrap() * 86400.0;
     let truth_b = ex["truth"]["baseline"].as_f64().unwrap();
-    assert!(fits[0].uses_baseline, "the baseline should beat decay-to-zero");
+    assert!(
+        fits[0].uses_baseline,
+        "the baseline should beat decay-to-zero"
+    );
     assert!(
         (m.half_life / truth_h - 1.0).abs() <= ex["half_life_within"].as_f64().unwrap(),
         "half-life {}d, truth {}d",

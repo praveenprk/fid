@@ -28,7 +28,14 @@ from collections import defaultdict
 
 import fidcal
 
-DAYS = ["2023_01_15", "2023_03_15", "2023_05_15", "2023_07_15", "2023_09_15", "2023_11_15"]
+DAYS = [
+    "2023_01_15",
+    "2023_03_15",
+    "2023_05_15",
+    "2023_07_15",
+    "2023_09_15",
+    "2023_11_15",
+]
 URL = "https://coast.noaa.gov/htdata/CMSP/AISDataHandler/{year}/AIS_{day}.zip"
 LAG_MINUTES = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 600, 720]
 LAGS = [m * 60 for m in LAG_MINUTES]
@@ -53,7 +60,18 @@ def load(path, status=False):
         with z.open(name) as raw:
             reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""))
             header = next(reader)
-            i = {col: header.index(col) for col in ("MMSI", "BaseDateTime", "LAT", "LON", "SOG", "VesselType", "Status")}
+            i = {
+                col: header.index(col)
+                for col in (
+                    "MMSI",
+                    "BaseDateTime",
+                    "LAT",
+                    "LON",
+                    "SOG",
+                    "VesselType",
+                    "Status",
+                )
+            }
             for row in reader:
                 if not is_cargo_or_tanker(row[i["VesselType"]]):
                     continue
@@ -63,7 +81,11 @@ def load(path, status=False):
                 if minute in track:
                     continue
                 try:
-                    report = (float(row[i["LAT"]]), float(row[i["LON"]]), float(row[i["SOG"]]))
+                    report = (
+                        float(row[i["LAT"]]),
+                        float(row[i["LON"]]),
+                        float(row[i["SOG"]]),
+                    )
                     track[minute] = report + (row[i["Status"]],) if status else report
                 except ValueError:
                     continue
@@ -72,7 +94,10 @@ def load(path, status=False):
 
 def haversine_km(a, b):
     lat1, lon1, lat2, lon2 = map(math.radians, (a[0], a[1], b[0], b[1]))
-    h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
+    h = (
+        math.sin((lat2 - lat1) / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
+    )
     return 2 * 6371.0 * math.asin(math.sqrt(h))
 
 
@@ -110,7 +135,9 @@ def main():
     vessels = set()
     for day in DAYS:
         url = URL.format(year=day[:4], day=day)
-        tracks = load(fidcal.download(url, os.path.join(cache, "ais", f"AIS_{day}.zip")))
+        tracks = load(
+            fidcal.download(url, os.path.join(cache, "ais", f"AIS_{day}.zip"))
+        )
         vessels.update(tracks)
         fidcal.log(f"{day}: {len(tracks):,} cargo ships and tankers")
         for threshold in THRESHOLDS_KM:
@@ -125,12 +152,16 @@ def main():
     results = []
     for threshold in THRESHOLDS_KM:
         for label, _ in GROUPS:
-            results.append(fidcal.analyze(
-                f"AIS {threshold:.0f} km, {label}",
-                f"vessel V is at position P (±{threshold:.0f} km)",
-                tallies[(threshold, label)], LAGS,
-                truth=f"next report within {threshold:.0f} km", **guess,
-            ))
+            results.append(
+                fidcal.analyze(
+                    f"AIS {threshold:.0f} km, {label}",
+                    f"vessel V is at position P (±{threshold:.0f} km)",
+                    tallies[(threshold, label)],
+                    LAGS,
+                    truth=f"next report within {threshold:.0f} km",
+                    **guess,
+                )
+            )
     fidcal.write_results(results, "ships_ais")
 
 

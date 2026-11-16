@@ -42,7 +42,13 @@ const STEP_MEMBERS: &[&str] = &["step", "noise", "at", "condition"];
 /// "MAJOR.MINOR", each decimal digits only.
 pub fn parse_version(v: &str) -> Option<(u32, u32)> {
     let (a, b) = v.split_once('.')?;
-    let num = |s: &str| if !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit()) { s.parse().ok() } else { None };
+    let num = |s: &str| {
+        if !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit()) {
+            s.parse().ok()
+        } else {
+            None
+        }
+    };
     Some((num(a)?, num(b)?))
 }
 
@@ -55,14 +61,28 @@ pub fn not_understood(fid: &serde_json::Map<String, Value>) -> Option<String> {
     let Some(version) = parse_version(text) else {
         return Some(format!("fid_version '{}' is not MAJOR.MINOR", text));
     };
-    if !READS.iter().any(|&(major, minor)| version.0 == major && version.1 <= minor) {
-        return Some(format!("version {} is not one this fid reads (0.1 to 0.4, 1.0)", text));
+    if !READS
+        .iter()
+        .any(|&(major, minor)| version.0 == major && version.1 <= minor)
+    {
+        return Some(format!(
+            "version {} is not one this fid reads (0.1 to 0.4, 1.0)",
+            text
+        ));
     }
-    let unknown_in = |v: &Value, known: &[&str]| v.as_object().and_then(|o| o.keys().find(|k| !known.contains(&k.as_str())).cloned());
+    let unknown_in = |v: &Value, known: &[&str]| {
+        v.as_object()
+            .and_then(|o| o.keys().find(|k| !known.contains(&k.as_str())).cloned())
+    };
     for (k, v) in fid {
         match MEMBERS.iter().find(|(m, _)| m == k) {
             Some((_, since)) if *since <= version => {}
-            _ => return Some(format!("member '{}' is not defined for version {}", k, text)),
+            _ => {
+                return Some(format!(
+                    "member '{}' is not defined for version {}",
+                    k, text
+                ))
+            }
         }
         let nested = match k.as_str() {
             "echo" => ECHO_MEMBERS,
@@ -70,12 +90,18 @@ pub fn not_understood(fid: &serde_json::Map<String, Value>) -> Option<String> {
             _ => continue,
         };
         if let Some(m) = unknown_in(v, nested) {
-            return Some(format!("member '{}' in '{}' is not defined for version {}", m, k, text));
+            return Some(format!(
+                "member '{}' in '{}' is not defined for version {}",
+                m, k, text
+            ));
         }
     }
     if let Some(steps) = fid.get("transforms").and_then(Value::as_array) {
         if let Some(m) = steps.iter().find_map(|t| unknown_in(t, STEP_MEMBERS)) {
-            return Some(format!("member '{}' in a transform step is not defined for version {}", m, text));
+            return Some(format!(
+                "member '{}' in a transform step is not defined for version {}",
+                m, text
+            ));
         }
     }
     None
@@ -101,11 +127,16 @@ pub fn read(text: &str) -> Result<Read, String> {
 
 /// As `read`, from a parsed value.
 pub fn read_value(value: Value) -> Result<Read, String> {
-    let obj = value.as_object().ok_or("a stamped artifact is a JSON object")?;
+    let obj = value
+        .as_object()
+        .ok_or("a stamped artifact is a JSON object")?;
     if obj.len() != 2 || !obj.contains_key("content") {
         return Err("a stamped artifact has exactly two members, 'fid' and 'content'".to_string());
     }
-    let fid = obj.get("fid").and_then(Value::as_object).ok_or("'fid' must be an object")?;
+    let fid = obj
+        .get("fid")
+        .and_then(Value::as_object)
+        .ok_or("'fid' must be an object")?;
     // No version at all is malformed; a version string this fid does not read is not understood
     if !fid.get("fid_version").is_some_and(Value::is_string) {
         return Err("'fid_version' is missing or not a string".to_string());
@@ -113,7 +144,9 @@ pub fn read_value(value: Value) -> Result<Read, String> {
     if let Some(reason) = not_understood(fid) {
         return Ok(Read::NotUnderstood(reason));
     }
-    serde_json::from_value(value).map(Read::Understood).map_err(|e| e.to_string())
+    serde_json::from_value(value)
+        .map(Read::Understood)
+        .map_err(|e| e.to_string())
 }
 
 /// The integrity of `content` as an envelope of `version` computes it: SHA-256
@@ -122,7 +155,13 @@ pub fn integrity_for(version: &str, content: &Value) -> String {
     match parse_version(version) {
         Some((major, _)) if major >= 1 => {
             let digest = Sha256::digest(crate::jcs::canonical(content).as_bytes());
-            format!("sha256:{}", digest.iter().map(|b| format!("{:02x}", b)).collect::<String>())
+            format!(
+                "sha256:{}",
+                digest
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>()
+            )
         }
         _ => integrity_hash(content),
     }
@@ -135,7 +174,9 @@ pub fn not_ijson(content: &Value) -> Option<String> {
     match content {
         Value::Number(n) => match (n.as_u64(), n.as_i64()) {
             (Some(u), _) if u > LIMIT => Some(format!("integer {} is beyond 2^53", u)),
-            (_, Some(i)) if i.unsigned_abs() > LIMIT => Some(format!("integer {} is beyond -2^53", i)),
+            (_, Some(i)) if i.unsigned_abs() > LIMIT => {
+                Some(format!("integer {} is beyond -2^53", i))
+            }
             _ => None,
         },
         Value::Array(items) => items.iter().find_map(not_ijson),
@@ -316,19 +357,29 @@ impl FidEnvelope {
         let curve = self.curve()?;
         let age_seconds = (now - self.measured_at).num_milliseconds() as f64 / 1000.0;
         Ok(self.at_measurement().map(|f| {
-            crate::compute::apply_decay(f, curve.temporal(age_seconds), self.baseline.unwrap_or(0.0))
+            crate::compute::apply_decay(
+                f,
+                curve.temporal(age_seconds),
+                self.baseline.unwrap_or(0.0),
+            )
         }))
     }
 
     /// The temporal curve (half-life, fast share, echo), validated.
     pub fn curve(&self) -> Result<crate::compute::Curve, String> {
-        crate::compute::curve(self.half_life.as_deref(), self.fast.as_ref(), self.echo.as_ref(), self.shape)
+        crate::compute::curve(
+            self.half_life.as_deref(),
+            self.fast.as_ref(),
+            self.echo.as_ref(),
+            self.shape,
+        )
     }
 
     /// Fidelity at measurement: source × ∏(1 − noise). None if the source is unknown.
     pub fn at_measurement(&self) -> Option<f64> {
         let noise: Vec<f64> = self.transforms.iter().map(|t| t.noise).collect();
-        self.source_fidelity().map(|s| s * crate::compute::transform_factor(&noise))
+        self.source_fidelity()
+            .map(|s| s * crate::compute::transform_factor(&noise))
     }
 
     /// When fidelity falls below `floor`: the TTL implied by measured decay.
@@ -362,13 +413,18 @@ impl FidEnvelope {
         let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
-        let interval = crate::compute::best_interval(&curve, f, self.baseline.unwrap_or(0.0), price)?;
+        let interval =
+            crate::compute::best_interval(&curve, f, self.baseline.unwrap_or(0.0), price)?;
         self.guarded(interval, floor).map(Some)
     }
 
     /// When to re-check this fact to keep its mean staleness at or below
     /// `target`, and never later than the floor's TTL when a floor is given.
-    pub fn recheck_for_staleness(&self, target: f64, floor: Option<f64>) -> Result<Option<Expiry>, String> {
+    pub fn recheck_for_staleness(
+        &self,
+        target: f64,
+        floor: Option<f64>,
+    ) -> Result<Option<Expiry>, String> {
         let curve = self.curve()?;
         if !self.decay_known() {
             return Ok(None);
@@ -376,11 +432,20 @@ impl FidEnvelope {
         let Some(f) = self.at_measurement() else {
             return Ok(None);
         };
-        let interval = crate::compute::interval_for_staleness(&curve, f, self.baseline.unwrap_or(0.0), target)?;
+        let interval = crate::compute::interval_for_staleness(
+            &curve,
+            f,
+            self.baseline.unwrap_or(0.0),
+            target,
+        )?;
         self.guarded(interval, floor).map(Some)
     }
 
-    fn guarded(&self, interval: crate::compute::Recheck, floor: Option<f64>) -> Result<Expiry, String> {
+    fn guarded(
+        &self,
+        interval: crate::compute::Recheck,
+        floor: Option<f64>,
+    ) -> Result<Expiry, String> {
         let mut at = match interval {
             crate::compute::Recheck::Never => Expiry::Never,
             crate::compute::Recheck::Every(seconds) => Expiry::At(self.after(seconds)),
@@ -397,7 +462,8 @@ impl FidEnvelope {
     }
 
     fn after(&self, seconds: f64) -> DateTime<Utc> {
-        self.measured_at + chrono::Duration::milliseconds((seconds * 1000.0).round().min(9.0e15) as i64)
+        self.measured_at
+            + chrono::Duration::milliseconds((seconds * 1000.0).round().min(9.0e15) as i64)
     }
 }
 
@@ -516,13 +582,19 @@ mod tests {
     fn test_source_class_names_all_parse() {
         for name in SourceClass::NAMES {
             let class: SourceClass = name.parse().unwrap();
-            assert_eq!(serde_json::to_value(&class).unwrap(), Value::String(name.to_string()));
+            assert_eq!(
+                serde_json::to_value(&class).unwrap(),
+                Value::String(name.to_string())
+            );
         }
     }
 
     #[test]
     fn test_source_class_parse_accepts_hyphens_and_case() {
-        assert_eq!("Human-Observation".parse(), Ok(SourceClass::HumanObservation));
+        assert_eq!(
+            "Human-Observation".parse(),
+            Ok(SourceClass::HumanObservation)
+        );
     }
 
     #[test]
@@ -577,7 +649,10 @@ mod tests {
         env.transforms.clear();
         env.half_life = Some("1d".into());
         env.baseline = Some(0.70);
-        let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
+        let f = env
+            .fidelity_at(env.measured_at + chrono::Duration::days(1))
+            .unwrap()
+            .unwrap();
         assert!((f - 0.80).abs() < 1e-10);
     }
 
@@ -589,10 +664,16 @@ mod tests {
         env.half_life = Some("1d".into());
         env.source_fidelity = Some(0.80);
         assert_eq!(env.source_fidelity(), Some(0.80));
-        let f = env.fidelity_at(env.measured_at + chrono::Duration::days(1)).unwrap().unwrap();
+        let f = env
+            .fidelity_at(env.measured_at + chrono::Duration::days(1))
+            .unwrap()
+            .unwrap();
         assert!((f - 0.40).abs() < 1e-10);
         // 0.80 → 0.40 takes one half-life
-        assert_eq!(env.expires_at(0.40).unwrap(), Some(Expiry::At(env.measured_at + chrono::Duration::days(1))));
+        assert_eq!(
+            env.expires_at(0.40).unwrap(),
+            Some(Expiry::At(env.measured_at + chrono::Duration::days(1)))
+        );
     }
 
     #[test]
@@ -612,7 +693,10 @@ mod tests {
         env.transforms.clear();
         env.half_life = Some("1d".into());
         // 0.90 → 0.45 takes one half-life
-        assert_eq!(env.expires_at(0.45).unwrap(), Some(Expiry::At(env.measured_at + chrono::Duration::days(1))));
+        assert_eq!(
+            env.expires_at(0.45).unwrap(),
+            Some(Expiry::At(env.measured_at + chrono::Duration::days(1)))
+        );
         env.baseline = Some(0.5);
         assert_eq!(env.expires_at(0.45).unwrap(), Some(Expiry::Never));
         env.source_class = SourceClass::Unknown;
@@ -626,17 +710,27 @@ mod tests {
         env.source_fidelity = Some(1.0);
         env.transforms.clear();
         env.half_life = Some("80d".into());
-        env.fast = Some(crate::compute::Fast { share: 0.3, half_life: "3d".into() });
+        env.fast = Some(crate::compute::Fast {
+            share: 0.3,
+            half_life: "3d".into(),
+        });
         let day = chrono::Duration::days(3);
         let f = env.fidelity_at(env.measured_at + day).unwrap().unwrap();
         let want = 0.7 * 0.5_f64.powf(3.0 / 80.0) + 0.3 * 0.5;
         assert!((f - want).abs() < 1e-9, "{}", f);
         // round trip, and absent when unset
-        let back: FidEnvelope = serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
+        let back: FidEnvelope =
+            serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
         assert_eq!(back.fast, env.fast);
-        assert!(serde_json::to_value(sample_envelope()).unwrap().get("fast").is_none());
+        assert!(serde_json::to_value(sample_envelope())
+            .unwrap()
+            .get("fast")
+            .is_none());
         // an invalid fast share is an error, never ignored
-        env.fast = Some(crate::compute::Fast { share: 0.3, half_life: "90d".into() });
+        env.fast = Some(crate::compute::Fast {
+            share: 0.3,
+            half_life: "90d".into(),
+        });
         assert!(env.fidelity_at(env.measured_at).is_err());
         assert!(env.expires_at(0.5).is_err());
     }
@@ -649,13 +743,22 @@ mod tests {
         env.transforms.clear();
         env.half_life = Some("3m".into());
         env.shape = Some(3.0);
-        let f = env.fidelity_at(env.measured_at + chrono::Duration::minutes(3)).unwrap().unwrap();
+        let f = env
+            .fidelity_at(env.measured_at + chrono::Duration::minutes(3))
+            .unwrap()
+            .unwrap();
         assert!((f - 0.5).abs() < 1e-9);
-        let Some(Expiry::At(at)) = env.expires_at(0.5).unwrap() else { panic!() };
+        let Some(Expiry::At(at)) = env.expires_at(0.5).unwrap() else {
+            panic!()
+        };
         assert_eq!(at, env.measured_at + chrono::Duration::minutes(3));
-        let back: FidEnvelope = serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
+        let back: FidEnvelope =
+            serde_json::from_value(serde_json::to_value(&env).unwrap()).unwrap();
         assert_eq!(back.shape, Some(3.0));
-        assert!(serde_json::to_value(sample_envelope()).unwrap().get("shape").is_none());
+        assert!(serde_json::to_value(sample_envelope())
+            .unwrap()
+            .get("shape")
+            .is_none());
         env.shape = Some(-1.0);
         assert!(env.fidelity_at(env.measured_at).is_err());
     }
@@ -669,20 +772,42 @@ mod tests {
         env.half_life = Some("1d".into());
         env.baseline = Some(0.1);
         let curve = env.curve().unwrap();
-        let crate::compute::Recheck::Every(t) = crate::compute::best_interval(&curve, 1.0, 0.1, 1e-3).unwrap() else { panic!() };
-        let Some(Expiry::At(at)) = env.recheck_at(1e-3, None).unwrap() else { panic!() };
-        assert_eq!(at, env.measured_at + chrono::Duration::milliseconds((t * 1000.0).round() as i64));
+        let crate::compute::Recheck::Every(t) =
+            crate::compute::best_interval(&curve, 1.0, 0.1, 1e-3).unwrap()
+        else {
+            panic!()
+        };
+        let Some(Expiry::At(at)) = env.recheck_at(1e-3, None).unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            at,
+            env.measured_at + chrono::Duration::milliseconds((t * 1000.0).round() as i64)
+        );
         // a floor reached sooner caps it
-        let Some(Expiry::At(ttl)) = env.expires_at(0.99).unwrap() else { panic!() };
+        let Some(Expiry::At(ttl)) = env.expires_at(0.99).unwrap() else {
+            panic!()
+        };
         assert!(ttl < at);
-        assert_eq!(env.recheck_at(1e-3, Some(0.99)).unwrap(), Some(Expiry::At(ttl)));
+        assert_eq!(
+            env.recheck_at(1e-3, Some(0.99)).unwrap(),
+            Some(Expiry::At(ttl))
+        );
         // a floor reached later does not
-        assert_eq!(env.recheck_at(1e-3, Some(0.2)).unwrap(), Some(Expiry::At(at)));
+        assert_eq!(
+            env.recheck_at(1e-3, Some(0.2)).unwrap(),
+            Some(Expiry::At(at))
+        );
         // too dear to re-check: never, unless the floor says otherwise
         assert_eq!(env.recheck_at(1e6, None).unwrap(), Some(Expiry::Never));
-        assert_eq!(env.recheck_at(1e6, Some(0.5)).unwrap(), env.expires_at(0.5).unwrap());
+        assert_eq!(
+            env.recheck_at(1e6, Some(0.5)).unwrap(),
+            env.expires_at(0.5).unwrap()
+        );
         // staleness target
-        let Some(Expiry::At(s)) = env.recheck_for_staleness(0.05, None).unwrap() else { panic!() };
+        let Some(Expiry::At(s)) = env.recheck_for_staleness(0.05, None).unwrap() else {
+            panic!()
+        };
         let secs = (s - env.measured_at).num_milliseconds() as f64 / 1000.0;
         assert!((curve.mean_staleness(1.0, 0.1, secs) - 0.05).abs() < 1e-6);
         // unknown source: no schedule

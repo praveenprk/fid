@@ -33,10 +33,11 @@ import fid
 from datetime import timedelta
 
 # Score and gate
-artifact = fid.stamp({"ceo": "Ada"}, source="registry", source_class="database",
-                     half_life="5.8y")
-fid.check(artifact, floor=0.7).status          # Status.SIGNAL (== 0, the CLI exit code)
-fid.expires_at(artifact, floor=0.7)            # datetime when it falls below the floor
+artifact = fid.stamp(
+    {"ceo": "Ada"}, source="registry", source_class="database", half_life="5.8y"
+)
+fid.check(artifact, floor=0.7).status  # Status.SIGNAL (== 0, the CLI exit code)
+fid.expires_at(artifact, floor=0.7)  # datetime when it falls below the floor
 
 # Pipelines: stamping a stamped artifact appends a transform step
 step = fid.stamp(artifact, source="summarize.py", noise=0.15)
@@ -48,7 +49,7 @@ noise = fid.noise("noise-model.yaml", "flight_leg", "previous_leg_late")
 
 # The formula on its own
 fid.fidelity(0.97, timedelta(hours=1), "2.9h", baseline=0.73)
-fid.time_to_floor(0.97, "7d", 0.70, baseline=0.2)   # timedelta, or None if never
+fid.time_to_floor(0.97, "7d", 0.70, baseline=0.2)  # timedelta, or None if never
 
 # Calibrate from facts you re-checked: (entity, age, still correct?, [state])
 cal = fid.calibrate(rows, "policy_claim")

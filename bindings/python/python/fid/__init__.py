@@ -106,6 +106,7 @@ class Drift:
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
+
 def _seconds(value: Optional[Duration]) -> Optional[float]:
     """Seconds from a duration string, number of seconds, or timedelta. None = infinite."""
     if value is None:
@@ -164,6 +165,7 @@ def _json(stamped: Union[Mapping[str, Any], str]) -> str:
 
 # ── scoring ──────────────────────────────────────────────────────────────
 
+
 def parse_half_life(value: str) -> float:
     """Seconds in a half-life such as "30d" or "6h"; math.inf for "infinite"."""
     seconds = _fid.parse_half_life(value)
@@ -193,7 +195,16 @@ def fidelity(
     `fast` is a share that goes stale on a faster clock: e.g. {"share": 0.3, "half_life": "3d"}.
     `shape` bends the clocks, 0.5^((age/h)^shape): above 1 a fact holds, then drops.
     """
-    return _fid.fidelity(source, _age(age), _hl(half_life), list(noise), baseline, _echo(echo), _fast(fast), shape)
+    return _fid.fidelity(
+        source,
+        _age(age),
+        _hl(half_life),
+        list(noise),
+        baseline,
+        _echo(echo),
+        _fast(fast),
+        shape,
+    )
 
 
 def time_to_floor(
@@ -212,7 +223,9 @@ def time_to_floor(
     measured decay: half_life × log2((fidelity − b) / (floor − b)). With an
     echo the fact comes back later; this is still the first crossing.
     """
-    seconds = _fid.time_to_floor(fidelity, _hl(half_life), baseline, floor, _echo(echo), _fast(fast), shape)
+    seconds = _fid.time_to_floor(
+        fidelity, _hl(half_life), baseline, floor, _echo(echo), _fast(fast), shape
+    )
     return None if seconds is None else timedelta(seconds=seconds)
 
 
@@ -235,7 +248,16 @@ def recheck_interval(
     removes the most staleness. With `staleness`: the longest interval that
     keeps mean staleness at or below it.
     """
-    seconds = _fid.recheck_interval(fidelity, _hl(half_life), baseline, price, staleness, _echo(echo), _fast(fast), shape)
+    seconds = _fid.recheck_interval(
+        fidelity,
+        _hl(half_life),
+        baseline,
+        price,
+        staleness,
+        _echo(echo),
+        _fast(fast),
+        shape,
+    )
     return None if seconds is None else timedelta(seconds=seconds)
 
 
@@ -250,10 +272,13 @@ def mean_staleness(
     shape: Optional[float] = None,
 ) -> float:
     """Fraction of the time a fact re-checked every `every` is served wrong."""
-    return _fid.mean_staleness(fidelity, _hl(half_life), baseline, _age(every), _echo(echo), _fast(fast), shape)
+    return _fid.mean_staleness(
+        fidelity, _hl(half_life), baseline, _age(every), _echo(echo), _fast(fast), shape
+    )
 
 
 # ── envelopes ────────────────────────────────────────────────────────────
+
 
 def stamp(
     content: Any,
@@ -281,10 +306,28 @@ def stamp(
     derived from. `source_fidelity` is a measured fraction correct when
     fresh (see `registry`); it replaces the source class constant.
     """
-    raw = content if isinstance(content, str) and _looks_stamped(content) else json.dumps(content)
+    raw = (
+        content
+        if isinstance(content, str) and _looks_stamped(content)
+        else json.dumps(content)
+    )
     result, notes = _fid.stamp(
-        raw, source, source_class, float(noise), _half_life_str(half_life), baseline, source_fidelity, _echo(echo),
-        type, state, condition, derived_from, None if upstream is None else _json(upstream), _now(now), _fast(fast), shape,
+        raw,
+        source,
+        source_class,
+        float(noise),
+        _half_life_str(half_life),
+        baseline,
+        source_fidelity,
+        _echo(echo),
+        type,
+        state,
+        condition,
+        derived_from,
+        None if upstream is None else _json(upstream),
+        _now(now),
+        _fast(fast),
+        shape,
     )
     for note in notes:
         warnings.warn(note, stacklevel=2)
@@ -299,7 +342,12 @@ def _looks_stamped(text: str) -> bool:
     return isinstance(value, dict) and "fid" in value
 
 
-def check(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Optional[datetime] = None) -> Assessment:
+def check(
+    stamped: Union[Mapping[str, Any], str],
+    floor: float = 0.5,
+    *,
+    now: Optional[datetime] = None,
+) -> Assessment:
     """Assess a stamped artifact against a floor."""
     r = json.loads(_fid.check(_json(stamped), floor, _now(now)))
     return Assessment(
@@ -316,7 +364,9 @@ def check(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Op
     )
 
 
-def expires_at(stamped: Union[Mapping[str, Any], str], floor: float) -> Optional[datetime]:
+def expires_at(
+    stamped: Union[Mapping[str, Any], str], floor: float
+) -> Optional[datetime]:
     """When the artifact falls below floor; None if it never does.
 
     Raises IndeterminateError when fidelity is indeterminate (see IndeterminateError).
@@ -349,14 +399,22 @@ def recheck_at(
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def chain(stamped: Union[Mapping[str, Any], str], floor: float = 0.5, *, now: Optional[datetime] = None) -> str:
+def chain(
+    stamped: Union[Mapping[str, Any], str],
+    floor: float = 0.5,
+    *,
+    now: Optional[datetime] = None,
+) -> str:
     """The `fid chain` report: each step's contribution to fidelity."""
     return _fid.chain(_json(stamped), floor, _now(now))
 
 
 # ── registries ───────────────────────────────────────────────────────────
 
-def half_life(registry_path: str, type: str, state: Optional[str] = None) -> tuple[str, Optional[float]]:
+
+def half_life(
+    registry_path: str, type: str, state: Optional[str] = None
+) -> tuple[str, Optional[float]]:
     """(half_life, baseline) for a type and state from a half-life registry file."""
     return _fid.half_lives_lookup(registry_path, type, state)[:2]
 
@@ -365,8 +423,14 @@ def registry(registry_path: str, type: str, state: Optional[str] = None) -> dict
     """Everything a half-life registry holds for a type and state, ready to pass to `stamp`:
     {"half_life", "baseline", "source_fidelity", "echo", "fast", "shape"}; absent values are None."""
     h, b, s, e, f, k = _fid.half_lives_lookup(registry_path, type, state)
-    return {"half_life": h, "baseline": b, "source_fidelity": s, "echo": None if e is None else json.loads(e),
-            "fast": None if f is None else json.loads(f), "shape": k}
+    return {
+        "half_life": h,
+        "baseline": b,
+        "source_fidelity": s,
+        "echo": None if e is None else json.loads(e),
+        "fast": None if f is None else json.loads(f),
+        "shape": k,
+    }
 
 
 def noise(model_path: str, transform: str, condition: Optional[str] = None) -> float:
@@ -376,11 +440,17 @@ def noise(model_path: str, transform: str, condition: Optional[str] = None) -> f
 
 # ── calibration ──────────────────────────────────────────────────────────
 
+
 def _rows(rows: Iterable[Any]) -> tuple:
     entities, ages, correct, states = [], [], [], []
     for row in rows:
         if isinstance(row, Mapping):
-            entity, age, ok, state = row["entity"], row["age"], row["correct"], row.get("state")
+            entity, age, ok, state = (
+                row["entity"],
+                row["age"],
+                row["correct"],
+                row.get("state"),
+            )
         else:
             entity, age, ok, *rest = row
             state = rest[0] if rest else None
@@ -392,7 +462,11 @@ def _rows(rows: Iterable[Any]) -> tuple:
 
 
 def calibrate(
-    rows: Iterable[Any], type: str, *, max_spread: float = _fid.MAX_SPREAD, period: Optional[Duration] = None
+    rows: Iterable[Any],
+    type: str,
+    *,
+    max_spread: float = _fid.MAX_SPREAD,
+    period: Optional[Duration] = None,
 ) -> Calibration:
     """Fit half-life and baseline from facts that were checked again later.
 
@@ -403,15 +477,25 @@ def calibrate(
     `period` ("24h") also tests for a fact that comes back every period;
     the echo is written only if it beats plain decay on held-out data.
     """
-    yaml, report, fits = _fid.calibrate(*_rows(rows), type, float(max_spread), _seconds(period))
+    yaml, report, fits = _fid.calibrate(
+        *_rows(rows), type, float(max_spread), _seconds(period)
+    )
     return Calibration(yaml=yaml, report=report, fits=json.loads(fits))
 
 
-def drift(rows: Iterable[Any], type: str, registry_path: str, *, max_spread: float = _fid.MAX_SPREAD) -> Drift:
+def drift(
+    rows: Iterable[Any],
+    type: str,
+    registry_path: str,
+    *,
+    max_spread: float = _fid.MAX_SPREAD,
+) -> Drift:
     """Test a half-life registry against recent re-checks (rows as for `calibrate`).
 
     `verdict` is CURRENT, DRIFTED (recalibrate) or UNKNOWN (too few recent
     checks to tell); the CLI's exit codes 0 / 1 / 2.
     """
-    verdict, report, states = _fid.drift(*_rows(rows), type, registry_path, float(max_spread))
+    verdict, report, states = _fid.drift(
+        *_rows(rows), type, registry_path, float(max_spread)
+    )
     return Drift(verdict=verdict, report=report, states=json.loads(states))

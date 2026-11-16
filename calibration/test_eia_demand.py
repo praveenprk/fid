@@ -1,6 +1,6 @@
 """Tests for eia_demand.py: parsing, the ±5% fact, counting and the echo rule. No network.
 
-    python3 -m unittest test_eia_demand      (from calibration/)
+python3 -m unittest test_eia_demand      (from calibration/)
 """
 
 import math
@@ -12,14 +12,29 @@ import fidcal
 
 
 def row(period, value, kind="D"):
-    return {"period": period, "respondent": "TEST", "type": kind, "value": value, "value-units": "megawatthours"}
+    return {
+        "period": period,
+        "respondent": "TEST",
+        "type": kind,
+        "value": value,
+        "value-units": "megawatthours",
+    }
 
 
 class Parsing(unittest.TestCase):
     def test_load(self):
-        rows = [row("2024-01-01T00", "100"), row("2024-01-01T01", "0"), row("2024-01-01T02", None),
-                row("2024-01-01T03", "-5"), row("2024-01-01T04", "120", kind="NG"), row("2024-01-01T05", "104.5")]
-        self.assertEqual(ed.load(rows), {datetime(2024, 1, 1, 0): 100.0, datetime(2024, 1, 1, 5): 104.5})
+        rows = [
+            row("2024-01-01T00", "100"),
+            row("2024-01-01T01", "0"),
+            row("2024-01-01T02", None),
+            row("2024-01-01T03", "-5"),
+            row("2024-01-01T04", "120", kind="NG"),
+            row("2024-01-01T05", "104.5"),
+        ]
+        self.assertEqual(
+            ed.load(rows),
+            {datetime(2024, 1, 1, 0): 100.0, datetime(2024, 1, 1, 5): 104.5},
+        )
 
     def test_query_keeps_key_last_and_out_of_the_log(self):
         url = ed.query("ERCO", 5000, "SECRET")
@@ -60,11 +75,13 @@ class Counting(unittest.TestCase):
 
     def test_weekly_echo_is_exact(self):
         self.assertEqual(self.at(168)[0], 1.0)
-        self.assertEqual(self.at(168)[1], 5 * 168)  # pairs only where the later hour exists
+        self.assertEqual(
+            self.at(168)[1], 5 * 168
+        )  # pairs only where the later hour exists
 
     def test_daily_echo_breaks_at_weekends(self):
         s24, _ = self.at(24)
-        self.assertLess(s24, 1.0)       # Fri→Sat and Sun→Mon change by 30%
+        self.assertLess(s24, 1.0)  # Fri→Sat and Sun→Mon change by 30%
         self.assertGreater(s24, 0.6)
         self.assertLess(self.at(12)[0], s24)
 
@@ -73,7 +90,10 @@ class Counting(unittest.TestCase):
         self.assertEqual(t.entities, {"A"})
         lags = {lag for lag, _, _ in t.items()}
         self.assertEqual(lags, {0.0, 24 * fidcal.HOUR})
-        self.assertEqual(t.total(), sum(n for (_, _, lg), (_, n) in self.counts.items() if lg in (0, 24)))
+        self.assertEqual(
+            t.total(),
+            sum(n for (_, _, lg), (_, n) in self.counts.items() if lg in (0, 24)),
+        )
 
 
 class Rule(unittest.TestCase):
@@ -84,17 +104,35 @@ class Rule(unittest.TestCase):
     def test_weekly_needs_to_beat_daily(self):
         gap = {"echo_24h": 0.05, "echo_24h_and_168h": 0.04}
         rel = {"decay_to_baseline": 0.02, "echo_24h": 0.01, "echo_24h_and_168h": 0.01}
-        r = ed.rule(self.result({"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.17}, rel, gap))
+        r = ed.rule(
+            self.result(
+                {"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.17},
+                rel,
+                gap,
+            )
+        )
         self.assertTrue(r["echo_passes"])
         self.assertTrue(r["weekly_passes"])
-        r = ed.rule(self.result({"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.19}, rel, gap))
+        r = ed.rule(
+            self.result(
+                {"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.19},
+                rel,
+                gap,
+            )
+        )
         self.assertTrue(r["echo_passes"])
         self.assertFalse(r["weekly_passes"])
 
     def test_gap_fails_the_echo(self):
         gap = {"echo_24h": 0.15, "echo_24h_and_168h": 0.15}
         rel = {"decay_to_baseline": 0.02, "echo_24h": 0.01, "echo_24h_and_168h": 0.01}
-        r = ed.rule(self.result({"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.17}, rel, gap))
+        r = ed.rule(
+            self.result(
+                {"decay_to_baseline": 0.2, "echo_24h": 0.18, "echo_24h_and_168h": 0.17},
+                rel,
+                gap,
+            )
+        )
         self.assertFalse(r["echo_passes"])
         self.assertFalse(r["weekly_passes"])
 

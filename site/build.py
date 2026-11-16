@@ -27,11 +27,31 @@ import fidcal  # noqa: E402
 # Facts shown on the page: id, experiment name in results, label, data source
 FACTS = [
     ("ceo", "Wikidata CEOs", "Company CEO", "Wikidata"),
-    ("ifr", "METAR adverse conditions", "Airport is IFR or worse", "METAR, 10 US airports"),
-    ("flight_category", "METAR flight category", "Airport flight category", "METAR, 10 US airports"),
-    ("temperature", "METAR temperature", "Airport temperature ±2 °F", "METAR, 10 US airports"),
+    (
+        "ifr",
+        "METAR adverse conditions",
+        "Airport is IFR or worse",
+        "METAR, 10 US airports",
+    ),
+    (
+        "flight_category",
+        "METAR flight category",
+        "Airport flight category",
+        "METAR, 10 US airports",
+    ),
+    (
+        "temperature",
+        "METAR temperature",
+        "Airport temperature ±2 °F",
+        "METAR, 10 US airports",
+    ),
     ("ship_underway", "AIS 1 km, underway", "Ship position, underway", "NOAA AIS"),
-    ("ship_moored", "AIS 1 km, moored or at anchor", "Ship position, moored", "NOAA AIS"),
+    (
+        "ship_moored",
+        "AIS 1 km, moored or at anchor",
+        "Ship position, moored",
+        "NOAA AIS",
+    ),
 ]
 
 
@@ -57,45 +77,71 @@ def datasets(results):
         r = results[exp]
         zero, base = r["fitted"], r["fitted_with_baseline"]
         emp = r["empirical_half_life_s"]
-        findings.append({
-            "id": fid,
-            "fact": label,
-            "source": source,
-            "observations": r["observations"],
-            "guess": r["guess"]["label"],
-            "guess_s": r["guess"]["half_life_s"],
-            "measured_s": round(emp) if emp else None,
-            "window_s": max(c["lag_s"] for c in r["curve"]),
-            "s0": round(base["s0"], 4),
-            "baseline": round(base["baseline"], 2),
-            "half_life_baseline_s": round(base["half_life_s"]) if base["half_life_s"] else None,
-            "shape_error_zero": round(r["shape_error"], 3),
-            "shape_error_baseline": round(r["shape_error_with_baseline"], 3),
-            "brier_guess": round(r["brier_test"]["guessed_half_life"], 4),
-            "brier_zero": round(r["brier_test"]["fitted_half_life"], 4),
-            "brier_baseline": round(r["brier_test"]["fitted_half_life_with_baseline"], 4),
-            "brier_constant": round(r["brier_test"]["constant_base_rate"], 4),
-        })
+        findings.append(
+            {
+                "id": fid,
+                "fact": label,
+                "source": source,
+                "observations": r["observations"],
+                "guess": r["guess"]["label"],
+                "guess_s": r["guess"]["half_life_s"],
+                "measured_s": round(emp) if emp else None,
+                "window_s": max(c["lag_s"] for c in r["curve"]),
+                "s0": round(base["s0"], 4),
+                "baseline": round(base["baseline"], 2),
+                "half_life_baseline_s": round(base["half_life_s"])
+                if base["half_life_s"]
+                else None,
+                "shape_error_zero": round(r["shape_error"], 3),
+                "shape_error_baseline": round(r["shape_error_with_baseline"], 3),
+                "brier_guess": round(r["brier_test"]["guessed_half_life"], 4),
+                "brier_zero": round(r["brier_test"]["fitted_half_life"], 4),
+                "brier_baseline": round(
+                    r["brier_test"]["fitted_half_life_with_baseline"], 4
+                ),
+                "brier_constant": round(r["brier_test"]["constant_base_rate"], 4),
+            }
+        )
         for c in r["curve"]:
-            curves.append({
-                "series": fid,
-                "lag_s": c["lag_s"],
-                "lag": c["lag"],
-                "still_correct": round(c["still_correct"], 4),
-                "n": c["n"],
-                "model_zero": round(model(c["lag_s"], zero), 4),
-                "model_baseline": round(model(c["lag_s"], base, base["baseline"]), 4),
-            })
+            curves.append(
+                {
+                    "series": fid,
+                    "lag_s": c["lag_s"],
+                    "lag": c["lag"],
+                    "still_correct": round(c["still_correct"], 4),
+                    "n": c["n"],
+                    "model_zero": round(model(c["lag_s"], zero), 4),
+                    "model_baseline": round(
+                        model(c["lag_s"], base, base["baseline"]), 4
+                    ),
+                }
+            )
 
     flights = results["Flight legs"]
     sf, after = flights["source_fidelity"], flights["after_previous_leg"]
+
     def rate(rows, key):
-        return [{key: x[key], "on_time": round(x["on_time"], 4), "n": x["n"]} for x in rows]
+        return [
+            {key: x[key], "on_time": round(x["on_time"], 4), "n": x["n"]} for x in rows
+        ]
+
     n_on, n_late = after["on_time"]["n"], after["late"]["n"]
     legs = [
-        {"condition": "After an on-time leg", "on_time": round(after["on_time"]["on_time"], 4), "n": n_on},
-        {"condition": "After a late leg", "on_time": round(after["late"]["on_time"], 4), "n": n_late},
-        {"condition": "Any leg after the first", "on_time": round(after["any_after_first"], 4), "n": n_on + n_late},
+        {
+            "condition": "After an on-time leg",
+            "on_time": round(after["on_time"]["on_time"], 4),
+            "n": n_on,
+        },
+        {
+            "condition": "After a late leg",
+            "on_time": round(after["late"]["on_time"], 4),
+            "n": n_late,
+        },
+        {
+            "condition": "Any leg after the first",
+            "on_time": round(after["any_after_first"], 4),
+            "n": n_on + n_late,
+        },
     ]
     return {
         "findings": findings,

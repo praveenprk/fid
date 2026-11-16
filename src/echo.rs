@@ -34,7 +34,11 @@ pub struct EchoModel {
 
 impl EchoModel {
     pub fn predict(&self, age: f64) -> f64 {
-        apply_decay(self.s0, temporal_factor(age, Some(self.half_life), Some(&self.echo)), self.baseline)
+        apply_decay(
+            self.s0,
+            temporal_factor(age, Some(self.half_life), Some(&self.echo)),
+            self.baseline,
+        )
     }
 }
 
@@ -77,13 +81,22 @@ pub fn periodic_bins(obs: &[&Observation], period: f64) -> Vec<Bin> {
     }
     groups
         .into_values()
-        .map(|(age, k, n)| Bin { age: age / n as f64, correct: k as f64 / n as f64, n })
+        .map(|(age, k, n)| Bin {
+            age: age / n as f64,
+            correct: k as f64 / n as f64,
+            n,
+        })
         .collect()
 }
 
 /// Minimize `f` over Rⁿ from `x0`. Small and dependency-free; the same
 /// method as the study, good enough for six parameters.
-pub fn nelder_mead(f: &dyn Fn(&[f64]) -> f64, x0: &[f64], step: f64, iters: usize) -> (Vec<f64>, f64) {
+pub fn nelder_mead(
+    f: &dyn Fn(&[f64]) -> f64,
+    x0: &[f64],
+    step: f64,
+    iters: usize,
+) -> (Vec<f64>, f64) {
     let n = x0.len();
     let mut simplex: Vec<Vec<f64>> = vec![x0.to_vec()];
     for i in 0..n {
@@ -100,14 +113,24 @@ pub fn nelder_mead(f: &dyn Fn(&[f64]) -> f64, x0: &[f64], step: f64, iters: usiz
         if (values[n] - values[0]).abs() < 1e-12 {
             break;
         }
-        let centroid: Vec<f64> = (0..n).map(|j| simplex[..n].iter().map(|p| p[j]).sum::<f64>() / n as f64).collect();
-        let toward = |scale: f64| -> Vec<f64> { (0..n).map(|j| centroid[j] + scale * (simplex[n][j] - centroid[j])).collect() };
+        let centroid: Vec<f64> = (0..n)
+            .map(|j| simplex[..n].iter().map(|p| p[j]).sum::<f64>() / n as f64)
+            .collect();
+        let toward = |scale: f64| -> Vec<f64> {
+            (0..n)
+                .map(|j| centroid[j] + scale * (simplex[n][j] - centroid[j]))
+                .collect()
+        };
         let reflected = toward(-1.0);
         let fr = f(&reflected);
         if fr < values[0] {
             let expanded = toward(-2.0);
             let fe = f(&expanded);
-            (simplex[n], values[n]) = if fe < fr { (expanded, fe) } else { (reflected, fr) };
+            (simplex[n], values[n]) = if fe < fr {
+                (expanded, fe)
+            } else {
+                (reflected, fr)
+            };
         } else if fr < values[n - 1] {
             (simplex[n], values[n]) = (reflected, fr);
         } else {
@@ -118,13 +141,17 @@ pub fn nelder_mead(f: &dyn Fn(&[f64]) -> f64, x0: &[f64], step: f64, iters: usiz
             } else {
                 let best = simplex[0].clone();
                 for i in 1..=n {
-                    simplex[i] = (0..n).map(|j| best[j] + 0.5 * (simplex[i][j] - best[j])).collect();
+                    simplex[i] = (0..n)
+                        .map(|j| best[j] + 0.5 * (simplex[i][j] - best[j]))
+                        .collect();
                     values[i] = f(&simplex[i]);
                 }
             }
         }
     }
-    let i = (0..=n).min_by(|&a, &b| values[a].total_cmp(&values[b])).unwrap();
+    let i = (0..=n)
+        .min_by(|&a, &b| values[a].total_cmp(&values[b]))
+        .unwrap();
     (simplex[i].clone(), values[i])
 }
 
@@ -145,7 +172,12 @@ fn unpack(x: &[f64], period: f64, pinned: Option<f64>) -> EchoModel {
         s0,
         baseline: s0 * sigmoid(x[1]),
         half_life: x[2].exp(),
-        echo: EchoParams { period, strength: x[3].exp(), fade: Some(x[4].exp()), width: period / 2.0 * sigmoid(x[5]) },
+        echo: EchoParams {
+            period,
+            strength: x[3].exp(),
+            fade: Some(x[4].exp()),
+            width: period / 2.0 * sigmoid(x[5]),
+        },
     }
 }
 
@@ -156,17 +188,28 @@ fn nll(bins: &[Bin], m: &EchoModel) -> f64 {
 
 /// Fit the echo model to bins, starting from a decay-to-baseline fit.
 pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
-    let h0 = if start.half_life.is_finite() { start.half_life } else { period / 4.0 };
+    let h0 = if start.half_life.is_finite() {
+        start.half_life
+    } else {
+        period / 4.0
+    };
     let pinned = zero_age_s0(bins);
     let loss = |x: &[f64]| {
         let m = unpack(x, period, pinned);
-        if !(m.half_life.is_finite() && m.echo.strength.is_finite() && m.echo.fade.unwrap().is_finite()) {
+        if !(m.half_life.is_finite()
+            && m.echo.strength.is_finite()
+            && m.echo.fade.unwrap().is_finite())
+        {
             return f64::INFINITY;
         }
         nll(bins, &m)
     };
     // (r, h_r ÷ P, w ÷ P): a weak long echo, a strong short one, the study's temperature shape
-    let starts = [(0.3, 4.0, 1.0 / 6.0), (0.6, 1.0, 1.0 / 5.0), (0.2, 15.0, 1.0 / 12.0)];
+    let starts = [
+        (0.3, 4.0, 1.0 / 6.0),
+        (0.6, 1.0, 1.0 / 5.0),
+        (0.2, 15.0, 1.0 / 12.0),
+    ];
     let mut best: Option<(Vec<f64>, f64)> = None;
     for (r, fade, width) in starts {
         let x0 = [
@@ -188,11 +231,18 @@ pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
 }
 
 fn gap(bins: &[Bin], predict: impl Fn(f64) -> f64) -> f64 {
-    bins.iter().map(|b| (b.correct - predict(b.age)).abs()).fold(0.0, f64::max)
+    bins.iter()
+        .map(|b| (b.correct - predict(b.age)).abs())
+        .fold(0.0, f64::max)
 }
 
 /// The echo test: fit on `train`, score on `test`, refit on all of `group`.
-pub fn test_echo(group: &[&Observation], train: &[&Observation], test: &[&Observation], period: f64) -> EchoFit {
+pub fn test_echo(
+    group: &[&Observation],
+    train: &[&Observation],
+    test: &[&Observation],
+    period: f64,
+) -> EchoFit {
     let train_bins = periodic_bins(train, period);
     let train_decay = fit(&train_bins, true);
     let train_echo = fit_echo(&train_bins, period, &train_decay);
@@ -206,7 +256,11 @@ pub fn test_echo(group: &[&Observation], train: &[&Observation], test: &[&Observ
     let gap_decay = gap(&all_bins, |a| decay.predict(a));
 
     let fresh = model.half_life * (1.0 / FRESH_DECAY).log2();
-    let fresh_checks = all_bins.iter().filter(|b| b.age <= fresh).map(|b| b.n).sum();
+    let fresh_checks = all_bins
+        .iter()
+        .filter(|b| b.age <= fresh)
+        .map(|b| b.n)
+        .sum();
     EchoFit {
         model,
         decay,
@@ -233,7 +287,12 @@ mod tests {
             s0: 1.0,
             baseline: 0.13,
             half_life: 2.42 * HOUR,
-            echo: EchoParams { period: 24.0 * HOUR, strength: 0.31, width: 3.75 * HOUR, fade: Some(345.0 * HOUR) },
+            echo: EchoParams {
+                period: 24.0 * HOUR,
+                strength: 0.31,
+                width: 3.75 * HOUR,
+                fade: Some(345.0 * HOUR),
+            },
         }
     }
 
@@ -244,7 +303,12 @@ mod tests {
         for lag in 0..=336 {
             let age = lag as f64 * HOUR;
             for i in 0..per_lag {
-                out.push(Observation { entity: format!("s{}-{}", lag, i), age, correct: rng.unit() < predict(age), state: None });
+                out.push(Observation {
+                    entity: format!("s{}-{}", lag, i),
+                    age,
+                    correct: rng.unit() < predict(age),
+                    state: None,
+                });
             }
         }
         out
@@ -277,9 +341,16 @@ mod tests {
 
     #[test]
     fn test_no_echo_is_not_kept() {
-        let truth = Model { s0: 1.0, baseline: 0.3, half_life: 6.0 * HOUR };
+        let truth = Model {
+            s0: 1.0,
+            baseline: 0.3,
+            half_life: 6.0 * HOUR,
+        };
         let f = run(&hourly(|a| truth.predict(a), 300, 2));
-        eprintln!("NO ECHO held-out Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}", f.brier_echo, f.brier_decay, f.gap_echo, f.gap_decay);
+        eprintln!(
+            "NO ECHO held-out Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}",
+            f.brier_echo, f.brier_decay, f.gap_echo, f.gap_decay
+        );
         assert!(!f.kept, "echo kept on data without one: {:?}", f);
     }
 
@@ -291,17 +362,35 @@ mod tests {
         let mut kept = 0;
         let mut kept_strong = 0;
         for seed in 0..20 {
-            for truth in [Model { s0: 1.0, baseline: 0.3, half_life: 6.0 * HOUR }, Model { s0: 0.95, baseline: 0.0, half_life: 30.0 * HOUR }] {
+            for truth in [
+                Model {
+                    s0: 1.0,
+                    baseline: 0.3,
+                    half_life: 6.0 * HOUR,
+                },
+                Model {
+                    s0: 0.95,
+                    baseline: 0.0,
+                    half_life: 30.0 * HOUR,
+                },
+            ] {
                 let f = run(&hourly(|a| truth.predict(a), 100, 100 + seed));
                 kept += f.kept as usize;
                 kept_strong += (f.kept && f.model.echo.strength > 0.05) as usize;
             }
         }
-        eprintln!("FALSE KEEPS {} of 40 ({} with strength > 0.05)", kept, kept_strong);
+        eprintln!(
+            "FALSE KEEPS {} of 40 ({} with strength > 0.05)",
+            kept, kept_strong
+        );
         let truth = temperature();
-        let found = (0..20).filter(|&seed| run(&hourly(|a| truth.predict(a), 100, 200 + seed)).kept).count();
+        let found = (0..20)
+            .filter(|&seed| run(&hourly(|a| truth.predict(a), 100, 200 + seed)).kept)
+            .count();
         eprintln!("TRUE ECHO KEPT {} of 20 at 100 checks per lag", found);
-        let found = (0..20).filter(|&seed| run(&hourly(|a| truth.predict(a), 30, 300 + seed)).kept).count();
+        let found = (0..20)
+            .filter(|&seed| run(&hourly(|a| truth.predict(a), 30, 300 + seed)).kept)
+            .count();
         eprintln!("TRUE ECHO KEPT {} of 20 at 30 checks per lag", found);
     }
 
@@ -309,13 +398,22 @@ mod tests {
     fn test_nelder_mead_finds_a_minimum() {
         let f = |x: &[f64]| (x[0] - 3.0).powi(2) + 10.0 * (x[1] + 1.0).powi(2);
         let (x, v) = nelder_mead(&f, &[0.0, 0.0], 0.5, 600);
-        assert!((x[0] - 3.0).abs() < 1e-4 && (x[1] + 1.0).abs() < 1e-4 && v < 1e-8, "{:?}", x);
+        assert!(
+            (x[0] - 3.0).abs() < 1e-4 && (x[1] + 1.0).abs() < 1e-4 && v < 1e-8,
+            "{:?}",
+            x
+        );
     }
 
     #[test]
     fn test_periodic_bins() {
         let obs: Vec<Observation> = (0..3000)
-            .map(|i| Observation { entity: format!("e{}", i), age: i as f64 * 7.3, correct: i % 2 == 0, state: None })
+            .map(|i| Observation {
+                entity: format!("e{}", i),
+                age: i as f64 * 7.3,
+                correct: i % 2 == 0,
+                state: None,
+            })
             .collect();
         let refs: Vec<&Observation> = obs.iter().collect();
         // 3000 distinct ages: P/48 = 1800 s wide bins

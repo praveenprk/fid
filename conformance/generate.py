@@ -17,7 +17,14 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-UNITS = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0, "mo": 30.44 * 86400.0, "y": 365.25 * 86400.0}
+UNITS = {
+    "s": 1.0,
+    "m": 60.0,
+    "h": 3600.0,
+    "d": 86400.0,
+    "mo": 30.44 * 86400.0,
+    "y": 365.25 * 86400.0,
+}
 
 SOURCE_CLASSES = {
     "instrument": 0.97,
@@ -35,8 +42,15 @@ SOURCE_CLASSES = {
 
 NUMBER = r"[0-9]+(?:\.[0-9]+)?"
 SHORT = re.compile(rf"({NUMBER})(s|m|h|d|mo|y)?", re.I)
-ISO_UNITS = {"y": 365.25 * 86400.0, "mo": 30.44 * 86400.0, "w": 7 * 86400.0, "d": 86400.0,
-             "h": 3600.0, "mi": 60.0, "s": 1.0}
+ISO_UNITS = {
+    "y": 365.25 * 86400.0,
+    "mo": 30.44 * 86400.0,
+    "w": 7 * 86400.0,
+    "d": 86400.0,
+    "h": 3600.0,
+    "mi": 60.0,
+    "s": 1.0,
+}
 ISO = re.compile(
     rf"p(?:(?P<w>{NUMBER})w"
     rf"|(?:(?P<y>{NUMBER})y)?(?:(?P<mo>{NUMBER})m)?(?:(?P<d>{NUMBER})d)?"
@@ -113,7 +127,9 @@ def echo_temporal(age, half_life, echo):
     total = 0.0
     n = max(1, math.ceil((t - 30 * width) / period))
     while n * period <= t + 30 * width:
-        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (
+            abs(t - n * period) / width
+        )
         n += 1
     return min(1.0, 0.5 ** (t / half_life) + strength * total)
 
@@ -132,8 +148,10 @@ def echo_time_to_floor(f, half_life, baseline, floor, echo):
     if floor <= b:
         return None
     period, _, width, _ = echo_seconds(echo)
+
     def below(t):
         return echo_fidelity(f, t, half_life, [], baseline, echo) < floor
+
     step = min(half_life, width) / 100.0
     t = 0.0
     while t <= 10_000 * period:
@@ -150,7 +168,11 @@ def echo_time_to_floor(f, half_life, baseline, floor, echo):
 def fast_seconds(fast, half_life):
     """(share, fast half-life) in seconds; ValueError if invalid. Needs a finite, longer main half-life."""
     share = fast["share"]
-    if not isinstance(share, (int, float)) or not math.isfinite(share) or not 0 <= share <= 1:
+    if (
+        not isinstance(share, (int, float))
+        or not math.isfinite(share)
+        or not 0 <= share <= 1
+    ):
         raise ValueError("share")
     h = parse_half_life(fast["half_life"])
     if h is None:
@@ -164,7 +186,11 @@ def shape_value(shape, half_life):
     """The clocks' shape k; ValueError unless finite, from 0.1 to 10, with a finite half-life."""
     if shape is None:
         return 1.0
-    if not isinstance(shape, (int, float)) or not math.isfinite(shape) or not 0.1 <= shape <= 10:
+    if (
+        not isinstance(shape, (int, float))
+        or not math.isfinite(shape)
+        or not 0.1 <= shape <= 10
+    ):
         raise ValueError("shape")
     if half_life is None:
         raise ValueError("a shape needs a finite half-life")
@@ -187,7 +213,9 @@ def curve_temporal(age, half_life, fast=None, echo=None, shape=None):
     total = 0.0
     n = max(1, math.ceil((t - 30 * width) / period))
     while n * period <= t + 30 * width:
-        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (
+            abs(t - n * period) / width
+        )
         n += 1
     return min(1.0, base + strength * total)
 
@@ -206,15 +234,19 @@ def shortest(half_life, fast, echo):
     return min(scales)
 
 
-def curve_time_to_floor(f, half_life, baseline, floor, fast=None, echo=None, shape=None):
+def curve_time_to_floor(
+    f, half_life, baseline, floor, fast=None, echo=None, shape=None
+):
     """First time below floor, by scanning in steps of a hundredth of the shortest timescale; None for never."""
     if f < floor:
         return 0.0
     b = min(max(baseline, 0.0), max(f, 0.0))
     if half_life is None or floor <= b:
         return None
+
     def below(t):
         return curve_fidelity(f, t, half_life, baseline, fast, echo, shape) < floor
+
     step = shortest(half_life, fast, echo) / 100.0
     end = 10_000 * (echo_seconds(echo)[0] if echo else half_life)
     t = 0.0
@@ -259,7 +291,13 @@ def clock_integral(t, h, k):
     if h is None:
         return t
     a = 1 / k
-    return h * math.log(2) ** (-a) / k * math.exp(math.lgamma(a)) * lower_gamma_regularized(a, math.log(2) * (t / h) ** k)
+    return (
+        h
+        * math.log(2) ** (-a)
+        / k
+        * math.exp(math.lgamma(a))
+        * lower_gamma_regularized(a, math.log(2) * (t / h) ** k)
+    )
 
 
 def uncapped_echo(t, period, strength, width, fade):
@@ -267,7 +305,9 @@ def uncapped_echo(t, period, strength, width, fade):
     total = 0.0
     n = max(1, math.ceil((t - 30 * width) / period))
     while n * period <= t + 30 * width:
-        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (abs(t - n * period) / width)
+        total += (1.0 if fade is None else 0.5 ** (n * period / fade)) * 0.5 ** (
+            abs(t - n * period) / width
+        )
         n += 1
     return strength * total
 
@@ -282,7 +322,9 @@ def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
         total = clock_integral(t, half_life, k)
     else:
         share, hf = fast_seconds(fast, half_life)
-        total = (1 - share) * clock_integral(t, half_life, k) + share * clock_integral(t, hf, k)
+        total = (1 - share) * clock_integral(t, half_life, k) + share * clock_integral(
+            t, hf, k
+        )
     if echo is None:
         return total
     period, strength, width, fade = echo_seconds(echo)
@@ -297,9 +339,11 @@ def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
             part = (1 - math.exp(-lam * c)) / lam + (1 - math.exp(-lam * (t - c))) / lam
         total += strength * weight * part
         n += 1
+
     # The cap can bind only while plain decay is above 1 − strength × 2 / (1 − 0.5^(P/w))
     def plain(u):
         return curve_temporal(u, half_life, fast, None, shape)
+
     bound = 1 - strength * 2 / (1 - 0.5 ** (period / width))
     reach = t
     if bound > 0 and plain(t) <= bound:
@@ -308,11 +352,17 @@ def temporal_integral(t, half_life, fast=None, echo=None, shape=None):
             mid = (lo + hi) / 2
             lo, hi = (mid, hi) if plain(mid) > bound else (lo, mid)
         reach = hi
+
     def excess(u):
         return max(0.0, plain(u) + uncapped_echo(u, period, strength, width, fade) - 1)
+
     m = 4000
     h = reach / m
-    cap = excess(0.0) + excess(reach) + sum(excess(i * h) * (4 if i % 2 else 2) for i in range(1, m))
+    cap = (
+        excess(0.0)
+        + excess(reach)
+        + sum(excess(i * h) * (4 if i % 2 else 2) for i in range(1, m))
+    )
     return total - cap * h / 3
 
 
@@ -321,11 +371,19 @@ def mean_staleness(f, half_life, baseline, interval, fast=None, echo=None, shape
     if interval <= 0:
         return 1 - f
     b = min(max(baseline, 0.0), max(f, 0.0))
-    return 1 - (b + (f - b) * temporal_integral(interval, half_life, fast, echo, shape) / interval)
+    return 1 - (
+        b
+        + (f - b) * temporal_integral(interval, half_life, fast, echo, shape) / interval
+    )
 
 
-def recheck_cost(f, half_life, baseline, price, interval, fast=None, echo=None, shape=None):
-    return mean_staleness(f, half_life, baseline, interval, fast, echo, shape) + price * 86400.0 / interval
+def recheck_cost(
+    f, half_life, baseline, price, interval, fast=None, echo=None, shape=None
+):
+    return (
+        mean_staleness(f, half_life, baseline, interval, fast, echo, shape)
+        + price * 86400.0 / interval
+    )
 
 
 def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=None):
@@ -334,8 +392,10 @@ def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=Non
     if echo is not None:
         period, _, _, fade = echo_seconds(echo)
         scale = max(scale, period, fade or period)
+
     def cost(t):
         return recheck_cost(f, half_life, baseline, price, t, fast, echo, shape)
+
     lo, hi = 0.0, math.log(10_000 * scale)
     grid = [math.exp(lo + (hi - lo) * i / 400) for i in range(401)]
     costs = [cost(t) for t in grid]
@@ -355,10 +415,14 @@ def best_interval(f, half_life, baseline, price, fast=None, echo=None, shape=Non
     return t, best
 
 
-def interval_for_staleness(f, half_life, baseline, target, fast=None, echo=None, shape=None):
+def interval_for_staleness(
+    f, half_life, baseline, target, fast=None, echo=None, shape=None
+):
     """Seconds until mean staleness first exceeds target (bisection); None for never."""
+
     def stale(t):
         return mean_staleness(f, half_life, baseline, t, fast, echo, shape)
+
     t, prev = 1.0, 0.0
     while t < 10_000 * half_life:
         if stale(t) > target:
@@ -379,7 +443,9 @@ def canonical_number(x):
     mantissa, exp = text.split("e")
     exp = int(exp)
     if exp == -5:
-        sign, digits = ("-", mantissa[1:]) if mantissa.startswith("-") else ("", mantissa)
+        sign, digits = (
+            ("-", mantissa[1:]) if mantissa.startswith("-") else ("", mantissa)
+        )
         return sign + "0.0000" + digits.replace(".", "")
     return f"{mantissa}e{'+' if exp > 0 else '-'}{abs(exp)}"
 
@@ -387,7 +453,14 @@ def canonical_number(x):
 def canonical(value):
     """The JSON text fid hashes: keys sorted, no whitespace, UTF-8 unescaped."""
     if isinstance(value, dict):
-        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + canonical(value[k]) for k in sorted(value)) + "}"
+        return (
+            "{"
+            + ",".join(
+                json.dumps(k, ensure_ascii=False) + ":" + canonical(value[k])
+                for k in sorted(value)
+            )
+            + "}"
+        )
     if isinstance(value, list):
         return "[" + ",".join(canonical(v) for v in value) + "]"
     if isinstance(value, float):
@@ -403,7 +476,9 @@ def es_number(x):
     if x == 0:
         return "0"
     sign = "-" if x < 0 else ""
-    mantissa, _, exp = repr(abs(x)).partition("e")  # repr is the shortest round-trip form
+    mantissa, _, exp = repr(abs(x)).partition(
+        "e"
+    )  # repr is the shortest round-trip form
     whole, _, frac = mantissa.partition(".")
     digits = (whole + frac).lstrip("0").rstrip("0") or "0"
     # n: position of the decimal point relative to the digits, as in ECMAScript
@@ -417,14 +492,27 @@ def es_number(x):
     if -6 < n <= 0:
         return sign + "0." + "0" * (-n) + digits
     e = n - 1
-    return sign + digits[0] + ("." + digits[1:] if k > 1 else "") + "e" + ("+" if e > 0 else "-") + str(abs(e))
+    return (
+        sign
+        + digits[0]
+        + ("." + digits[1:] if k > 1 else "")
+        + "e"
+        + ("+" if e > 0 else "-")
+        + str(abs(e))
+    )
 
 
 def jcs(value):
     """RFC 8785 JSON Canonicalization Scheme: keys sorted by UTF-16 code units, ECMAScript numbers."""
     if isinstance(value, dict):
         keys = sorted(value, key=lambda k: k.encode("utf-16-be"))
-        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + jcs(value[k]) for k in keys) + "}"
+        return (
+            "{"
+            + ",".join(
+                json.dumps(k, ensure_ascii=False) + ":" + jcs(value[k]) for k in keys
+            )
+            + "}"
+        )
     if isinstance(value, list):
         return "[" + ",".join(jcs(v) for v in value) + "]"
     if isinstance(value, bool) or value is None:
@@ -448,12 +536,28 @@ def integrity(content, version="0.4"):
 
 # Envelope members by the version that introduced them (draft, Fields)
 MEMBERS = {
-    "fid_version": (0, 1), "source_class": (0, 1), "source_id": (0, 1), "measured_at": (0, 1),
-    "half_life": (0, 1), "transforms": (0, 1), "fid_at_stamp": (0, 1), "derived_from": (0, 1),
-    "integrity": (0, 1), "baseline": (0, 2), "info_type": (0, 2), "state": (0, 2),
-    "source_fidelity": (0, 3), "echo": (0, 3), "fast": (0, 4), "shape": (0, 4), "ext": (1, 0),
+    "fid_version": (0, 1),
+    "source_class": (0, 1),
+    "source_id": (0, 1),
+    "measured_at": (0, 1),
+    "half_life": (0, 1),
+    "transforms": (0, 1),
+    "fid_at_stamp": (0, 1),
+    "derived_from": (0, 1),
+    "integrity": (0, 1),
+    "baseline": (0, 2),
+    "info_type": (0, 2),
+    "state": (0, 2),
+    "source_fidelity": (0, 3),
+    "echo": (0, 3),
+    "fast": (0, 4),
+    "shape": (0, 4),
+    "ext": (1, 0),
 }
-NESTED = {"echo": {"period", "strength", "width", "fade"}, "fast": {"share", "half_life"}}
+NESTED = {
+    "echo": {"period", "strength", "width", "fade"},
+    "fast": {"share", "half_life"},
+}
 STEP_MEMBERS = {"step", "noise", "at", "condition"}
 READS = {0: 4, 1: 0}  # major -> highest minor this reader implements
 
@@ -478,7 +582,10 @@ def not_understood(env):
 
 
 def rfc3339(t):
-    return t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
+    return (
+        t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.")
+        + f"{t.microsecond // 1000:03d}Z"
+    )
 
 
 # ── cases ────────────────────────────────────────────────────────────────
@@ -488,11 +595,53 @@ T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
 def duration_cases():
-    good = ["30s", "5m", "6h", "7d", "3mo", "3y", "1.5d", "90", "0d", " 2H ", "0.25y",
-            "PT5M", "P1D", "P2W", "P1Y2M3DT4H5M6.5S", "pt90s", "P0D", "PT0.5H", "P1M", "PT1M"]
-    bad = ["7days", "30ms", "", "abc", "-1d", "inf", "nan", "infd", "1e400d",
-           "1e3d", "+5d", ".5d", "5.d", "1,5d", "5 d",
-           "P", "PT", "P1H", "PT1D", "P1W2D", "P1DT", "P1D1Y", "1P"]
+    good = [
+        "30s",
+        "5m",
+        "6h",
+        "7d",
+        "3mo",
+        "3y",
+        "1.5d",
+        "90",
+        "0d",
+        " 2H ",
+        "0.25y",
+        "PT5M",
+        "P1D",
+        "P2W",
+        "P1Y2M3DT4H5M6.5S",
+        "pt90s",
+        "P0D",
+        "PT0.5H",
+        "P1M",
+        "PT1M",
+    ]
+    bad = [
+        "7days",
+        "30ms",
+        "",
+        "abc",
+        "-1d",
+        "inf",
+        "nan",
+        "infd",
+        "1e400d",
+        "1e3d",
+        "+5d",
+        ".5d",
+        "5.d",
+        "1,5d",
+        "5 d",
+        "P",
+        "PT",
+        "P1H",
+        "PT1D",
+        "P1W2D",
+        "P1DT",
+        "P1D1Y",
+        "1P",
+    ]
     out = [{"input": s, "seconds": parse_duration(s)} for s in good]
     out += [{"input": s, "error": True} for s in bad]
     return out
@@ -508,7 +657,10 @@ def half_life_cases():
 
 def source_cases():
     out = [{"class": c, "fidelity": f} for c, f in SOURCE_CLASSES.items()]
-    out += [{"class": "human-observation", "fidelity": 0.87}, {"class": " Database ", "fidelity": 0.90}]
+    out += [
+        {"class": "human-observation", "fidelity": 0.87},
+        {"class": " Database ", "fidelity": 0.90},
+    ]
     out += [{"class": "human", "error": True}, {"class": "", "error": True}]
     return out
 
@@ -528,7 +680,14 @@ FIDELITY = [
     ("infinite half-life", 0.90, 1e9, None, [], 0.5),
     ("noise above 1 is clamped", 0.90, 0.0, None, [1.5], 0.0),
     ("negative noise is clamped", 0.90, 0.0, None, [-0.3], 0.0),
-    ("ceo, 5.8y half-life, 2y old", 0.90, 2 * 365.25 * DAY, 5.8 * 365.25 * DAY, [], 0.0),
+    (
+        "ceo, 5.8y half-life, 2y old",
+        0.90,
+        2 * 365.25 * DAY,
+        5.8 * 365.25 * DAY,
+        [],
+        0.0,
+    ),
     ("vessel underway, 2.3m", 0.97, 600.0, 2.3 * 60, [], 0.73),
     ("fractional exponent", 0.80, 12345.0, 7000.0, [0.02, 0.03], 0.15),
 ]
@@ -546,16 +705,38 @@ TTL = [
 ]
 
 
-def envelope(content, source_class, half_life, baseline=None, transforms=(), measured=T0, version=None, **extra):
+def envelope(
+    content,
+    source_class,
+    half_life,
+    baseline=None,
+    transforms=(),
+    measured=T0,
+    version=None,
+    **extra,
+):
     if version is None:  # the oldest version that defines every member used
-        version = "0.4" if {"fast", "shape"} & set(extra) else "0.3" if {"echo", "source_fidelity"} & set(extra) else "0.2"
+        version = (
+            "0.4"
+            if {"fast", "shape"} & set(extra)
+            else "0.3"
+            if {"echo", "source_fidelity"} & set(extra)
+            else "0.2"
+        )
     hl = None if half_life is None else parse_half_life(half_life)
     source = envelope_source(source_class, extra.get("source_fidelity"))
     noise = [t[1] for t in transforms]
     steps = []
     for i, (step, n, *condition) in enumerate(transforms):
         at = (measured + timedelta(seconds=i)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        steps.append({"step": step, "noise": n, "at": at, **({"condition": condition[0]} if condition else {})})
+        steps.append(
+            {
+                "step": step,
+                "noise": n,
+                "at": at,
+                **({"condition": condition[0]} if condition else {}),
+            }
+        )
     env = {
         "fid_version": version,
         "source_class": source_class,
@@ -563,10 +744,20 @@ def envelope(content, source_class, half_life, baseline=None, transforms=(), mea
         "measured_at": measured.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "half_life": half_life,
         "transforms": steps,
-        "fid_at_stamp": None if source is None else (
-            curve_fidelity(fidelity(source, 0.0, None, noise, 0.0), 0.0, hl, baseline or 0.0, extra.get("fast"), extra.get("echo"))
+        "fid_at_stamp": None
+        if source is None
+        else (
+            curve_fidelity(
+                fidelity(source, 0.0, None, noise, 0.0),
+                0.0,
+                hl,
+                baseline or 0.0,
+                extra.get("fast"),
+                extra.get("echo"),
+            )
             if "echo" in extra or "fast" in extra
-            else fidelity(source, 0.0, hl, noise, baseline or 0.0)),
+            else fidelity(source, 0.0, hl, noise, baseline or 0.0)
+        ),
         "derived_from": None,
         "integrity": integrity(content, version),
     }
@@ -601,9 +792,17 @@ def envelope_case(name, stamped, now, floor, tamper=None):
         stamped = {"fid": env, "content": tamper}
     reason = not_understood(env)
     if reason is not None:
-        return {"name": name, "stamped": stamped, "now": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "floor": floor,
-                "status": "UNKNOWN", "fidelity": None, "integrity_ok": None, "expires_at": "unknown",
-                "not_understood": reason}
+        return {
+            "name": name,
+            "stamped": stamped,
+            "now": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "floor": floor,
+            "status": "UNKNOWN",
+            "fidelity": None,
+            "integrity_ok": None,
+            "expires_at": "unknown",
+            "not_understood": reason,
+        }
     hl = None if env["half_life"] is None else parse_half_life(env["half_life"])
     measured = datetime.fromisoformat(env["measured_at"].replace("Z", "+00:00"))
     age = (now - measured).total_seconds()
@@ -619,7 +818,9 @@ def envelope_case(name, stamped, now, floor, tamper=None):
     if source is None or not decay_known:
         f = None
     elif fast is not None:
-        f = curve_fidelity(fidelity(source, 0.0, None, noise, 0.0), age, hl, baseline, fast, echo)
+        f = curve_fidelity(
+            fidelity(source, 0.0, None, noise, 0.0), age, hl, baseline, fast, echo
+        )
     elif echo is not None:
         f = echo_fidelity(source, age, hl, noise, baseline, echo)
     else:
@@ -661,90 +862,283 @@ def envelope_cases():
     reading = {"reading": 42}
     ceo = {"company": "Q12345", "ceo": "Ada"}
     return [
-        envelope_case("instrument, fresh", envelope(reading, "instrument", "7d"), T0, 0.70),
-        envelope_case("instrument, 7 days", envelope(reading, "instrument", "7d"), T0 + timedelta(days=7), 0.70),
-        envelope_case("database ceo, 3 years", envelope(ceo, "database", "5.8y"), T0 + timedelta(days=3 * 365), 0.50),
+        envelope_case(
+            "instrument, fresh", envelope(reading, "instrument", "7d"), T0, 0.70
+        ),
+        envelope_case(
+            "instrument, 7 days",
+            envelope(reading, "instrument", "7d"),
+            T0 + timedelta(days=7),
+            0.70,
+        ),
+        envelope_case(
+            "database ceo, 3 years",
+            envelope(ceo, "database", "5.8y"),
+            T0 + timedelta(days=3 * 365),
+            0.50,
+        ),
         envelope_case(
             "baseline keeps it above the floor",
-            envelope({"mmsi": 1, "state": "underway"}, "instrument", "2.3m", baseline=0.73,
-                     info_type="vessel_position", state="underway"),
-            T0 + timedelta(hours=6), 0.70,
+            envelope(
+                {"mmsi": 1, "state": "underway"},
+                "instrument",
+                "2.3m",
+                baseline=0.73,
+                info_type="vessel_position",
+                state="underway",
+            ),
+            T0 + timedelta(hours=6),
+            0.70,
         ),
         envelope_case(
             "transform chain",
-            envelope(reading, "human_observation", "30d", transforms=[("normalize", 0.05), ("aggregate", 0.07)]),
-            T0 + timedelta(days=18), 0.50,
+            envelope(
+                reading,
+                "human_observation",
+                "30d",
+                transforms=[("normalize", 0.05), ("aggregate", 0.07)],
+            ),
+            T0 + timedelta(days=18),
+            0.50,
         ),
         envelope_case(
             "conditioned transform",
-            envelope({"flight": "AA100"}, "database", "1d", transforms=[("next_leg", 0.30, "previous_leg_late")]),
-            T0 + timedelta(hours=2), 0.60,
+            envelope(
+                {"flight": "AA100"},
+                "database",
+                "1d",
+                transforms=[("next_leg", 0.30, "previous_leg_late")],
+            ),
+            T0 + timedelta(hours=2),
+            0.60,
         ),
-        envelope_case("null half-life: decay unknown", envelope(reading, "database", None), T0 + timedelta(days=3650), 0.85),
-        envelope_case("infinite half-life never decays", envelope(reading, "database", "infinite"), T0 + timedelta(days=3650), 0.85),
-        envelope_case("exactly at the floor is SIGNAL", envelope(reading, "instrument", "1d"), T0 + timedelta(days=1), 0.485),
+        envelope_case(
+            "null half-life: decay unknown",
+            envelope(reading, "database", None),
+            T0 + timedelta(days=3650),
+            0.85,
+        ),
+        envelope_case(
+            "infinite half-life never decays",
+            envelope(reading, "database", "infinite"),
+            T0 + timedelta(days=3650),
+            0.85,
+        ),
+        envelope_case(
+            "exactly at the floor is SIGNAL",
+            envelope(reading, "instrument", "1d"),
+            T0 + timedelta(days=1),
+            0.485,
+        ),
         envelope_case("unknown source", envelope(reading, "unknown", "7d"), T0, 0.50),
-        envelope_case("content changed since stamp", envelope(reading, "instrument", "7d"), T0, 0.50, tamper={"reading": 43}),
-        envelope_case("clock skew: now before measured_at", envelope(reading, "instrument", "1h"), T0 - timedelta(hours=1), 0.90),
-        envelope_case("version 0.1 envelope (no baseline field)", envelope(reading, "database", "30d", version="0.1"),
-                      T0 + timedelta(days=30), 0.40),
-        envelope_case("already below at measurement", envelope(reading, "llm_ungrounded", "7d"), T0, 0.50),
-        envelope_case("hearsay, months", envelope({"rumor": "x"}, "hearsay", "3mo"), T0 + timedelta(days=45), 0.10),
+        envelope_case(
+            "content changed since stamp",
+            envelope(reading, "instrument", "7d"),
+            T0,
+            0.50,
+            tamper={"reading": 43},
+        ),
+        envelope_case(
+            "clock skew: now before measured_at",
+            envelope(reading, "instrument", "1h"),
+            T0 - timedelta(hours=1),
+            0.90,
+        ),
+        envelope_case(
+            "version 0.1 envelope (no baseline field)",
+            envelope(reading, "database", "30d", version="0.1"),
+            T0 + timedelta(days=30),
+            0.40,
+        ),
+        envelope_case(
+            "already below at measurement",
+            envelope(reading, "llm_ungrounded", "7d"),
+            T0,
+            0.50,
+        ),
+        envelope_case(
+            "hearsay, months",
+            envelope({"rumor": "x"}, "hearsay", "3mo"),
+            T0 + timedelta(days=45),
+            0.10,
+        ),
         envelope_case(
             "measured source fidelity replaces the class constant",
-            envelope({"clause": 7}, "database", "30d", baseline=0.30, version="0.3", source_fidelity=0.62),
-            T0 + timedelta(days=30), 0.50,
+            envelope(
+                {"clause": 7},
+                "database",
+                "30d",
+                baseline=0.30,
+                version="0.3",
+                source_fidelity=0.62,
+            ),
+            T0 + timedelta(days=30),
+            0.50,
         ),
         envelope_case(
             "echo: a day-old temperature is back above the floor",
-            envelope({"station": "KLAX", "temp_f": 64}, "instrument", "2.42h", baseline=0.13, version="0.3", echo=TEMPERATURE),
-            T0 + timedelta(hours=24), 0.30,
+            envelope(
+                {"station": "KLAX", "temp_f": 64},
+                "instrument",
+                "2.42h",
+                baseline=0.13,
+                version="0.3",
+                echo=TEMPERATURE,
+            ),
+            T0 + timedelta(hours=24),
+            0.30,
         ),
         envelope_case(
             "echo: half a day old it is not",
-            envelope({"station": "KLAX", "temp_f": 64}, "instrument", "2.42h", baseline=0.13, version="0.3", echo=TEMPERATURE),
-            T0 + timedelta(hours=12), 0.30,
+            envelope(
+                {"station": "KLAX", "temp_f": 64},
+                "instrument",
+                "2.42h",
+                baseline=0.13,
+                version="0.3",
+                echo=TEMPERATURE,
+            ),
+            T0 + timedelta(hours=12),
+            0.30,
         ),
         envelope_case(
             "measured source fidelity, unknown class stays unknown",
-            envelope({"clause": 7}, "unknown", "30d", version="0.3", source_fidelity=0.95),
-            T0, 0.50,
+            envelope(
+                {"clause": 7}, "unknown", "30d", version="0.3", source_fidelity=0.95
+            ),
+            T0,
+            0.50,
         ),
         envelope_case(
             "fast share: a week-old release",
-            envelope({"package": "requests", "latest": "2.32.3"}, "instrument", "80d", baseline=0.1, version="0.4",
-                     source_fidelity=1.0, fast={"share": 0.3, "half_life": "3d"}),
-            T0 + timedelta(days=7), 0.80,
+            envelope(
+                {"package": "requests", "latest": "2.32.3"},
+                "instrument",
+                "80d",
+                baseline=0.1,
+                version="0.4",
+                source_fidelity=1.0,
+                fast={"share": 0.3, "half_life": "3d"},
+            ),
+            T0 + timedelta(days=7),
+            0.80,
         ),
         envelope_case(
             "fast share: three months old",
-            envelope({"package": "requests", "latest": "2.32.3"}, "instrument", "80d", baseline=0.1, version="0.4",
-                     source_fidelity=1.0, fast={"share": 0.3, "half_life": "3d"}),
-            T0 + timedelta(days=90), 0.50,
+            envelope(
+                {"package": "requests", "latest": "2.32.3"},
+                "instrument",
+                "80d",
+                baseline=0.1,
+                version="0.4",
+                source_fidelity=1.0,
+                fast={"share": 0.3, "half_life": "3d"},
+            ),
+            T0 + timedelta(days=90),
+            0.50,
         ),
-        envelope_case("version 1.0: JCS integrity", envelope({"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"),
-                      T0 + timedelta(days=1), 0.70),
-        envelope_case("version 1.0 hashed the legacy way does not verify",
-                      bad_hash(envelope({"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"), "0.4"),
-                      T0 + timedelta(days=1), 0.70),
-        envelope_case("version 1.0 with ext: ignored",
-                      envelope(reading, "instrument", "7d", version="1.0", ext={"pipeline": "nightly"}), T0, 0.70),
-        envelope_case("ext in a 0.4 envelope: not understood",
-                      envelope(reading, "instrument", "7d", version="0.4", ext={"pipeline": "nightly"}), T0, 0.70),
-        envelope_case("newer minor version: not understood", envelope(reading, "instrument", "7d", version="1.1"), T0, 0.70),
-        envelope_case("unknown major version: not understood", envelope(reading, "instrument", "7d", version="2.0"), T0, 0.70),
-        envelope_case("malformed version: not understood", envelope(reading, "instrument", "7d", version="one"), T0, 0.70),
-        envelope_case("unknown member: not understood",
-                      envelope(reading, "instrument", "7d", version="1.0", colour="red"), T0, 0.70),
-        envelope_case("unknown member inside echo: not understood",
-                      envelope(reading, "instrument", "2.42h", version="1.0", baseline=0.13,
-                               echo={"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h", "phase": 1}),
-                      T0, 0.70),
-        envelope_case("member newer than its version: not understood",
-                      envelope(reading, "instrument", "80d", version="0.2", fast={"share": 0.3, "half_life": "3d"}), T0, 0.70),
-        envelope_case("unknown member in a transform step: not understood",
-                      with_step_member(envelope(reading, "instrument", "7d", transforms=[("clean.py", 0.05)], version="1.0")),
-                      T0, 0.70),
+        envelope_case(
+            "version 1.0: JCS integrity",
+            envelope({"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"),
+            T0 + timedelta(days=1),
+            0.70,
+        ),
+        envelope_case(
+            "version 1.0 hashed the legacy way does not verify",
+            bad_hash(
+                envelope(
+                    {"reading": 42, "scale": 1.0}, "instrument", "7d", version="1.0"
+                ),
+                "0.4",
+            ),
+            T0 + timedelta(days=1),
+            0.70,
+        ),
+        envelope_case(
+            "version 1.0 with ext: ignored",
+            envelope(
+                reading, "instrument", "7d", version="1.0", ext={"pipeline": "nightly"}
+            ),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "ext in a 0.4 envelope: not understood",
+            envelope(
+                reading, "instrument", "7d", version="0.4", ext={"pipeline": "nightly"}
+            ),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "newer minor version: not understood",
+            envelope(reading, "instrument", "7d", version="1.1"),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "unknown major version: not understood",
+            envelope(reading, "instrument", "7d", version="2.0"),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "malformed version: not understood",
+            envelope(reading, "instrument", "7d", version="one"),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "unknown member: not understood",
+            envelope(reading, "instrument", "7d", version="1.0", colour="red"),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "unknown member inside echo: not understood",
+            envelope(
+                reading,
+                "instrument",
+                "2.42h",
+                version="1.0",
+                baseline=0.13,
+                echo={
+                    "period": "24h",
+                    "strength": 0.31,
+                    "width": "3.75h",
+                    "fade": "345h",
+                    "phase": 1,
+                },
+            ),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "member newer than its version: not understood",
+            envelope(
+                reading,
+                "instrument",
+                "80d",
+                version="0.2",
+                fast={"share": 0.3, "half_life": "3d"},
+            ),
+            T0,
+            0.70,
+        ),
+        envelope_case(
+            "unknown member in a transform step: not understood",
+            with_step_member(
+                envelope(
+                    reading,
+                    "instrument",
+                    "7d",
+                    transforms=[("clean.py", 0.05)],
+                    version="1.0",
+                )
+            ),
+            T0,
+            0.70,
+        ),
     ]
 
 
@@ -758,9 +1152,33 @@ ECHO = [
     ("one day: first return", 1.0, 24 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
     ("between returns", 1.0, 30 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
     ("a week: faded returns", 1.0, 168 * 3600.0, 2.42 * 3600, [], 0.13, TEMPERATURE),
-    ("with source and noise", 0.97, 24 * 3600.0, 2.42 * 3600, [0.05], 0.13, TEMPERATURE),
-    ("never fades", 0.9, 240 * 3600.0, 3600.0, [], 0.0, {"period": "1d", "strength": 0.5, "width": "2h", "fade": "infinite"}),
-    ("strong echo is capped at 1", 1.0, 3600.0, 3600.0, [], 0.0, {"period": "2h", "strength": 5.0, "width": "0.5h", "fade": "infinite"}),
+    (
+        "with source and noise",
+        0.97,
+        24 * 3600.0,
+        2.42 * 3600,
+        [0.05],
+        0.13,
+        TEMPERATURE,
+    ),
+    (
+        "never fades",
+        0.9,
+        240 * 3600.0,
+        3600.0,
+        [],
+        0.0,
+        {"period": "1d", "strength": 0.5, "width": "2h", "fade": "infinite"},
+    ),
+    (
+        "strong echo is capped at 1",
+        1.0,
+        3600.0,
+        3600.0,
+        [],
+        0.0,
+        {"period": "2h", "strength": 5.0, "width": "0.5h", "fade": "infinite"},
+    ),
     ("negative age counts as zero", 0.9, -3600.0, 3600.0, [], 0.0, TEMPERATURE),
 ]
 
@@ -773,9 +1191,18 @@ ECHO_TTL = [
 ]
 
 ECHO_ERRORS = [
-    ({"period": "24h", "strength": 0.3, "width": "12h", "fade": "10d"}, "width not under half the period"),
-    ({"period": "24h", "strength": -0.1, "width": "3h", "fade": "10d"}, "negative strength"),
-    ({"period": "infinite", "strength": 0.3, "width": "3h", "fade": "10d"}, "infinite period"),
+    (
+        {"period": "24h", "strength": 0.3, "width": "12h", "fade": "10d"},
+        "width not under half the period",
+    ),
+    (
+        {"period": "24h", "strength": -0.1, "width": "3h", "fade": "10d"},
+        "negative strength",
+    ),
+    (
+        {"period": "infinite", "strength": 0.3, "width": "3h", "fade": "10d"},
+        "infinite period",
+    ),
     ({"period": "24h", "strength": 0.3, "width": "0h", "fade": "10d"}, "zero width"),
     ({"period": "24h", "strength": 0.3, "width": "3h", "fade": "0h"}, "zero fade"),
 ]
@@ -792,32 +1219,52 @@ def integrity_cases():
         {"x": 0.1, "y": -2.5e-07},
         [1e-4, 1e-5, 1.5e-5, -3e-5, 9.99e-6, 1e-7, 5e-324],
         [1e15, 1e16, 2e16, 1.2345678901234567e20, 1.7976931348623157e308, 1.0, 100.0],
-        {"quote": "a \"b\" \\ c", "tab": "\t", "ctrl": "\u0001"},
+        {"quote": 'a "b" \\ c', "tab": "\t", "ctrl": "\u0001"},
     ]
-    return [{"content": c, "canonical": canonical(c), "hash": integrity(c)} for c in contents]
+    return [
+        {"content": c, "canonical": canonical(c), "hash": integrity(c)}
+        for c in contents
+    ]
 
 
 def jcs_cases():
     """RFC 8785 canonical form (version 1.0). The first is the RFC's own example (section 3.2.2)."""
-    rfc = json.loads('{"numbers": [333333333.33333329, 1E30, 4.50, 2e-3, 0.000000000000000000000000001], '
-                     '"string": "\\u20ac$\\u000F\\u000aA\'\\u0042\\u0022\\u005c\\\\\\"\\/", '
-                     '"literals": [null, true, false]}')
+    rfc = json.loads(
+        '{"numbers": [333333333.33333329, 1E30, 4.50, 2e-3, 0.000000000000000000000000001], '
+        '"string": "\\u20ac$\\u000F\\u000aA\'\\u0042\\u0022\\u005c\\\\\\"\\/", '
+        '"literals": [null, true, false]}'
+    )
     contents = [
         rfc,
         {"reading": 42, "scale": 1.0},
-        [1e20, 1e21, 1.5e21, 1e-6, 9.99e-7, 1e-7, -2.5e-7, 5e-324, 1.7976931348623157e308, -0.0, 100.0],
-        {"\ue000": 1, "\U0001F600": 2, "b": 3, "a": {"z": [3, 2, 1], "a": None}},
+        [
+            1e20,
+            1e21,
+            1.5e21,
+            1e-6,
+            9.99e-7,
+            1e-7,
+            -2.5e-7,
+            5e-324,
+            1.7976931348623157e308,
+            -0.0,
+            100.0,
+        ],
+        {"\ue000": 1, "\U0001f600": 2, "b": 3, "a": {"z": [3, 2, 1], "a": None}},
         {"name": "Zoë", "tab": "\t", "ctrl": "\u0001", "del": "\u007f", "slash": "/"},
         "plain text",
     ]
-    return [{"content": c, "canonical": jcs(c), "hash": integrity(c, "1.0")} for c in contents]
+    return [
+        {"content": c, "canonical": jcs(c), "hash": integrity(c, "1.0")}
+        for c in contents
+    ]
 
 
 def writer_error_cases():
     """Content a writer must reject: not I-JSON (draft, Structure)."""
     return [
         {"content_json": '{"id": 9007199254740993}', "error": "integer beyond 2^53"},
-        {"content_json": '[-9007199254740993]', "error": "integer beyond -2^53"},
+        {"content_json": "[-9007199254740993]", "error": "integer beyond -2^53"},
     ]
 
 
@@ -825,9 +1272,22 @@ def writer_error_cases():
 REGISTRY = {
     "plain": "1y",
     "typed": {"half_life": "2.9h", "baseline": 0.73},
-    "shaped": {"half_life": "1h", "shape": 2.0, "baseline": 0.2, "source_fidelity": 0.9,
-               "states": {"bare": "30m", "full": {"half_life": "10m", "baseline": 0.05, "shape": 3.0}}},
-    "stateful": {"states": {"a": "1d", "b": {"half_life": "2d", "fast": {"share": 0.3, "half_life": "1d"}}}},
+    "shaped": {
+        "half_life": "1h",
+        "shape": 2.0,
+        "baseline": 0.2,
+        "source_fidelity": 0.9,
+        "states": {
+            "bare": "30m",
+            "full": {"half_life": "10m", "baseline": 0.05, "shape": 3.0},
+        },
+    },
+    "stateful": {
+        "states": {
+            "a": "1d",
+            "b": {"half_life": "2d", "fast": {"share": 0.3, "half_life": "1d"}},
+        }
+    },
 }
 FIELDS = ("half_life", "baseline", "source_fidelity", "echo", "fast", "shape")
 
@@ -854,48 +1314,101 @@ def registry_lookup(registry, info_type, state):
 def registry_cases():
     text = json.dumps(REGISTRY)
     out = []
-    for t, st in [("plain", None), ("typed", None), ("shaped", None), ("shaped", "bare"), ("shaped", "full"),
-                  ("stateful", "b"), ("nope", None), ("stateful", None), ("plain", "a"), ("stateful", "zzz")]:
+    for t, st in [
+        ("plain", None),
+        ("typed", None),
+        ("shaped", None),
+        ("shaped", "bare"),
+        ("shaped", "full"),
+        ("stateful", "b"),
+        ("nope", None),
+        ("stateful", None),
+        ("plain", "a"),
+        ("stateful", "zzz"),
+    ]:
         try:
-            out.append({"registry": text, "type": t, "state": st, "spec": registry_lookup(REGISTRY, t, st)})
+            out.append(
+                {
+                    "registry": text,
+                    "type": t,
+                    "state": st,
+                    "spec": registry_lookup(REGISTRY, t, st),
+                }
+            )
         except KeyError as e:
             out.append({"registry": text, "type": t, "state": st, "error": e.args[0]})
-    for bad, reason in [({"x": {"half_life": "1d", "colour": 1}}, "unknown key"),
-                        ({"x": {"states": {"a": {"half_life": "1d", "states": {"b": "1h"}}}}}, "a state with states"),
-                        ({"x": {"half_life": "1d", "shape": 2.0, "states": {"a": "0d"}}}, "zero half-life"),
-                        ({"x": {"half_life": "1d", "fast": {"share": 0.3, "half_life": "2d"}}}, "fast clock not shorter")]:
+    for bad, reason in [
+        ({"x": {"half_life": "1d", "colour": 1}}, "unknown key"),
+        (
+            {"x": {"states": {"a": {"half_life": "1d", "states": {"b": "1h"}}}}},
+            "a state with states",
+        ),
+        (
+            {"x": {"half_life": "1d", "shape": 2.0, "states": {"a": "0d"}}},
+            "zero half-life",
+        ),
+        (
+            {"x": {"half_life": "1d", "fast": {"share": 0.3, "half_life": "2d"}}},
+            "fast clock not shorter",
+        ),
+    ]:
         state = "a" if "states" in bad["x"] else None
-        out.append({"registry": json.dumps(bad), "type": "x", "state": state, "error": reason})
+        out.append(
+            {"registry": json.dumps(bad), "type": "x", "state": state, "error": reason}
+        )
     return out
 
 
 def ledger_cases():
     """CSV text an exporter writes → observations fid reads."""
     ok = [
-        ("entity,age,correct\nq1,30d,true\nq2,0,false\n",
-         [("q1", 30 * DAY, True, None), ("q2", 0.0, False, None)]),
-        ("Entity,Correct,Age,State\nq1,yes,6h,underway\nq2,N,90,moored\n",
-         [("q1", 6 * 3600.0, True, "underway"), ("q2", 90.0, False, "moored")]),
-        ("entity,observed_at,checked_at,correct,note\n"
-         "q1,2026-01-01T00:00:00Z,2026-01-31T00:00:00Z,1,ignored\n"
-         "q2,2026-01-01T00:00:00+05:30,2026-01-01T00:00:00Z,0,\n",
-         [("q1", 30 * DAY, True, None), ("q2", 5.5 * 3600, False, None)]),
-        ("entity,age,correct,state\nq1,1d,t,\nq2,2d,f,\n",
-         [("q1", DAY, True, None), ("q2", 2 * DAY, False, None)]),
+        (
+            "entity,age,correct\nq1,30d,true\nq2,0,false\n",
+            [("q1", 30 * DAY, True, None), ("q2", 0.0, False, None)],
+        ),
+        (
+            "Entity,Correct,Age,State\nq1,yes,6h,underway\nq2,N,90,moored\n",
+            [("q1", 6 * 3600.0, True, "underway"), ("q2", 90.0, False, "moored")],
+        ),
+        (
+            "entity,observed_at,checked_at,correct,note\n"
+            "q1,2026-01-01T00:00:00Z,2026-01-31T00:00:00Z,1,ignored\n"
+            "q2,2026-01-01T00:00:00+05:30,2026-01-01T00:00:00Z,0,\n",
+            [("q1", 30 * DAY, True, None), ("q2", 5.5 * 3600, False, None)],
+        ),
+        (
+            "entity,age,correct,state\nq1,1d,t,\nq2,2d,f,\n",
+            [("q1", DAY, True, None), ("q2", 2 * DAY, False, None)],
+        ),
     ]
     bad = [
         ("entity,correct\nq1,true\n", "no age column"),
         ("entity,age\nq1,1d\n", "no correct column"),
         ("age,correct\n1d,true\n", "no entity column"),
-        ("entity,age,observed_at,checked_at,correct\nq1,1d,2026-01-01T00:00:00Z,2026-01-02T00:00:00Z,true\n", "both age and times"),
+        (
+            "entity,age,observed_at,checked_at,correct\nq1,1d,2026-01-01T00:00:00Z,2026-01-02T00:00:00Z,true\n",
+            "both age and times",
+        ),
         ("entity,age,correct\nq1,1d,maybe\n", "correct not a boolean"),
         ("entity,age,correct\n,1d,true\n", "empty entity"),
         ("entity,age,correct\nq1,-1d,true\n", "negative age"),
-        ("entity,observed_at,checked_at,correct\nq1,2026-01-02T00:00:00Z,2026-01-01T00:00:00Z,true\n", "checked before observed"),
-        ("entity,observed_at,checked_at,correct\nq1,2026-01-01,2026-01-02,true\n", "dates without times"),
+        (
+            "entity,observed_at,checked_at,correct\nq1,2026-01-02T00:00:00Z,2026-01-01T00:00:00Z,true\n",
+            "checked before observed",
+        ),
+        (
+            "entity,observed_at,checked_at,correct\nq1,2026-01-01,2026-01-02,true\n",
+            "dates without times",
+        ),
     ]
     out = [
-        {"csv": text, "observations": [{"entity": e, "age_seconds": a, "correct": c, "state": s} for e, a, c, s in obs]}
+        {
+            "csv": text,
+            "observations": [
+                {"entity": e, "age_seconds": a, "correct": c, "state": s}
+                for e, a, c, s in obs
+            ],
+        }
         for text, obs in ok
     ]
     out += [{"csv": text, "error": reason} for text, reason in bad]
@@ -914,7 +1427,11 @@ def write_ledger(path):
     exactly (rounded to whole entities), so `fid calibrate` should recover
     LEDGER_TRUTH closely.
     """
-    s0, b, h = LEDGER_TRUTH["s0"], LEDGER_TRUTH["baseline"], LEDGER_TRUTH["half_life_days"]
+    s0, b, h = (
+        LEDGER_TRUTH["s0"],
+        LEDGER_TRUTH["baseline"],
+        LEDGER_TRUTH["half_life_days"],
+    )
     per_age = 200
     rows = ["claim_id,entity,observed_at,checked_at,correct,outcome"]
     n = 0
@@ -927,11 +1444,21 @@ def write_ledger(path):
             correct = (i * 7919) % per_age < right
             observed = T0 + timedelta(hours=n % 24)
             checked = observed + timedelta(days=days)
-            outcome = "confirmed" if correct else ("superseded" if i % 2 else "rejected")
-            rows.append(",".join([
-                f"c{n}", f"company-{n:05d}", observed.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                checked.strftime("%Y-%m-%dT%H:%M:%SZ"), "true" if correct else "false", outcome,
-            ]))
+            outcome = (
+                "confirmed" if correct else ("superseded" if i % 2 else "rejected")
+            )
+            rows.append(
+                ",".join(
+                    [
+                        f"c{n}",
+                        f"company-{n:05d}",
+                        observed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        checked.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "true" if correct else "false",
+                        outcome,
+                    ]
+                )
+            )
     with open(path, "w") as f:
         f.write("\n".join(rows) + "\n")
 
@@ -943,15 +1470,65 @@ DAY = 86400.0
 FAST = [
     # name, fidelity, age, half_life, baseline, fast, echo[, shape]
     ("fresh", 1.0, 0.0, 80 * DAY, 0.1, PACKAGE, None),
-    ("three days: the fast share half gone", 1.0, 3 * DAY, 80 * DAY, 0.1, PACKAGE, None),
+    (
+        "three days: the fast share half gone",
+        1.0,
+        3 * DAY,
+        80 * DAY,
+        0.1,
+        PACKAGE,
+        None,
+    ),
     ("a year: only the slow clock", 0.97, 365 * DAY, 80 * DAY, 0.1, PACKAGE, None),
-    ("zero share is plain decay", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 0.0, "half_life": "3d"}, None),
-    ("whole share is the fast clock", 1.0, 10 * DAY, 80 * DAY, 0.0, {"share": 1.0, "half_life": "3d"}, None),
-    ("with an echo", 1.0, 24 * 3600.0, 2.42 * 3600, 0.13, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+    (
+        "zero share is plain decay",
+        1.0,
+        10 * DAY,
+        80 * DAY,
+        0.0,
+        {"share": 0.0, "half_life": "3d"},
+        None,
+    ),
+    (
+        "whole share is the fast clock",
+        1.0,
+        10 * DAY,
+        80 * DAY,
+        0.0,
+        {"share": 1.0, "half_life": "3d"},
+        None,
+    ),
+    (
+        "with an echo",
+        1.0,
+        24 * 3600.0,
+        2.42 * 3600,
+        0.13,
+        {"share": 0.2, "half_life": "0.5h"},
+        TEMPERATURE,
+    ),
     ("shape: a moving ship, one minute", 1.0, 60.0, 180.0, 0.03, None, None, 3.0),
     ("shape: a moving ship, five minutes", 1.0, 300.0, 180.0, 0.03, None, None, 3.0),
-    ("shape below 1: falls fast, lingers", 0.98, 10 * DAY, 30 * DAY, 0.0, None, None, 0.5),
-    ("shape with two clocks", 1.0, 240.0, 480.0, 0.02, {"share": 0.6, "half_life": "3m"}, None, 2.5),
+    (
+        "shape below 1: falls fast, lingers",
+        0.98,
+        10 * DAY,
+        30 * DAY,
+        0.0,
+        None,
+        None,
+        0.5,
+    ),
+    (
+        "shape with two clocks",
+        1.0,
+        240.0,
+        480.0,
+        0.02,
+        {"share": 0.6, "half_life": "3m"},
+        None,
+        2.5,
+    ),
     ("shape with an echo", 1.0, 24 * 3600.0, 2.42 * 3600, 0.13, None, TEMPERATURE, 1.7),
 ]
 
@@ -961,10 +1538,27 @@ FAST_TTL = [
     ("package to 0.5", 1.0, 80 * DAY, 0.1, 0.5, PACKAGE, None),
     ("floor under the baseline", 1.0, 80 * DAY, 0.1, 0.05, PACKAGE, None),
     ("already below", 0.8, 80 * DAY, 0.1, 0.9, PACKAGE, None),
-    ("with an echo", 1.0, 2.42 * 3600, 0.13, 0.5, {"share": 0.2, "half_life": "0.5h"}, TEMPERATURE),
+    (
+        "with an echo",
+        1.0,
+        2.42 * 3600,
+        0.13,
+        0.5,
+        {"share": 0.2, "half_life": "0.5h"},
+        TEMPERATURE,
+    ),
     ("shape: a moving ship to 0.9", 1.0, 180.0, 0.03, 0.9, None, None, 3.0),
     ("shape below 1 to 0.5", 0.98, 30 * DAY, 0.0, 0.5, None, None, 0.5),
-    ("shape with two clocks to 0.7", 1.0, 480.0, 0.02, 0.7, {"share": 0.6, "half_life": "3m"}, None, 2.5),
+    (
+        "shape with two clocks to 0.7",
+        1.0,
+        480.0,
+        0.02,
+        0.7,
+        {"share": 0.6, "half_life": "3m"},
+        None,
+        2.5,
+    ),
 ]
 
 SHAPE_ERRORS = [
@@ -991,7 +1585,16 @@ SCHEDULE = [
     ("source below 1", 0.95, 7 * DAY, 0.0, 1e-3, None, None),
     ("temperature with its echo", 1.0, 2.42 * 3600, 0.13, 1e-3, None, TEMPERATURE),
     ("a moving ship, shape 3", 1.0, 180.0, 0.03, 1e-4, None, None, 3.0),
-    ("shape with two clocks", 1.0, 480.0, 0.02, 1e-4, {"share": 0.6, "half_life": "3m"}, None, 2.5),
+    (
+        "shape with two clocks",
+        1.0,
+        480.0,
+        0.02,
+        1e-4,
+        {"share": 0.6, "half_life": "3m"},
+        None,
+        2.5,
+    ),
 ]
 
 STALENESS = [
@@ -1063,7 +1666,9 @@ def tag(vectors):
     for group, sections in GROUP_SECTIONS.items():
         for v in vectors[group]:
             name = v.get("name", "")
-            v["sections"] = sections + [s for s in ENVELOPE_SECTIONS.get(name, []) if s not in sections]
+            v["sections"] = sections + [
+                s for s in ENVELOPE_SECTIONS.get(name, []) if s not in sections
+            ]
             if name in DEVIATIONS:
                 v["deviation_issue"] = DEVIATIONS[name]
     vectors["ledger_example"]["sections"] = ["calibrator"]
@@ -1083,47 +1688,128 @@ def main():
         "parse_half_life": half_life_cases(),
         "source_fidelity": source_cases(),
         "fidelity": [
-            {"name": n, "source": s, "age_seconds": a, "half_life_seconds": h, "noise": z, "baseline": b,
-             "fidelity": fidelity(s, a, h, z, b)}
+            {
+                "name": n,
+                "source": s,
+                "age_seconds": a,
+                "half_life_seconds": h,
+                "noise": z,
+                "baseline": b,
+                "fidelity": fidelity(s, a, h, z, b),
+            }
             for n, s, a, h, z, b in FIDELITY
         ],
         "time_to_floor": [
-            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl,
-             "seconds": time_to_floor(f, h, b, fl)}
+            {
+                "name": n,
+                "fidelity": f,
+                "half_life_seconds": h,
+                "baseline": b,
+                "floor": fl,
+                "seconds": time_to_floor(f, h, b, fl),
+            }
             for n, f, h, b, fl in TTL
         ],
         "echo": [
-            {"name": n, "source": s, "age_seconds": a, "half_life_seconds": h, "noise": z, "baseline": b, "echo": e,
-             "fidelity": echo_fidelity(s, a, h, z, b, e)}
+            {
+                "name": n,
+                "source": s,
+                "age_seconds": a,
+                "half_life_seconds": h,
+                "noise": z,
+                "baseline": b,
+                "echo": e,
+                "fidelity": echo_fidelity(s, a, h, z, b, e),
+            }
             for n, s, a, h, z, b, e in ECHO
         ],
         "echo_time_to_floor": [
-            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl, "echo": e,
-             "seconds": echo_time_to_floor(f, h, b, fl, e)}
+            {
+                "name": n,
+                "fidelity": f,
+                "half_life_seconds": h,
+                "baseline": b,
+                "floor": fl,
+                "echo": e,
+                "seconds": echo_time_to_floor(f, h, b, fl, e),
+            }
             for n, f, h, b, fl, e in ECHO_TTL
         ],
         "echo_errors": [{"echo": e, "error": reason} for e, reason in ECHO_ERRORS],
         "fast": [
-            {"name": n, "fidelity_at_measurement": f, "age_seconds": a, "half_life_seconds": h, "baseline": b,
-             "fast": fa, "echo": e, "shape": k, "fidelity": curve_fidelity(f, a, h, b, fa, e, k)}
-            for n, f, a, h, b, fa, e, k in (c if len(c) == 8 else c + (None,) for c in FAST)
+            {
+                "name": n,
+                "fidelity_at_measurement": f,
+                "age_seconds": a,
+                "half_life_seconds": h,
+                "baseline": b,
+                "fast": fa,
+                "echo": e,
+                "shape": k,
+                "fidelity": curve_fidelity(f, a, h, b, fa, e, k),
+            }
+            for n, f, a, h, b, fa, e, k in (
+                c if len(c) == 8 else c + (None,) for c in FAST
+            )
         ],
         "fast_time_to_floor": [
-            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "floor": fl, "fast": fa, "echo": e,
-             "shape": k, "seconds": curve_time_to_floor(f, h, b, fl, fa, e, k)}
-            for n, f, h, b, fl, fa, e, k in (c if len(c) == 8 else c + (None,) for c in FAST_TTL)
+            {
+                "name": n,
+                "fidelity": f,
+                "half_life_seconds": h,
+                "baseline": b,
+                "floor": fl,
+                "fast": fa,
+                "echo": e,
+                "shape": k,
+                "seconds": curve_time_to_floor(f, h, b, fl, fa, e, k),
+            }
+            for n, f, h, b, fl, fa, e, k in (
+                c if len(c) == 8 else c + (None,) for c in FAST_TTL
+            )
         ],
-        "fast_errors": [{"fast": fa, "half_life_seconds": h, "error": reason} for fa, h, reason in FAST_ERRORS],
-        "shape_errors": [{"shape": k, "half_life_seconds": h, "error": reason} for k, h, reason in SHAPE_ERRORS],
+        "fast_errors": [
+            {"fast": fa, "half_life_seconds": h, "error": reason}
+            for fa, h, reason in FAST_ERRORS
+        ],
+        "shape_errors": [
+            {"shape": k, "half_life_seconds": h, "error": reason}
+            for k, h, reason in SHAPE_ERRORS
+        ],
         "schedule": [
-            dict(zip(("name", "fidelity", "half_life_seconds", "baseline", "price", "fast", "echo", "shape"), case),
-                 **dict(zip(("seconds", "cost"), best_interval(*case[1:]))))
+            dict(
+                zip(
+                    (
+                        "name",
+                        "fidelity",
+                        "half_life_seconds",
+                        "baseline",
+                        "price",
+                        "fast",
+                        "echo",
+                        "shape",
+                    ),
+                    case,
+                ),
+                **dict(zip(("seconds", "cost"), best_interval(*case[1:]))),
+            )
             for case in (c if len(c) == 8 else c + (None,) for c in SCHEDULE)
         ],
         "staleness_target": [
-            {"name": n, "fidelity": f, "half_life_seconds": h, "baseline": b, "target": t, "fast": fa, "echo": e,
-             "shape": k, "seconds": interval_for_staleness(f, h, b, t, fa, e, k)}
-            for n, f, h, b, t, fa, e, k in (c if len(c) == 8 else c + (None,) for c in STALENESS)
+            {
+                "name": n,
+                "fidelity": f,
+                "half_life_seconds": h,
+                "baseline": b,
+                "target": t,
+                "fast": fa,
+                "echo": e,
+                "shape": k,
+                "seconds": interval_for_staleness(f, h, b, t, fa, e, k),
+            }
+            for n, f, h, b, t, fa, e, k in (
+                c if len(c) == 8 else c + (None,) for c in STALENESS
+            )
         ],
         "integrity": integrity_cases(),
         "integrity_jcs": jcs_cases(),
@@ -1140,9 +1826,15 @@ def main():
         },
     }
     tag(vectors)
-    untagged = [g for g, v in vectors.items() if isinstance(v, list) and any(not c.get("sections") for c in v)]
+    untagged = [
+        g
+        for g, v in vectors.items()
+        if isinstance(v, list) and any(not c.get("sections") for c in v)
+    ]
     if untagged:
-        raise SystemExit(f"vectors without a draft section: {untagged}; add them to GROUP_SECTIONS")
+        raise SystemExit(
+            f"vectors without a draft section: {untagged}; add them to GROUP_SECTIONS"
+        )
     with open(os.path.join(HERE, "vectors.json"), "w") as f:
         json.dump(vectors, f, indent=1, ensure_ascii=False)
         f.write("\n")
