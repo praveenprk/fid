@@ -87,9 +87,17 @@ pub struct StateDrift {
 
 /// Compare recent re-checks of `info_type` with its registry entry.
 /// Either every observation has a state or none does, as in calibrate.
-pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spread: f64) -> Result<Vec<StateDrift>, String> {
+pub fn drift(
+    obs: &[Observation],
+    registry: &HalfLives,
+    info_type: &str,
+    max_spread: f64,
+) -> Result<Vec<StateDrift>, String> {
     if max_spread.is_nan() || max_spread < 1.0 {
-        return Err(format!("invalid max spread {} (must be at least 1)", max_spread));
+        return Err(format!(
+            "invalid max spread {} (must be at least 1)",
+            max_spread
+        ));
     }
     let fits = calibrate::calibrate_one_clock(obs, f64::INFINITY)?;
 
@@ -124,7 +132,11 @@ pub fn drift(obs: &[Observation], registry: &HalfLives, info_type: &str, max_spr
 fn s0_given(bins: &[Bin], half_life: f64, baseline: f64) -> f64 {
     let (mut num, mut den) = (0.0, 0.0);
     for b in bins {
-        let d = if half_life.is_infinite() { 1.0 } else { 0.5_f64.powf(b.age / half_life) };
+        let d = if half_life.is_infinite() {
+            1.0
+        } else {
+            0.5_f64.powf(b.age / half_life)
+        };
         num += b.n as f64 * d * (b.correct - baseline);
         den += b.n as f64 * d * d;
     }
@@ -181,11 +193,19 @@ pub fn chi2_survival(x: f64, df: usize) -> f64 {
 /// Complementary error function (Abramowitz & Stegun 7.1.26, error < 1.5e-7).
 fn erfc(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.327_591_1 * x);
-    let poly = t * (0.254_829_592 + t * (-0.284_496_736 + t * (1.421_413_741 + t * (-1.453_152_027 + t * 1.061_405_429))));
+    let poly = t
+        * (0.254_829_592
+            + t * (-0.284_496_736
+                + t * (1.421_413_741 + t * (-1.453_152_027 + t * 1.061_405_429))));
     poly * (-x * x).exp()
 }
 
-fn state_drift(recent: StateFit, group: &[&Observation], registered: Registered, max_spread: f64) -> StateDrift {
+fn state_drift(
+    recent: StateFit,
+    group: &[&Observation],
+    registered: Registered,
+    max_spread: f64,
+) -> StateDrift {
     let all_bins = bins(group);
     let refit = fit(&all_bins, true);
     let registry_model = Model {
@@ -195,12 +215,21 @@ fn state_drift(recent: StateFit, group: &[&Observation], registered: Registered,
         baseline: registered.baseline,
         half_life: registered.half_life,
     };
-    let df = if registered.source_fidelity.is_some() { 3 } else { 2 };
+    let df = if registered.source_fidelity.is_some() {
+        3
+    } else {
+        2
+    };
     let dispersion = dispersion(group, &refit);
     let lr = 2.0 * (log_likelihood(group, &refit) - log_likelihood(group, &registry_model));
     let chi2 = (lr / dispersion).max(0.0);
     let p_value = chi2_survival(chi2, df);
-    let gap = |m: &Model| all_bins.iter().map(|b| (b.correct - m.predict(b.age)).abs()).fold(0.0, f64::max);
+    let gap = |m: &Model| {
+        all_bins
+            .iter()
+            .map(|b| (b.correct - m.predict(b.age)).abs())
+            .fold(0.0, f64::max)
+    };
 
     // A rejection holds at any sample size; calling the registry current
     // needs enough recent checks to have seen a change
@@ -282,7 +311,10 @@ pub fn report(info_type: &str, drifts: &[StateDrift], max_spread: f64) -> String
         ));
         lines.push(format!(
             "  source fidelity  registry {:<10} recent {:.3} (95% {:.3} to {:.3})",
-            d.registered.source_fidelity.map(|s| format!("{:.3}", s)).unwrap_or_else(|| "—".into()),
+            d.registered
+                .source_fidelity
+                .map(|s| format!("{:.3}", s))
+                .unwrap_or_else(|| "—".into()),
             r.model.s0,
             u.s0.lo,
             u.s0.hi
@@ -330,26 +362,51 @@ mod tests {
     #[test]
     fn test_unchanged_decay_is_mostly_current() {
         // Registry equals the truth: drift is a false alarm
-        let truth = Model { s0: 0.95, baseline: 0.3, half_life: 10.0 * DAY };
+        let truth = Model {
+            s0: 0.95,
+            baseline: 0.3,
+            half_life: 10.0 * DAY,
+        };
         let reg = registry("t: { half_life: 10d, baseline: 0.3, source_fidelity: 0.95 }");
         let (current, drifted, unknown) = tally(truth, &reg, 30, 21);
         assert!(drifted <= 3, "false alarms: {} of 30", drifted);
-        assert!(current >= 25, "current in {} of 30 ({} unknown)", current, unknown);
+        assert!(
+            current >= 25,
+            "current in {} of 30 ({} unknown)",
+            current,
+            unknown
+        );
     }
 
     // spec: drift
     #[test]
     fn test_fast_share_is_refused_not_dropped() {
         let mut rng = Rng(5);
-        let obs = random_ledger(Model { s0: 1.0, baseline: 0.1, half_life: 10.0 * DAY }, 200, 60.0 * DAY, &mut rng);
-        let reg = registry("t: { half_life: 10d, baseline: 0.1, fast: { share: 0.2, half_life: 1d } }");
-        assert!(drift(&obs, &reg, "t", calibrate::MAX_SPREAD).unwrap_err().contains("fast share"));
+        let obs = random_ledger(
+            Model {
+                s0: 1.0,
+                baseline: 0.1,
+                half_life: 10.0 * DAY,
+            },
+            200,
+            60.0 * DAY,
+            &mut rng,
+        );
+        let reg =
+            registry("t: { half_life: 10d, baseline: 0.1, fast: { share: 0.2, half_life: 1d } }");
+        assert!(drift(&obs, &reg, "t", calibrate::MAX_SPREAD)
+            .unwrap_err()
+            .contains("fast share"));
     }
 
     // spec: drift
     #[test]
     fn test_halved_half_life_is_drift() {
-        let truth = Model { s0: 0.95, baseline: 0.3, half_life: 5.0 * DAY };
+        let truth = Model {
+            s0: 0.95,
+            baseline: 0.3,
+            half_life: 5.0 * DAY,
+        };
         let reg = registry("t: { half_life: 10d, baseline: 0.3 }");
         let (_, drifted, _) = tally(truth, &reg, 30, 22);
         assert!(drifted >= 27, "detected in {} of 30", drifted);
@@ -358,7 +415,11 @@ mod tests {
     // spec: drift
     #[test]
     fn test_moved_baseline_is_drift() {
-        let truth = Model { s0: 0.95, baseline: 0.5, half_life: 10.0 * DAY };
+        let truth = Model {
+            s0: 0.95,
+            baseline: 0.5,
+            half_life: 10.0 * DAY,
+        };
         let reg = registry("t: { half_life: 10d, baseline: 0.3 }");
         let (_, drifted, _) = tally(truth, &reg, 30, 23);
         assert!(drifted >= 27, "detected in {} of 30", drifted);
@@ -367,19 +428,32 @@ mod tests {
     // spec: drift
     #[test]
     fn test_worse_source_is_drift() {
-        let truth = Model { s0: 0.80, baseline: 0.3, half_life: 10.0 * DAY };
+        let truth = Model {
+            s0: 0.80,
+            baseline: 0.3,
+            half_life: 10.0 * DAY,
+        };
         let reg = registry("t: { half_life: 10d, baseline: 0.3, source_fidelity: 0.95 }");
         let obs = random_ledger(truth, 3000, 60.0 * DAY, &mut Rng(24));
         let drifts = drift(&obs, &reg, "t", calibrate::MAX_SPREAD).unwrap();
         assert_eq!(drifts[0].df, 3);
-        assert_eq!(drifts[0].verdict, Verdict::Drifted, "p = {}", drifts[0].p_value);
+        assert_eq!(
+            drifts[0].verdict,
+            Verdict::Drifted,
+            "p = {}",
+            drifts[0].p_value
+        );
         assert!(report("t", &drifts, 2.5).contains("recalibrate"));
     }
 
     // spec: drift
     #[test]
     fn test_few_recent_checks_is_unknown() {
-        let truth = Model { s0: 0.95, baseline: 0.0, half_life: 6.0 * DAY };
+        let truth = Model {
+            s0: 0.95,
+            baseline: 0.0,
+            half_life: 6.0 * DAY,
+        };
         let reg = registry("t: 6d");
         let obs = random_ledger(truth, 60, 20.0 * DAY, &mut Rng(3));
         let d = drift(&obs, &reg, "t", calibrate::MAX_SPREAD).unwrap();
@@ -390,10 +464,19 @@ mod tests {
     // spec: drift
     #[test]
     fn test_no_decay_matches_infinite() {
-        let truth = Model { s0: 0.9, baseline: 0.0, half_life: f64::INFINITY };
+        let truth = Model {
+            s0: 0.9,
+            baseline: 0.0,
+            half_life: f64::INFINITY,
+        };
         let obs = random_ledger(truth, 2000, 30.0 * DAY, &mut Rng(4));
         let d = drift(&obs, &registry("t: infinite"), "t", calibrate::MAX_SPREAD).unwrap();
-        assert_eq!(overall(&d), Verdict::Current, "{:?}", d[0].recent.uncertainty);
+        assert_eq!(
+            overall(&d),
+            Verdict::Current,
+            "{:?}",
+            d[0].recent.uncertainty
+        );
     }
 
     #[test]
@@ -409,7 +492,16 @@ mod tests {
     #[test]
     fn test_states_and_registry_errors() {
         let mut rng = Rng(5);
-        let mut obs = random_ledger(Model { s0: 1.0, baseline: 0.0, half_life: DAY }, 1500, 5.0 * DAY, &mut rng);
+        let mut obs = random_ledger(
+            Model {
+                s0: 1.0,
+                baseline: 0.0,
+                half_life: DAY,
+            },
+            1500,
+            5.0 * DAY,
+            &mut rng,
+        );
         for o in &mut obs {
             o.state = Some("moored".into());
         }
@@ -418,7 +510,9 @@ mod tests {
         assert_eq!(d[0].recent.state.as_deref(), Some("moored"));
         assert_eq!(overall(&d), Verdict::Current);
         assert!(drift(&obs, &reg, "nope", 2.5).is_err());
-        assert!(drift(&obs, &registry("t: 1d"), "t", 2.5).unwrap_err().contains("no states"));
+        assert!(drift(&obs, &registry("t: 1d"), "t", 2.5)
+            .unwrap_err()
+            .contains("no states"));
         assert!(drift(&obs, &reg, "t", 0.5).is_err());
     }
 }
@@ -438,7 +532,12 @@ mod measure {
             let t = -h * (1.0 - rng.unit()).log2();
             for _ in 0..5 {
                 let age = rng.unit() * 60.0 * DAY;
-                out.push(Observation { entity: format!("e{}", i), age, correct: age < t, state: None });
+                out.push(Observation {
+                    entity: format!("e{}", i),
+                    age,
+                    correct: age < t,
+                    state: None,
+                });
             }
         }
         out
@@ -447,18 +546,38 @@ mod measure {
     #[test]
     #[ignore]
     fn measure_false_alarms_and_power() {
-        let reg = HalfLives::from_yaml("t: { half_life: 10d, baseline: 0.3, source_fidelity: 0.95 }").unwrap();
-        let truth = Model { s0: 0.95, baseline: 0.3, half_life: 10.0 * DAY };
+        let reg =
+            HalfLives::from_yaml("t: { half_life: 10d, baseline: 0.3, source_fidelity: 0.95 }")
+                .unwrap();
+        let truth = Model {
+            s0: 0.95,
+            baseline: 0.3,
+            half_life: 10.0 * DAY,
+        };
         let mut rng = Rng(101);
         let mut v = [0; 3];
         let mut ps = Vec::new();
         for _ in 0..200 {
-            let d = &drift(&random_ledger(truth, 1500, 60.0 * DAY, &mut rng), &reg, "t", 2.5).unwrap()[0];
+            let d = &drift(
+                &random_ledger(truth, 1500, 60.0 * DAY, &mut rng),
+                &reg,
+                "t",
+                2.5,
+            )
+            .unwrap()[0];
             v[d.verdict.exit_code() as usize] += 1;
             ps.push(d.p_value);
         }
         let below = |a: f64| ps.iter().filter(|&&p| p < a).count();
-        eprintln!("INDEPENDENT current {} drifted {} unknown {}; p<0.05 {} p<0.2 {} p<0.5 {}", v[0], v[1], v[2], below(0.05), below(0.2), below(0.5));
+        eprintln!(
+            "INDEPENDENT current {} drifted {} unknown {}; p<0.05 {} p<0.2 {} p<0.5 {}",
+            v[0],
+            v[1],
+            v[2],
+            below(0.05),
+            below(0.2),
+            below(0.5)
+        );
 
         let reg = HalfLives::from_yaml("t: 10d").unwrap();
         let mut v = [0; 3];
@@ -477,12 +596,18 @@ mod measure {
             let d = &drift(&shared_fate(7.0 * DAY, 600, &mut rng), &reg, "t", 2.5).unwrap()[0];
             drifted += (d.verdict == Verdict::Drifted) as usize;
         }
-        eprintln!("SHARED FATE POWER 10d registry, 7d truth: drifted {} of 200", drifted);
+        eprintln!(
+            "SHARED FATE POWER 10d registry, 7d truth: drifted {} of 200",
+            drifted
+        );
         let mut drifted = 0;
         for _ in 0..200 {
             let d = &drift(&shared_fate(5.0 * DAY, 600, &mut rng), &reg, "t", 2.5).unwrap()[0];
             drifted += (d.verdict == Verdict::Drifted) as usize;
         }
-        eprintln!("SHARED FATE POWER 10d registry, 5d truth: drifted {} of 200", drifted);
+        eprintln!(
+            "SHARED FATE POWER 10d registry, 5d truth: drifted {} of 200",
+            drifted
+        );
     }
 }

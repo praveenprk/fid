@@ -21,7 +21,11 @@ fn fid(args: &[&str], stdin: &str) -> Output {
 }
 
 fn stdout_json(out: &Output) -> Value {
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     serde_json::from_slice(&out.stdout).expect("stdout is not JSON")
 }
 
@@ -29,7 +33,15 @@ fn stdout_json(out: &Output) -> Value {
 #[test]
 fn stamp_root_wraps_content() {
     let out = fid(
-        &["stamp", "--source", "sensor-12", "--source-class", "instrument", "--half-life", "30d"],
+        &[
+            "stamp",
+            "--source",
+            "sensor-12",
+            "--source-class",
+            "instrument",
+            "--half-life",
+            "30d",
+        ],
         r#"{"temp": 21.5}"#,
     );
     let v = stdout_json(&out);
@@ -38,17 +50,37 @@ fn stamp_root_wraps_content() {
     assert_eq!(v["fid"]["source_class"], "instrument");
     assert_eq!(v["fid"]["half_life"], "30d");
     assert_eq!(v["fid"]["fid_at_stamp"], 0.97);
-    assert!(v["fid"]["integrity"].as_str().unwrap().starts_with("sha256:"));
+    assert!(v["fid"]["integrity"]
+        .as_str()
+        .unwrap()
+        .starts_with("sha256:"));
 }
 
 // spec: stamping, cli
 #[test]
 fn stamp_pipeline_composes() {
-    let first = fid(&["stamp", "--source", "db", "--source-class", "database", "--half-life", "infinite"], "{}");
+    let first = fid(
+        &[
+            "stamp",
+            "--source",
+            "db",
+            "--source-class",
+            "database",
+            "--half-life",
+            "infinite",
+        ],
+        "{}",
+    );
     let first = String::from_utf8(first.stdout).unwrap();
-    let second = fid(&["stamp", "--source", "normalize.py", "--noise", "0.05"], &first);
+    let second = fid(
+        &["stamp", "--source", "normalize.py", "--noise", "0.05"],
+        &first,
+    );
     let second = String::from_utf8(second.stdout).unwrap();
-    let third = fid(&["stamp", "--source", "aggregate.py", "--noise", "0.08"], &second);
+    let third = fid(
+        &["stamp", "--source", "aggregate.py", "--noise", "0.08"],
+        &second,
+    );
 
     let v = stdout_json(&third);
     let transforms = v["fid"]["transforms"].as_array().unwrap();
@@ -63,14 +95,28 @@ fn stamp_pipeline_composes() {
 // spec: stamping
 #[test]
 fn stamp_derived_from_file() {
-    let upstream = fid(&["stamp", "--source", "db", "--source-class", "database"], "{}");
+    let upstream = fid(
+        &["stamp", "--source", "db", "--source-class", "database"],
+        "{}",
+    );
     let dir = std::env::temp_dir().join(format!("fid-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("upstream.json");
     std::fs::write(&path, &upstream.stdout).unwrap();
     let path = path.to_str().unwrap();
 
-    let out = fid(&["stamp", "--source", "report.py", "--noise", "0.1", "--derived-from", path], "plain text");
+    let out = fid(
+        &[
+            "stamp",
+            "--source",
+            "report.py",
+            "--noise",
+            "0.1",
+            "--derived-from",
+            path,
+        ],
+        "plain text",
+    );
     let v = stdout_json(&out);
     assert_eq!(v["fid"]["source_id"], "db");
     assert_eq!(v["fid"]["derived_from"], path);
@@ -94,7 +140,13 @@ fn stamp_rejects_bad_input() {
         &["stamp", "--source", "x", "--half-life", "7days"],
         &["stamp", "--source", "x", "--source-class", "human"],
         &["stamp", "--source", "x", "--noise", "1.5"],
-        &["stamp", "--source", "x", "--derived-from", "/nonexistent/upstream.json"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--derived-from",
+            "/nonexistent/upstream.json",
+        ],
     ];
     for args in cases {
         let out = fid(args, "{}");
@@ -106,7 +158,10 @@ fn stamp_rejects_bad_input() {
 // spec: structure, cli
 #[test]
 fn stamp_rejects_malformed_envelope() {
-    let out = fid(&["stamp", "--source", "x"], r#"{"fid": {"broken": true}, "content": 1}"#);
+    let out = fid(
+        &["stamp", "--source", "x"],
+        r#"{"fid": {"broken": true}, "content": 1}"#,
+    );
     assert_eq!(out.status.code(), Some(3));
     assert!(String::from_utf8_lossy(&out.stderr).contains("not a valid fid-stamped artifact"));
 }
@@ -120,8 +175,19 @@ fn example(name: &str) -> String {
 fn stamp_looks_up_state_half_life() {
     let registry = example("half-lives.yaml");
     let out = fid(
-        &["stamp", "--source", "ais", "--source-class", "instrument",
-          "--half-lives", &registry, "--type", "vessel_position", "--state", "underway"],
+        &[
+            "stamp",
+            "--source",
+            "ais",
+            "--source-class",
+            "instrument",
+            "--half-lives",
+            &registry,
+            "--type",
+            "vessel_position",
+            "--state",
+            "underway",
+        ],
         "{}",
     );
     let v = stdout_json(&out);
@@ -136,8 +202,19 @@ fn stamp_looks_up_state_half_life() {
 fn stamp_flags_override_registry() {
     let registry = example("half-lives.yaml");
     let out = fid(
-        &["stamp", "--source", "m", "--half-lives", &registry, "--type", "airport_flight_category",
-          "--half-life", "1h", "--baseline", "0.5"],
+        &[
+            "stamp",
+            "--source",
+            "m",
+            "--half-lives",
+            &registry,
+            "--type",
+            "airport_flight_category",
+            "--half-life",
+            "1h",
+            "--baseline",
+            "0.5",
+        ],
         "{}",
     );
     let v = stdout_json(&out);
@@ -149,10 +226,28 @@ fn stamp_flags_override_registry() {
 #[test]
 fn stamp_looks_up_conditional_noise() {
     let model = example("noise-model.yaml");
-    let first = fid(&["stamp", "--source", "schedule", "--source-class", "database"], "{}");
+    let first = fid(
+        &[
+            "stamp",
+            "--source",
+            "schedule",
+            "--source-class",
+            "database",
+        ],
+        "{}",
+    );
     let out = fid(
-        &["stamp", "--source", "leg-3", "--noise-model", &model, "--transform", "flight_leg",
-          "--condition", "previous_leg_late"],
+        &[
+            "stamp",
+            "--source",
+            "leg-3",
+            "--noise-model",
+            &model,
+            "--transform",
+            "flight_leg",
+            "--condition",
+            "previous_leg_late",
+        ],
         &String::from_utf8(first.stdout).unwrap(),
     );
     let v = stdout_json(&out);
@@ -166,19 +261,63 @@ fn stamp_registry_errors_exit_3() {
     let model = example("noise-model.yaml");
     let cases: &[&[&str]] = &[
         // stateful type without a state
-        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "vessel_position"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--half-lives",
+            &registry,
+            "--type",
+            "vessel_position",
+        ],
         // unknown state
-        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "vessel_position", "--state", "sinking"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--half-lives",
+            &registry,
+            "--type",
+            "vessel_position",
+            "--state",
+            "sinking",
+        ],
         // unknown type
-        &["stamp", "--source", "x", "--half-lives", &registry, "--type", "nope"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--half-lives",
+            &registry,
+            "--type",
+            "nope",
+        ],
         // registry without --type
         &["stamp", "--source", "x", "--half-lives", &registry],
         // unknown condition
-        &["stamp", "--source", "x", "--noise-model", &model, "--transform", "flight_leg", "--condition", "x"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--noise-model",
+            &model,
+            "--transform",
+            "flight_leg",
+            "--condition",
+            "x",
+        ],
         // bad baseline
         &["stamp", "--source", "x", "--baseline", "1.5"],
         // missing registry file
-        &["stamp", "--source", "x", "--half-lives", "/nonexistent.yaml", "--type", "t"],
+        &[
+            "stamp",
+            "--source",
+            "x",
+            "--half-lives",
+            "/nonexistent.yaml",
+            "--type",
+            "t",
+        ],
     ];
     for args in cases {
         let out = fid(args, "{}");
@@ -193,9 +332,23 @@ fn stamp_carries_a_fast_share_from_the_registry() {
     let dir = std::env::temp_dir().join(format!("fid-stamp-fast-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let registry = dir.join("half-lives.yaml");
-    std::fs::write(&registry, "pkg:\n  half_life: 80d\n  baseline: 0.1\n  fast: { share: 0.3, half_life: 3d }\n").unwrap();
+    std::fs::write(
+        &registry,
+        "pkg:\n  half_life: 80d\n  baseline: 0.1\n  fast: { share: 0.3, half_life: 3d }\n",
+    )
+    .unwrap();
     let out = fid(
-        &["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"],
+        &[
+            "stamp",
+            "--source",
+            "pypi",
+            "--source-class",
+            "instrument",
+            "--half-lives",
+            registry.to_str().unwrap(),
+            "--type",
+            "pkg",
+        ],
         "{}",
     );
     let v = stdout_json(&out);

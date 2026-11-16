@@ -59,11 +59,14 @@ def download(url, path, data=None, attempts=5, pause=3.0, deadline=900, label=No
     tmp = path + ".part"
     log(f"downloading {label or url[:120]}")
     for attempt in range(attempts):
-        time.sleep(pause * 2 ** attempt)
+        time.sleep(pause * 2**attempt)
         req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
         give_up = time.monotonic() + deadline
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as out:
+            with (
+                urllib.request.urlopen(req, timeout=120) as resp,
+                open(tmp, "wb") as out,
+            ):
                 while True:
                     chunk = resp.read(1 << 16)
                     if not chunk:
@@ -103,6 +106,7 @@ def split_train(entity):
 
 # ── observations ─────────────────────────────────────────────────────────
 
+
 class Tally:
     """Counts of observations by (train half?, lag, still correct?).
 
@@ -140,10 +144,15 @@ class Tally:
 
 
 def as_tally(observations):
-    return observations if isinstance(observations, Tally) else Tally().extend(observations)
+    return (
+        observations
+        if isinstance(observations, Tally)
+        else Tally().extend(observations)
+    )
 
 
 # ── survival curve ───────────────────────────────────────────────────────
+
 
 def survival_curve(tally, lags, half=None):
     """Fraction still correct at each lag: a list of (lag, fraction, n)."""
@@ -228,6 +237,7 @@ def shape_error(curve, s0, h, b=0.0):
 
 # ── calibration ──────────────────────────────────────────────────────────
 
+
 def brier(predict, tally, half=False):
     total = n_all = 0
     for lag, correct, n in tally.items(half):
@@ -248,18 +258,23 @@ def reliability(predict, tally, half=False, bins=10):
     out = []
     for i, (psum, k, n) in enumerate(buckets):
         if n:
-            out.append({
-                "bin": f"{i / bins:.1f}–{(i + 1) / bins:.1f}",
-                "predicted": psum / n,
-                "actual": k / n,
-                "n": n,
-            })
+            out.append(
+                {
+                    "bin": f"{i / bins:.1f}–{(i + 1) / bins:.1f}",
+                    "predicted": psum / n,
+                    "actual": k / n,
+                    "n": n,
+                }
+            )
     return out
 
 
 # ── the full analysis ────────────────────────────────────────────────────
 
-def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=None, fmt=None):
+
+def analyze(
+    name, fact, observations, lags, guess=None, guess_label=None, truth=None, fmt=None
+):
     """Run the whole analysis and return a JSON-serializable result.
 
     `fmt` formats a lag for display (default: as a duration in seconds).
@@ -293,7 +308,9 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
     }
     if guess is not None:
         # The guess as fid would use it: source fidelity 1, guessed half-life
-        scores["guessed_half_life"] = brier(lambda lag: exp_model(lag, 1.0, guess), tally)
+        scores["guessed_half_life"] = brier(
+            lambda lag: exp_model(lag, 1.0, guess), tally
+        )
 
     return {
         "experiment": name,
@@ -301,16 +318,24 @@ def analyze(name, fact, observations, lags, guess=None, guess_label=None, truth=
         "truth": truth,
         "entities": len(tally.entities),
         "observations": tally.total(),
-        "curve": [{"lag_s": lg, "lag": fmt(lg), "still_correct": s, "n": n} for lg, s, n in curve],
+        "curve": [
+            {"lag_s": lg, "lag": fmt(lg), "still_correct": s, "n": n}
+            for lg, s, n in curve
+        ],
         "empirical_half_life_s": empirical_half_life(curve),
         "empirical_half_life": fmt(empirical_half_life(curve)),
         "fitted": {"s0": s0_all, "half_life_s": h_all, "half_life": fmt(h_all)},
         "shape_error": shape_error(curve, s0_all, h_all),
         "fitted_with_baseline": {
-            "s0": s0b_all, "baseline": b_all, "half_life_s": hb_all, "half_life": fmt(hb_all),
+            "s0": s0b_all,
+            "baseline": b_all,
+            "half_life_s": hb_all,
+            "half_life": fmt(hb_all),
         },
         "shape_error_with_baseline": shape_error(curve, s0b_all, hb_all, b_all),
-        "guess": {"label": guess_label, "half_life_s": guess, "half_life": fmt(guess)} if guess is not None else None,
+        "guess": {"label": guess_label, "half_life_s": guess, "half_life": fmt(guess)}
+        if guess is not None
+        else None,
         "brier_test": scores,
         "reliability_test": reliability(fitted, tally),
         "reliability_test_with_baseline": reliability(fitted_baseline, tally),
@@ -325,27 +350,48 @@ def summary_markdown(result):
         f"- Still correct means: {r['truth']}",
         f"- {r['entities']:,} entities, {r['observations']:,} observations",
         f"- Empirical half-life: **{r['empirical_half_life'] or '—'}**"
-        + ("" if r["empirical_half_life_s"] else " (never fell to 50% in the observed range)"),
+        + (
+            ""
+            if r["empirical_half_life_s"]
+            else " (never fell to 50% in the observed range)"
+        ),
         f"- Fitted fid model (decay to 0): s0 = {r['fitted']['s0']:.3f}, half-life = **{r['fitted']['half_life']}**, "
-        f"shape error {r['shape_error']:.3f}" + (" — poor fit" if r["shape_error"] > 0.10 else ""),
+        f"shape error {r['shape_error']:.3f}"
+        + (" — poor fit" if r["shape_error"] > 0.10 else ""),
         f"- Fitted with baseline (decay to b): b = {r['fitted_with_baseline']['baseline']:.2f}, "
         f"half-life = **{r['fitted_with_baseline']['half_life']}**, "
         f"shape error {r['shape_error_with_baseline']:.3f}"
         + (" — poor fit" if r["shape_error_with_baseline"] > 0.10 else ""),
     ]
     if r["guess"]:
-        lines.append(f"- Hand-picked guess ({r['guess']['label']}): {r['guess']['half_life']}")
-    lines += ["", "| Predictor (held-out half) | Brier score (lower is better) |", "|---|---|"]
+        lines.append(
+            f"- Hand-picked guess ({r['guess']['label']}): {r['guess']['half_life']}"
+        )
+    lines += [
+        "",
+        "| Predictor (held-out half) | Brier score (lower is better) |",
+        "|---|---|",
+    ]
     for k, v in sorted(r["brier_test"].items(), key=lambda kv: kv[1]):
         lines.append(f"| {k.replace('_', ' ')} | {v:.4f} |")
     lines += ["", "| Lag | Still correct | n |", "|---|---|---|"]
     for c in r["curve"]:
         lines.append(f"| {c['lag']} | {c['still_correct']:.3f} | {c['n']:,} |")
-    for key, label in (("reliability_test", "decay to 0"), ("reliability_test_with_baseline", "decay to baseline")):
-        lines += ["", f"Reliability on the held-out half, {label}:", "",
-                  "| Predicted bin | Mean predicted | Actual | n |", "|---|---|---|---|"]
+    for key, label in (
+        ("reliability_test", "decay to 0"),
+        ("reliability_test_with_baseline", "decay to baseline"),
+    ):
+        lines += [
+            "",
+            f"Reliability on the held-out half, {label}:",
+            "",
+            "| Predicted bin | Mean predicted | Actual | n |",
+            "|---|---|---|---|",
+        ]
         for b in r[key]:
-            lines.append(f"| {b['bin']} | {b['predicted']:.3f} | {b['actual']:.3f} | {b['n']:,} |")
+            lines.append(
+                f"| {b['bin']} | {b['predicted']:.3f} | {b['actual']:.3f} | {b['n']:,} |"
+            )
     return "\n".join(lines) + "\n"
 
 

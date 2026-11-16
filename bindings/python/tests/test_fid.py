@@ -29,7 +29,9 @@ class Scoring(unittest.TestCase):
     def test_fidelity_matches_formula(self):
         # 0.70 + (0.90 − 0.70) × 0.5
         self.assertAlmostEqual(fid.fidelity(0.9, "1d", "1d", baseline=0.7), 0.8)
-        self.assertAlmostEqual(fid.fidelity(0.9, timedelta(days=1), 86400, noise=[0.1]), 0.9 * 0.9 * 0.5)
+        self.assertAlmostEqual(
+            fid.fidelity(0.9, timedelta(days=1), 86400, noise=[0.1]), 0.9 * 0.9 * 0.5
+        )
         self.assertAlmostEqual(fid.fidelity(0.9, "100y", None), 0.9)
 
     def test_time_to_floor(self):
@@ -40,7 +42,13 @@ class Scoring(unittest.TestCase):
 
 class Envelopes(unittest.TestCase):
     def test_stamp_check_expire(self):
-        a = fid.stamp({"ceo": "Ada"}, source="registry", source_class="database", half_life="1d", now=T0)
+        a = fid.stamp(
+            {"ceo": "Ada"},
+            source="registry",
+            source_class="database",
+            half_life="1d",
+            now=T0,
+        )
         self.assertEqual(a["content"], {"ceo": "Ada"})
         self.assertEqual(a["fid"]["source_class"], "database")
         self.assertEqual(a["fid"]["fid_at_stamp"], 0.9)
@@ -56,10 +64,19 @@ class Envelopes(unittest.TestCase):
         self.assertEqual(fid.expires_at(a, 0.45), T0 + timedelta(days=1))
 
     def test_pipeline_restamp(self):
-        a = fid.stamp({"v": 1}, source="sensor-12", source_class="instrument", half_life="infinite", now=T0)
+        a = fid.stamp(
+            {"v": 1},
+            source="sensor-12",
+            source_class="instrument",
+            half_life="infinite",
+            now=T0,
+        )
         b = fid.stamp(a, source="normalize.py", noise=0.05, now=T0)
         c = fid.stamp(b, source="aggregate.py", noise=0.08, now=T0)
-        self.assertEqual([t["step"] for t in c["fid"]["transforms"]], ["normalize.py", "aggregate.py"])
+        self.assertEqual(
+            [t["step"] for t in c["fid"]["transforms"]],
+            ["normalize.py", "aggregate.py"],
+        )
         self.assertAlmostEqual(fid.check(c, now=T0).fidelity, 0.97 * 0.95 * 0.92)
         self.assertIn("aggregate.py", fid.chain(c, now=T0))
 
@@ -74,7 +91,14 @@ class Envelopes(unittest.TestCase):
             fid.expires_at(a, 0.5)
 
     def test_never_expires(self):
-        a = fid.stamp({}, source="metar", source_class="instrument", half_life="2.9h", baseline=0.73, now=T0)
+        a = fid.stamp(
+            {},
+            source="metar",
+            source_class="instrument",
+            half_life="2.9h",
+            baseline=0.73,
+            now=T0,
+        )
         self.assertIsNone(fid.expires_at(a, 0.7))
 
     def test_tampered_content_is_unknown(self):
@@ -109,24 +133,43 @@ class Registries(unittest.TestCase):
 
     def test_noise_conditions(self):
         path = os.path.join(EXAMPLES, "noise-model.yaml")
-        self.assertGreater(fid.noise(path, "flight_leg", "previous_leg_late"), fid.noise(path, "flight_leg"))
+        self.assertGreater(
+            fid.noise(path, "flight_leg", "previous_leg_late"),
+            fid.noise(path, "flight_leg"),
+        )
 
 
 class Schedules(unittest.TestCase):
     def test_recheck_at(self):
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        s = fid.stamp({"latest": "2.32.3"}, source="pypi", source_class="instrument", source_fidelity=1.0,
-                      half_life="80d", baseline=0.1, fast={"share": 0.3, "half_life": "3d"}, now=now)
+        s = fid.stamp(
+            {"latest": "2.32.3"},
+            source="pypi",
+            source_class="instrument",
+            source_fidelity=1.0,
+            half_life="80d",
+            baseline=0.1,
+            fast={"share": 0.3, "half_life": "3d"},
+            now=now,
+        )
         self.assertEqual(s["fid"]["fast"], {"share": 0.3, "half_life": "3d"})
         cheap, dear = fid.recheck_at(s, price=1e-4), fid.recheck_at(s, price=1e-2)
         self.assertLess(cheap, dear)
         self.assertIsNone(fid.recheck_at(s, price=1e6))
         # the floor caps it
-        self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.99), fid.expires_at(s, 0.99))
+        self.assertEqual(
+            fid.recheck_at(s, price=1e-2, floor=0.99), fid.expires_at(s, 0.99)
+        )
         self.assertEqual(fid.recheck_at(s, price=1e-2, floor=0.5), dear)
         at = fid.recheck_at(s, staleness=0.05)
         every = at - now
-        self.assertAlmostEqual(fid.mean_staleness(1.0, "80d", every, baseline=0.1, fast={"share": 0.3, "half_life": "3d"}), 0.05, delta=1e-6)
+        self.assertAlmostEqual(
+            fid.mean_staleness(
+                1.0, "80d", every, baseline=0.1, fast={"share": 0.3, "half_life": "3d"}
+            ),
+            0.05,
+            delta=1e-6,
+        )
         with self.assertRaises(ValueError):
             fid.recheck_at(s)
         with self.assertRaises(fid.IndeterminateError):
@@ -136,8 +179,12 @@ class Schedules(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "r.yaml")
             with open(path, "w") as f:
-                f.write("pkg: { half_life: 80d, fast: { share: 0.3, half_life: 3d } }\n")
-            self.assertEqual(fid.registry(path, "pkg")["fast"], {"share": 0.3, "half_life": "3d"})
+                f.write(
+                    "pkg: { half_life: 80d, fast: { share: 0.3, half_life: 3d } }\n"
+                )
+            self.assertEqual(
+                fid.registry(path, "pkg")["fast"], {"share": 0.3, "half_life": "3d"}
+            )
 
 
 class Calibration(unittest.TestCase):
@@ -164,7 +211,9 @@ class Calibration(unittest.TestCase):
                 f.write(cal.yaml)
             entry = fid.registry(path, "policy_claim")
         self.assertEqual(entry["source_fidelity"], 1.0)
-        stamped = fid.stamp({"clause": 1}, source="crm", source_class="database", **entry)
+        stamped = fid.stamp(
+            {"clause": 1}, source="crm", source_class="database", **entry
+        )
         self.assertEqual(stamped["fid"]["source_fidelity"], 1.0)
         self.assertEqual(fid.check(stamped, 0.95).source, 1.0)
 
@@ -179,19 +228,28 @@ class Calibration(unittest.TestCase):
 
     def test_drift(self):
         cal = fid.calibrate(self.ledger(), "policy_claim")
-        faster = [(f"n-{d}-{i}", f"{d}d", i < k) for d, k in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)] for i in range(100)]
+        faster = [
+            (f"n-{d}-{i}", f"{d}d", i < k)
+            for d, k in [(0, 100), (5, 50), (10, 25), (20, 6), (40, 0)]
+            for i in range(100)
+        ]
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "half-lives.yaml")
             with open(path, "w") as f:
                 f.write(cal.yaml)
-            self.assertEqual(fid.drift(self.ledger(), "policy_claim", path).verdict, "CURRENT")
+            self.assertEqual(
+                fid.drift(self.ledger(), "policy_claim", path).verdict, "CURRENT"
+            )
             result = fid.drift(faster, "policy_claim", path)
         self.assertEqual(result.verdict, "DRIFTED")
         self.assertLess(result.states[0]["p_value"], 0.05)
         self.assertIn("recalibrate", result.report)
 
     def test_calibrate_states_and_mappings(self):
-        rows = [{"entity": e, "age": a, "correct": c, "state": "draft"} for e, a, c in self.ledger()]
+        rows = [
+            {"entity": e, "age": a, "correct": c, "state": "draft"}
+            for e, a, c in self.ledger()
+        ]
         cal = fid.calibrate(rows, "policy_claim")
         self.assertEqual(cal.fits[0]["state"], "draft")
         self.assertIn("states:", cal.yaml)

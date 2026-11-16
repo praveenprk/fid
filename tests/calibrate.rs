@@ -40,11 +40,20 @@ fn ledger() -> String {
 #[test]
 fn calibrate_writes_registry_and_report() {
     let out = fid(&["calibrate", "-", "--type", "policy_claim"], &ledger());
-    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let yaml = String::from_utf8(out.stdout).unwrap();
     assert!(yaml.contains("policy_claim:\n  half_life: "), "{}", yaml);
     let report = String::from_utf8(out.stderr).unwrap();
-    assert!(report.contains("policy_claim — 500 observations"), "{}", report);
+    assert!(
+        report.contains("policy_claim — 500 observations"),
+        "{}",
+        report
+    );
     assert!(report.contains("held-out Brier"));
 }
 
@@ -58,11 +67,24 @@ fn calibrated_registry_feeds_stamp() {
     std::fs::write(&registry, &out.stdout).unwrap();
 
     let stamped = fid(
-        &["stamp", "--source", "policy-db", "--source-class", "database",
-          "--half-lives", registry.to_str().unwrap(), "--type", "policy_claim"],
+        &[
+            "stamp",
+            "--source",
+            "policy-db",
+            "--source-class",
+            "database",
+            "--half-lives",
+            registry.to_str().unwrap(),
+            "--type",
+            "policy_claim",
+        ],
         "{}",
     );
-    assert!(stamped.status.success(), "{}", String::from_utf8_lossy(&stamped.stderr));
+    assert!(
+        stamped.status.success(),
+        "{}",
+        String::from_utf8_lossy(&stamped.stderr)
+    );
     let v: serde_json::Value = serde_json::from_slice(&stamped.stdout).unwrap();
     let half_life = v["fid"]["half_life"].as_str().unwrap();
     assert!(half_life.ends_with('d'), "{}", half_life);
@@ -83,7 +105,10 @@ fn calibrate_refuses_an_uncertain_half_life() {
     // test of refusal: the first fixture here gave ×2.66 by least squares, ×2.31 by
     // maximum likelihood.)
     let mut csv = String::from("entity,age,correct\n");
-    for (i, (day, ok)) in [(0, 10), (1, 9), (2, 10), (3, 9), (4, 9), (5, 8)].iter().enumerate() {
+    for (i, (day, ok)) in [(0, 10), (1, 9), (2, 10), (3, 9), (4, 9), (5, 8)]
+        .iter()
+        .enumerate()
+    {
         for j in 0..10 {
             csv.push_str(&format!("c{}-{},{}d,{}\n", i, j, day, j < *ok));
         }
@@ -94,8 +119,16 @@ fn calibrate_refuses_an_uncertain_half_life() {
     assert!(out.stdout.is_empty());
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("too uncertain"), "{}", err);
-    let relaxed = fid(&["calibrate", "-", "--type", "t", "--max-spread", "inf"], &csv);
-    assert_eq!(relaxed.status.code(), Some(0), "{}", String::from_utf8_lossy(&relaxed.stderr));
+    let relaxed = fid(
+        &["calibrate", "-", "--type", "t", "--max-spread", "inf"],
+        &csv,
+    );
+    assert_eq!(
+        relaxed.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&relaxed.stderr)
+    );
     assert!(String::from_utf8_lossy(&relaxed.stdout).contains("# 95% range"));
 }
 
@@ -103,9 +136,18 @@ fn calibrate_refuses_an_uncertain_half_life() {
 #[test]
 fn calibrate_refusals_exit_2() {
     // too little data, and no rows at all: the evidence cannot tell
-    for stdin in ["entity,age,correct\nx,1,true\ny,2,false\n", "entity,age,correct\n"] {
+    for stdin in [
+        "entity,age,correct\nx,1,true\ny,2,false\n",
+        "entity,age,correct\n",
+    ] {
         let out = fid(&["calibrate", "-", "--type", "t"], stdin);
-        assert_eq!(out.status.code(), Some(2), "{:?}: {}", stdin, String::from_utf8_lossy(&out.stderr));
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "{:?}: {}",
+            stdin,
+            String::from_utf8_lossy(&out.stderr)
+        );
         assert!(out.stdout.is_empty());
     }
 }
@@ -114,9 +156,18 @@ fn calibrate_refusals_exit_2() {
 #[test]
 fn calibrate_errors_exit_3() {
     let cases: &[(&[&str], &str)] = &[
-        (&["calibrate", "-", "--type", "t"], "entity,correct\nx,true\n"),
-        (&["calibrate", "-", "--type", "t"], "entity,age,correct,state\nx,1,true,a\ny,2,false,\n"),
-        (&["calibrate", "-", "--type", "t", "--max-spread", "0.5"], "entity,age,correct\nx,1,true\n"),
+        (
+            &["calibrate", "-", "--type", "t"],
+            "entity,correct\nx,true\n",
+        ),
+        (
+            &["calibrate", "-", "--type", "t"],
+            "entity,age,correct,state\nx,1,true,a\ny,2,false,\n",
+        ),
+        (
+            &["calibrate", "-", "--type", "t", "--max-spread", "0.5"],
+            "entity,age,correct\nx,1,true\n",
+        ),
         (&["calibrate", "/nonexistent.csv", "--type", "t"], ""),
         (&["calibrate", "-"], "entity,age,correct\n"),
     ];
@@ -133,12 +184,24 @@ fn drift_against_a_calibrated_registry() {
     let dir = std::env::temp_dir().join(format!("fid-drift-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let registry = dir.join("half-lives.yaml");
-    std::fs::write(&registry, fid(&["calibrate", "-", "--type", "policy_claim"], &ledger()).stdout).unwrap();
+    std::fs::write(
+        &registry,
+        fid(&["calibrate", "-", "--type", "policy_claim"], &ledger()).stdout,
+    )
+    .unwrap();
     let reg = registry.to_str().unwrap();
 
     // The same checks again: current
-    let same = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &ledger());
-    assert_eq!(same.status.code(), Some(0), "{}", String::from_utf8_lossy(&same.stderr));
+    let same = fid(
+        &["drift", "-", "--type", "policy_claim", "--half-lives", reg],
+        &ledger(),
+    );
+    assert_eq!(
+        same.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&same.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&same.stdout).trim(), "current");
 
     // Facts now go stale twice as fast: drifted
@@ -148,12 +211,23 @@ fn drift_against_a_calibrated_registry() {
             faster.push_str(&format!("new-{}-{},{}d,{}\n", day, i, day, i < n_correct));
         }
     }
-    let drifted = fid(&["drift", "-", "--type", "policy_claim", "--half-lives", reg], &faster);
-    assert_eq!(drifted.status.code(), Some(1), "{}", String::from_utf8_lossy(&drifted.stderr));
+    let drifted = fid(
+        &["drift", "-", "--type", "policy_claim", "--half-lives", reg],
+        &faster,
+    );
+    assert_eq!(
+        drifted.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&drifted.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&drifted.stdout).trim(), "drifted");
     assert!(String::from_utf8_lossy(&drifted.stderr).contains("recalibrate"));
 
-    let missing = fid(&["drift", "-", "--type", "other", "--half-lives", reg], &ledger());
+    let missing = fid(
+        &["drift", "-", "--type", "other", "--half-lives", reg],
+        &ledger(),
+    );
     assert_eq!(missing.status.code(), Some(3));
 
     std::fs::remove_dir_all(&dir).unwrap();
@@ -166,17 +240,49 @@ fn calibrate_period_writes_an_echo() {
     let mut csv = String::from("entity,age,correct\n");
     for lag in 0..=168 {
         let returns = lag % 24 == 0 || lag % 24 == 1 || lag % 24 == 23;
-        let p = if lag < 3 { 0.95 } else if returns { 0.6 } else { 0.15 };
+        let p = if lag < 3 {
+            0.95
+        } else if returns {
+            0.6
+        } else {
+            0.15
+        };
         for i in 0..40 {
-            csv.push_str(&format!("e{}-{},{}h,{}\n", lag, i, lag, (i as f64) < p * 40.0));
+            csv.push_str(&format!(
+                "e{}-{},{}h,{}\n",
+                lag,
+                i,
+                lag,
+                (i as f64) < p * 40.0
+            ));
         }
     }
-    let out = fid(&["calibrate", "-", "--type", "load", "--period", "24h", "--max-spread", "inf"], &csv);
-    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = fid(
+        &[
+            "calibrate",
+            "-",
+            "--type",
+            "load",
+            "--period",
+            "24h",
+            "--max-spread",
+            "inf",
+        ],
+        &csv,
+    );
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let yaml = String::from_utf8(out.stdout).unwrap();
     assert!(yaml.contains("echo: { period: 1d"), "{}", yaml);
     assert!(String::from_utf8_lossy(&out.stderr).contains("→ echo kept"));
-    let spec = fid::registry::HalfLives::from_yaml(&yaml).unwrap().lookup("load", None).unwrap();
+    let spec = fid::registry::HalfLives::from_yaml(&yaml)
+        .unwrap()
+        .lookup("load", None)
+        .unwrap();
     assert!(spec.echo.unwrap().strength > 0.2);
 }
 
@@ -185,7 +291,9 @@ fn calibrate_period_writes_an_echo() {
 fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     // 30% of facts go stale with a 2-day half-life, the rest with 60 days; exact counts per lag
     let mut csv = String::from("entity,age,correct\n");
-    for day in [0.0_f64, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0] {
+    for day in [
+        0.0_f64, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0,
+    ] {
         let p = 0.07 + 0.93 * (0.7 * 0.5_f64.powf(day / 60.0) + 0.3 * 0.5_f64.powf(day / 2.0));
         let n = 1000;
         let k = (p * n as f64).round() as usize;
@@ -194,7 +302,11 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
         }
     }
     let out = fid(&["calibrate", "-", "--type", "pkg"], &csv);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let yaml = String::from_utf8(out.stdout).unwrap();
     // two clocks, or a shape below 1 that draws the same curve
     assert!(
@@ -213,8 +325,25 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     std::fs::create_dir_all(&dir).unwrap();
     let registry = dir.join("half-lives.yaml");
     std::fs::write(&registry, &yaml).unwrap();
-    let stamped = fid(&["stamp", "--source", "pypi", "--source-class", "instrument", "--half-lives", registry.to_str().unwrap(), "--type", "pkg"], "{}");
-    assert!(stamped.status.success(), "{}", String::from_utf8_lossy(&stamped.stderr));
+    let stamped = fid(
+        &[
+            "stamp",
+            "--source",
+            "pypi",
+            "--source-class",
+            "instrument",
+            "--half-lives",
+            registry.to_str().unwrap(),
+            "--type",
+            "pkg",
+        ],
+        "{}",
+    );
+    assert!(
+        stamped.status.success(),
+        "{}",
+        String::from_utf8_lossy(&stamped.stderr)
+    );
     let v: serde_json::Value = serde_json::from_slice(&stamped.stdout).unwrap();
     assert!(
         v["fid"]["fast"].is_object() || v["fid"]["shape"].as_f64().is_some_and(|k| k < 1.0),
@@ -223,6 +352,14 @@ fn calibrate_finds_two_clocks_and_stamp_uses_them() {
     );
     // fresh, the fact is near certain: one clock would have said 0.94 or so
     assert!(v["fid"]["fid_at_stamp"].as_f64().unwrap() > 0.97, "{}", v);
-    let schedule = fid(&["schedule", "-", "--price", "0.001"], &String::from_utf8(stamped.stdout).unwrap());
-    assert_eq!(schedule.status.code(), Some(0), "{}", String::from_utf8_lossy(&schedule.stderr));
+    let schedule = fid(
+        &["schedule", "-", "--price", "0.001"],
+        &String::from_utf8(stamped.stdout).unwrap(),
+    );
+    assert_eq!(
+        schedule.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&schedule.stderr)
+    );
 }

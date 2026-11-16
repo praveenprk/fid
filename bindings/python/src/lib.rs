@@ -61,9 +61,15 @@ fn source_fidelity(source_class: &str) -> PyResult<Option<f64>> {
 }
 
 /// An echo from its JSON ({"period", "strength", "width", "fade"}), validated.
-fn echo_params(echo_json: Option<&str>, half_life_seconds: Option<f64>) -> PyResult<Option<compute::EchoParams>> {
-    let Some(text) = echo_json else { return Ok(None) };
-    let echo: compute::Echo = serde_json::from_str(text).map_err(|e| err(format!("invalid echo: {}", e)))?;
+fn echo_params(
+    echo_json: Option<&str>,
+    half_life_seconds: Option<f64>,
+) -> PyResult<Option<compute::EchoParams>> {
+    let Some(text) = echo_json else {
+        return Ok(None);
+    };
+    let echo: compute::Echo =
+        serde_json::from_str(text).map_err(|e| err(format!("invalid echo: {}", e)))?;
     let params = echo.params().map_err(err)?;
     if half_life_seconds.is_none() {
         return Err(err("an echo needs a finite half-life"));
@@ -72,7 +78,12 @@ fn echo_params(echo_json: Option<&str>, half_life_seconds: Option<f64>) -> PyRes
 }
 
 /// The whole curve: half-life in seconds, fast share and echo as JSON, validated.
-fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: Option<&str>, shape: Option<f64>) -> PyResult<compute::Curve> {
+fn curve_of(
+    half_life_seconds: Option<f64>,
+    fast_json: Option<&str>,
+    echo_json: Option<&str>,
+    shape: Option<f64>,
+) -> PyResult<compute::Curve> {
     let echo = echo_params(echo_json, half_life_seconds)?;
     if let Some(k) = shape {
         compute::check_shape(k).map_err(err)?;
@@ -83,16 +94,24 @@ fn curve_of(half_life_seconds: Option<f64>, fast_json: Option<&str>, echo_json: 
     let fast = match fast_json {
         None => None,
         Some(text) => {
-            let fast: compute::Fast = serde_json::from_str(text).map_err(|e| err(format!("invalid fast share: {}", e)))?;
+            let fast: compute::Fast = serde_json::from_str(text)
+                .map_err(|e| err(format!("invalid fast share: {}", e)))?;
             let params = fast.params().map_err(err)?;
             match half_life_seconds {
                 None => return Err(err("a fast share needs a finite half-life")),
-                Some(h) if params.half_life >= h => return Err(err("fast half-life must be shorter than the half-life")),
+                Some(h) if params.half_life >= h => {
+                    return Err(err("fast half-life must be shorter than the half-life"))
+                }
                 _ => Some(params),
             }
         }
     };
-    Ok(compute::Curve { half_life: half_life_seconds, fast, echo, shape })
+    Ok(compute::Curve {
+        half_life: half_life_seconds,
+        fast,
+        echo,
+        shape,
+    })
 }
 
 /// baseline + (source × ∏(1 − noise) − baseline) × temporal, temporal with an optional fast share and echo
@@ -111,7 +130,11 @@ fn fidelity(
     shape: Option<f64>,
 ) -> PyResult<f64> {
     let curve = curve_of(half_life_seconds, fast_json, echo_json, shape)?;
-    Ok(compute::apply_decay(source * compute::transform_factor(&noise), curve.temporal(age_seconds), baseline))
+    Ok(compute::apply_decay(
+        source * compute::transform_factor(&noise),
+        curve.temporal(age_seconds),
+        baseline,
+    ))
 }
 
 /// Seconds after measurement until fidelity first falls below floor; None for never.
@@ -126,7 +149,8 @@ fn time_to_floor(
     fast_json: Option<&str>,
     shape: Option<f64>,
 ) -> PyResult<Option<f64>> {
-    let ttl = curve_of(half_life_seconds, fast_json, echo_json, shape)?.time_to_floor(fidelity, baseline, floor);
+    let ttl = curve_of(half_life_seconds, fast_json, echo_json, shape)?
+        .time_to_floor(fidelity, baseline, floor);
     Ok(match ttl {
         TimeToFloor::After(s) => Some(s),
         TimeToFloor::Never => None,
@@ -173,7 +197,13 @@ fn mean_staleness(
     fast_json: Option<&str>,
     shape: Option<f64>,
 ) -> PyResult<f64> {
-    Ok(curve_of(half_life_seconds, fast_json, echo_json, shape)?.mean_staleness(fidelity, baseline, interval_seconds))
+    Ok(
+        curve_of(half_life_seconds, fast_json, echo_json, shape)?.mean_staleness(
+            fidelity,
+            baseline,
+            interval_seconds,
+        ),
+    )
 }
 
 /// Wrap content (raw stdin-style text) in an envelope. Returns (stamped JSON, warnings).
@@ -198,16 +228,39 @@ fn stamp(
     fast_json: Option<&str>,
     shape: Option<f64>,
 ) -> PyResult<(String, Vec<String>)> {
-    let source_class = source_class.map(str::parse::<SourceClass>).transpose().map_err(err)?;
+    let source_class = source_class
+        .map(str::parse::<SourceClass>)
+        .transpose()
+        .map_err(err)?;
     let upstream: Option<FidEnvelope> = match upstream_json.map(read_stamped).transpose()? {
         None => None,
         Some(Ok(s)) => Some(s.fid),
         // A writer cannot carry forward fields it does not know
         Some(Err(why)) => return Err(err(format!("cannot derive from upstream: {}", why))),
     };
-    let echo = echo_json.map(serde_json::from_str::<compute::Echo>).transpose().map_err(|e| err(format!("invalid echo: {}", e)))?;
-    let fast = fast_json.map(serde_json::from_str::<compute::Fast>).transpose().map_err(|e| err(format!("invalid fast share: {}", e)))?;
-    let opts = StampOptions { source, source_class, noise, half_life, baseline, source_fidelity, echo, fast, shape, info_type, state, condition, derived_from };
+    let echo = echo_json
+        .map(serde_json::from_str::<compute::Echo>)
+        .transpose()
+        .map_err(|e| err(format!("invalid echo: {}", e)))?;
+    let fast = fast_json
+        .map(serde_json::from_str::<compute::Fast>)
+        .transpose()
+        .map_err(|e| err(format!("invalid fast share: {}", e)))?;
+    let opts = StampOptions {
+        source,
+        source_class,
+        noise,
+        half_life,
+        baseline,
+        source_fidelity,
+        echo,
+        fast,
+        shape,
+        info_type,
+        state,
+        condition,
+        derived_from,
+    };
     let out = stamp_content(input, &opts, upstream, when(now)?).map_err(err)?;
     let json = serde_json::to_string(&out.stamped).map_err(err)?;
     Ok((json, out.warnings))
@@ -218,7 +271,10 @@ fn stamp(
 #[pyo3(signature = (stamped_json, floor, now))]
 fn check(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> {
     if !(floor.is_finite() && (0.0..=1.0).contains(&floor)) {
-        return Err(err(format!("invalid floor {} (must be between 0.0 and 1.0)", floor)));
+        return Err(err(format!(
+            "invalid floor {} (must be between 0.0 and 1.0)",
+            floor
+        )));
     }
     let stamped = match read_stamped(stamped_json)? {
         Ok(s) => s,
@@ -267,7 +323,12 @@ fn expires_at(stamped_json: &str, floor: f64) -> PyResult<String> {
 /// When to re-check a stamped artifact: RFC 3339, "never" or "unknown".
 #[pyfunction]
 #[pyo3(signature = (stamped_json, price=None, staleness=None, floor=None))]
-fn recheck_at(stamped_json: &str, price: Option<f64>, staleness: Option<f64>, floor: Option<f64>) -> PyResult<String> {
+fn recheck_at(
+    stamped_json: &str,
+    price: Option<f64>,
+    staleness: Option<f64>,
+    floor: Option<f64>,
+) -> PyResult<String> {
     let Ok(stamped) = read_stamped(stamped_json)? else {
         return Ok("unknown".to_string());
     };
@@ -297,23 +358,51 @@ fn chain(stamped_json: &str, floor: f64, now: Option<&str>) -> PyResult<String> 
 }
 
 /// (half_life, baseline, source_fidelity, echo JSON, fast JSON, shape)
-type RegistryEntry = (String, Option<f64>, Option<f64>, Option<String>, Option<String>, Option<f64>);
+type RegistryEntry = (
+    String,
+    Option<f64>,
+    Option<f64>,
+    Option<String>,
+    Option<String>,
+    Option<f64>,
+);
 
 /// Look up a half-life registry file.
 #[pyfunction]
 #[pyo3(signature = (path, info_type, state))]
 fn half_lives_lookup(path: &str, info_type: &str, state: Option<&str>) -> PyResult<RegistryEntry> {
-    let spec = HalfLives::load(path).map_err(err)?.lookup(info_type, state).map_err(err)?;
-    let echo = spec.echo.map(|e| serde_json::to_string(&e)).transpose().map_err(err)?;
-    let fast = spec.fast.map(|f| serde_json::to_string(&f)).transpose().map_err(err)?;
-    Ok((spec.half_life, spec.baseline, spec.source_fidelity, echo, fast, spec.shape))
+    let spec = HalfLives::load(path)
+        .map_err(err)?
+        .lookup(info_type, state)
+        .map_err(err)?;
+    let echo = spec
+        .echo
+        .map(|e| serde_json::to_string(&e))
+        .transpose()
+        .map_err(err)?;
+    let fast = spec
+        .fast
+        .map(|f| serde_json::to_string(&f))
+        .transpose()
+        .map_err(err)?;
+    Ok((
+        spec.half_life,
+        spec.baseline,
+        spec.source_fidelity,
+        echo,
+        fast,
+        spec.shape,
+    ))
 }
 
 /// Look up a noise model file.
 #[pyfunction]
 #[pyo3(signature = (path, transform, condition))]
 fn noise_lookup(path: &str, transform: &str, condition: Option<&str>) -> PyResult<f64> {
-    NoiseModel::load(path).map_err(err)?.lookup(transform, condition).map_err(err)
+    NoiseModel::load(path)
+        .map_err(err)?
+        .lookup(transform, condition)
+        .map_err(err)
 }
 
 fn observations(
@@ -324,14 +413,21 @@ fn observations(
 ) -> PyResult<Vec<Observation>> {
     let n = entities.len();
     if ages.len() != n || correct.len() != n || states.len() != n {
-        return Err(err("entities, ages, correct and states must have the same length"));
+        return Err(err(
+            "entities, ages, correct and states must have the same length",
+        ));
     }
     let mut obs = Vec::with_capacity(n);
     for i in 0..n {
         if !(ages[i].is_finite() && ages[i] >= 0.0) {
             return Err(err(format!("row {}: invalid age {}", i, ages[i])));
         }
-        obs.push(Observation { entity: entities[i].clone(), age: ages[i], correct: correct[i], state: states[i].clone() });
+        obs.push(Observation {
+            entity: entities[i].clone(),
+            age: ages[i],
+            correct: correct[i],
+            state: states[i].clone(),
+        });
     }
     Ok(obs)
 }

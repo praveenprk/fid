@@ -91,7 +91,7 @@ def tenures(rows):
         cleaned = []
         for i, (start, end) in enumerate(spans):
             if end is None:
-                successors = [s for s, _ in spans[i + 1:] if s > start]
+                successors = [s for s, _ in spans[i + 1 :] if s > start]
                 end = min(successors) if successors else None
             cleaned.append((start, end))
         out[company] = cleaned

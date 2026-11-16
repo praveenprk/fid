@@ -69,34 +69,65 @@ def verdict(max_per_set_id, sample_versions):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--sample", type=int, default=50, help="revised labels to look up by set_id")
+    ap.add_argument(
+        "--sample", type=int, default=50, help="revised labels to look up by set_id"
+    )
     args = ap.parse_args(argv)
     cache = fidcal.default_cache_dir()
 
     labels = total(get(cache, "labels", url(LABEL, limit=1)))
-    with_warnings = total(get(cache, "with_warnings", url(LABEL, search="_exists_:warnings", limit=1)))
-    first_version = total(get(cache, "version_1", url(LABEL, search="version:1", limit=1)))
+    with_warnings = total(
+        get(cache, "with_warnings", url(LABEL, search="_exists_:warnings", limit=1))
+    )
+    first_version = total(
+        get(cache, "version_1", url(LABEL, search="version:1", limit=1))
+    )
     # count sorts by count, highest first: the top term is the most records any set_id has
     top = get(cache, "count_set_id", url(LABEL, count="set_id"))["results"]
     max_per_set_id = top[0]["count"] if top else 0
 
-    revised = get(cache, "revised_sample",
-                  url(LABEL, search="_exists_:warnings AND NOT version:1", limit=args.sample))["results"]
+    revised = get(
+        cache,
+        "revised_sample",
+        url(LABEL, search="_exists_:warnings AND NOT version:1", limit=args.sample),
+    )["results"]
     sample = []
     for r in revised:
-        found = get(cache, "set_id_" + r["set_id"], url(LABEL, search=f'set_id:"{r["set_id"]}"', limit=100))
-        sample.append({"set_id": r["set_id"], "version": r.get("version"), "effective_time": r.get("effective_time"),
-                       "versions_returned": len(found["results"])})
+        found = get(
+            cache,
+            "set_id_" + r["set_id"],
+            url(LABEL, search=f'set_id:"{r["set_id"]}"', limit=100),
+        )
+        sample.append(
+            {
+                "set_id": r["set_id"],
+                "version": r.get("version"),
+                "effective_time": r.get("effective_time"),
+                "versions_returned": len(found["results"]),
+            }
+        )
 
     applications = total(get(cache, "drugsfda", url(DRUGSFDA, limit=1)))
-    labeling = total(get(cache, "drugsfda_labeling",
-                         url(DRUGSFDA, search='submissions.submission_class_code:"LABELING"', limit=1)))
+    labeling = total(
+        get(
+            cache,
+            "drugsfda_labeling",
+            url(
+                DRUGSFDA, search='submissions.submission_class_code:"LABELING"', limit=1
+            ),
+        )
+    )
 
     v = verdict(max_per_set_id, [s["versions_returned"] for s in sample])
     result = {
-        "labels": labels, "labels_with_warnings": with_warnings, "labels_at_version_1": first_version,
-        "labels_revised": labels - first_version, **v, "sample": sample,
-        "drugsfda_applications": applications, "drugsfda_applications_with_labeling_supplements": labeling,
+        "labels": labels,
+        "labels_with_warnings": with_warnings,
+        "labels_at_version_1": first_version,
+        "labels_revised": labels - first_version,
+        **v,
+        "sample": sample,
+        "drugsfda_applications": applications,
+        "drugsfda_applications_with_labeling_supplements": labeling,
     }
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, "results", "openfda_labels.json"), "w") as f:
@@ -110,17 +141,21 @@ def main(argv=None):
 
 def markdown(r):
     yes = "yes" if r["history_available"] else "no"
-    return "\n".join([
-        "# openFDA drug labels: is there a version history?", "",
-        f"- Labels in drug/label: {r['labels']:,}; with a warnings section: {r['labels_with_warnings']:,}",
-        f"- Revised at least once (version > 1): {r['labels_revised']:,}; at version 1: {r['labels_at_version_1']:,}",
-        f"- Most records for any one set_id: **{r['max_records_per_set_id']}**",
-        f"- Revised labels with warnings, looked up by set_id: {r['sample_labels']}; "
-        f"with any past version returned: **{r['sample_labels_with_past_versions']}**",
-        f"- drug/drugsfda applications: {r['drugsfda_applications']:,}; with a dated labeling supplement: "
-        f"{r['drugsfda_applications_with_labeling_supplements']:,} (the section changed is not given)",
-        f"- **Version history of label text available: {yes}**", "",
-    ])
+    return "\n".join(
+        [
+            "# openFDA drug labels: is there a version history?",
+            "",
+            f"- Labels in drug/label: {r['labels']:,}; with a warnings section: {r['labels_with_warnings']:,}",
+            f"- Revised at least once (version > 1): {r['labels_revised']:,}; at version 1: {r['labels_at_version_1']:,}",
+            f"- Most records for any one set_id: **{r['max_records_per_set_id']}**",
+            f"- Revised labels with warnings, looked up by set_id: {r['sample_labels']}; "
+            f"with any past version returned: **{r['sample_labels_with_past_versions']}**",
+            f"- drug/drugsfda applications: {r['drugsfda_applications']:,}; with a dated labeling supplement: "
+            f"{r['drugsfda_applications_with_labeling_supplements']:,} (the section changed is not given)",
+            f"- **Version history of label text available: {yes}**",
+            "",
+        ]
+    )
 
 
 if __name__ == "__main__":

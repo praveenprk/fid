@@ -36,7 +36,20 @@ import fidcal
 YEAR = 2024
 MONTHS = range(1, 13)
 URL = "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{year}_{month}.zip"
-MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MONTH_NAMES = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
 MAX_LEG = 8
 
 
@@ -53,19 +66,23 @@ def load(path):
     with zipfile.ZipFile(path) as z:
         name = next(n for n in z.namelist() if n.endswith(".csv"))
         with z.open(name) as raw:
-            for row in csv.DictReader(io.TextIOWrapper(raw, encoding="latin-1", newline="")):
+            for row in csv.DictReader(
+                io.TextIOWrapper(raw, encoding="latin-1", newline="")
+            ):
                 cancelled = row["Cancelled"] == "1.00"
                 diverted = row["Diverted"] == "1.00"
                 late = row["ArrDel15"] == "1.00"
                 if not (cancelled or diverted) and row["ArrDel15"] == "":
                     continue  # no outcome recorded
-                flights.append({
-                    "date": row["FlightDate"],
-                    "airline": row["Reporting_Airline"],
-                    "tail": row["Tail_Number"],
-                    "dep": int(row["CRSDepTime"]),
-                    "on_time": not (cancelled or diverted or late),
-                })
+                flights.append(
+                    {
+                        "date": row["FlightDate"],
+                        "airline": row["Reporting_Airline"],
+                        "tail": row["Tail_Number"],
+                        "dep": int(row["CRSDepTime"]),
+                        "on_time": not (cancelled or diverted or late),
+                    }
+                )
     return flights
 
 
@@ -91,13 +108,19 @@ def rate_table(groups, min_n=2000):
 def main():
     cache = fidcal.default_cache_dir()
     overall = Rate()
-    by_airline, by_hour, by_month = defaultdict(Rate), defaultdict(Rate), defaultdict(Rate)
+    by_airline, by_hour, by_month = (
+        defaultdict(Rate),
+        defaultdict(Rate),
+        defaultdict(Rate),
+    )
     legs = fidcal.Tally()
     after = {"on_time": Rate(), "late": Rate()}
 
     for month in MONTHS:
         url = URL.format(year=YEAR, month=month)
-        path = fidcal.download(url, os.path.join(cache, "bts", f"ontime_{YEAR}_{month:02d}.zip"))
+        path = fidcal.download(
+            url, os.path.join(cache, "bts", f"ontime_{YEAR}_{month:02d}.zip")
+        )
         flights = load(path)
         fidcal.log(f"{YEAR}-{month:02d}: {len(flights):,} flights")
 
@@ -117,11 +140,15 @@ def main():
             for k, f in enumerate(day[:MAX_LEG]):
                 legs.add(tail, k, f["on_time"])
                 if k > 0:
-                    after["on_time" if day[k - 1]["on_time"] else "late"].add(f["on_time"])
+                    after["on_time" if day[k - 1]["on_time"] else "late"].add(
+                        f["on_time"]
+                    )
 
     chain = fidcal.analyze(
-        "Flight legs", "aircraft's k-th leg of the day arrives on schedule",
-        legs, list(range(MAX_LEG)),
+        "Flight legs",
+        "aircraft's k-th leg of the day arrives on schedule",
+        legs,
+        list(range(MAX_LEG)),
         truth="arrived within 15 min, not cancelled or diverted; lag = legs flown before it",
         fmt=fmt_legs,
     )
@@ -130,7 +157,9 @@ def main():
 
     p_after_on = after["on_time"].p
     p_after_late = after["late"].p
-    p_any = (after["on_time"].on_time + after["late"].on_time) / (after["on_time"].n + after["late"].n)
+    p_any = (after["on_time"].on_time + after["late"].on_time) / (
+        after["on_time"].n + after["late"].n
+    )
 
     lines = [
         "### Flight schedules: source fidelity",
@@ -138,13 +167,16 @@ def main():
         f"- {overall.n:,} flights, {YEAR}",
         f"- The schedule is true (on time, ±15 min) for **{overall.p:.1%}** of flights",
         "",
-        "| Month | On time | n |", "|---|---|---|",
+        "| Month | On time | n |",
+        "|---|---|---|",
         *[f"| {k} | {p:.3f} | {n:,} |" for k, p, n in rate_table(by_month)],
         "",
-        "| Airline | On time | n |", "|---|---|---|",
+        "| Airline | On time | n |",
+        "|---|---|---|",
         *[f"| {k} | {p:.3f} | {n:,} |" for k, p, n in rate_table(by_airline)],
         "",
-        "| Scheduled departure | On time | n |", "|---|---|---|",
+        "| Scheduled departure | On time | n |",
+        "|---|---|---|",
         *[f"| {k} | {p:.3f} | {n:,} |" for k, p, n in rate_table(by_hour)],
         "",
         "### Flight legs: independence of transform noise",
@@ -164,9 +196,15 @@ def main():
         "overall": overall.p,
         "flights": overall.n,
         "year": YEAR,
-        "by_airline": [{"airline": k, "on_time": p, "n": n} for k, p, n in rate_table(by_airline)],
-        "by_hour": [{"hour": k, "on_time": p, "n": n} for k, p, n in rate_table(by_hour)],
-        "by_month": [{"month": k, "on_time": p, "n": n} for k, p, n in rate_table(by_month)],
+        "by_airline": [
+            {"airline": k, "on_time": p, "n": n} for k, p, n in rate_table(by_airline)
+        ],
+        "by_hour": [
+            {"hour": k, "on_time": p, "n": n} for k, p, n in rate_table(by_hour)
+        ],
+        "by_month": [
+            {"month": k, "on_time": p, "n": n} for k, p, n in rate_table(by_month)
+        ],
     }
     chain["after_previous_leg"] = {
         "per_leg_noise": per_leg_noise,

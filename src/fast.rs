@@ -196,15 +196,25 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
         e.1 += 1;
     }
     if exact.len() <= MAX_EXACT_AGES {
-        let mut out: Vec<Bin> =
-            exact.into_iter().map(|(bits, (k, n))| Bin { age: f64::from_bits(bits), correct: k as f64 / n as f64, n }).collect();
+        let mut out: Vec<Bin> = exact
+            .into_iter()
+            .map(|(bits, (k, n))| Bin {
+                age: f64::from_bits(bits),
+                correct: k as f64 / n as f64,
+                n,
+            })
+            .collect();
         out.sort_by(|a, b| a.age.total_cmp(&b.age));
         return out;
     }
     // Checks at age zero keep a bin of their own, so they can measure s0
     let mut out = Vec::new();
     if let Some(&(k, n)) = exact.get(&0.0_f64.to_bits()) {
-        out.push(Bin { age: 0.0, correct: k as f64 / n as f64, n });
+        out.push(Bin {
+            age: 0.0,
+            correct: k as f64 / n as f64,
+            n,
+        });
     }
     let mut sorted: Vec<&Observation> = obs.iter().copied().filter(|o| o.age != 0.0).collect();
     sorted.sort_by(|a, b| crate::calibrate::row_order(a, b));
@@ -220,7 +230,14 @@ pub fn fine_bins(obs: &[&Observation]) -> Vec<Bin> {
 /// Maximum-likelihood (s0, b) for fixed clocks (`calibrate::fit_linear_from`); with
 /// `pinned`, s0 is that (measured at age zero) and only b is fitted. Returns
 /// the model and its negative log-likelihood.
-fn solve(bins: &[Bin], half_life: f64, share: f64, fast_half_life: f64, k: f64, pinned: Option<f64>) -> (FastModel, f64) {
+fn solve(
+    bins: &[Bin],
+    half_life: f64,
+    share: f64,
+    fast_half_life: f64,
+    k: f64,
+    pinned: Option<f64>,
+) -> (FastModel, f64) {
     solve_from(bins, half_life, share, fast_half_life, k, pinned, None)
 }
 
@@ -234,10 +251,24 @@ fn solve_from(
     pinned: Option<f64>,
     start: Option<(f64, f64)>,
 ) -> (FastModel, f64) {
-    let shape = FastModel { s0: 1.0, baseline: 0.0, half_life, share, fast_half_life, shape: k };
+    let shape = FastModel {
+        s0: 1.0,
+        baseline: 0.0,
+        half_life,
+        share,
+        fast_half_life,
+        shape: k,
+    };
     let d: Vec<f64> = bins.iter().map(|b| shape.decay(b.age)).collect();
     let (s0, baseline, loss) = crate::calibrate::fit_linear_from(bins, &d, true, pinned, start);
-    (FastModel { s0, baseline, ..shape }, loss)
+    (
+        FastModel {
+            s0,
+            baseline,
+            ..shape
+        },
+        loss,
+    )
 }
 
 fn sigmoid(x: f64) -> f64 {
@@ -285,7 +316,11 @@ pub fn fit_fast(bins: &[Bin], start: &Model) -> FastModel {
 /// Fit one form to bins, starting from a one-clock fit.
 pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
     let oldest = bins.iter().map(|b| b.age).fold(0.0, f64::max).max(1.0);
-    let h0 = if start.half_life.is_finite() { start.half_life } else { oldest };
+    let h0 = if start.half_life.is_finite() {
+        start.half_life
+    } else {
+        oldest
+    };
     let pinned = zero_age_s0(bins);
     let last = std::cell::Cell::new(None);
     let loss = |x: &[f64]| {
@@ -335,7 +370,9 @@ pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
 }
 
 fn gap(bins: &[Bin], predict: impl Fn(f64) -> f64) -> f64 {
-    bins.iter().map(|b| (b.correct - predict(b.age)).abs()).fold(0.0, f64::max)
+    bins.iter()
+        .map(|b| (b.correct - predict(b.age)).abs())
+        .fold(0.0, f64::max)
 }
 
 /// The test: each form fitted on `train` and scored on `test` against one
@@ -427,7 +464,9 @@ mod tests {
     use crate::calibrate::{is_train, Rng};
 
     const DAY: f64 = 86_400.0;
-    const LAGS: [f64; 13] = [0.0, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0, 548.0, 730.0];
+    const LAGS: [f64; 13] = [
+        0.0, 1.0, 3.0, 7.0, 14.0, 30.0, 61.0, 91.0, 182.0, 274.0, 365.0, 548.0, 730.0,
+    ];
 
     /// `per_lag` entities checked once at each of PyPI's lags.
     fn ledger(predict: impl Fn(f64) -> f64, per_lag: usize, seed: u64) -> Vec<Observation> {
@@ -436,7 +475,12 @@ mod tests {
         for (li, lag) in LAGS.iter().enumerate() {
             let age = lag * DAY;
             for i in 0..per_lag {
-                out.push(Observation { entity: format!("p{}-{}", li, i), age, correct: rng.unit() < predict(age), state: None });
+                out.push(Observation {
+                    entity: format!("p{}-{}", li, i),
+                    age,
+                    correct: rng.unit() < predict(age),
+                    state: None,
+                });
             }
         }
         out
@@ -466,7 +510,10 @@ mod tests {
         let truth = release();
         let f = run(&ledger(|a| truth.predict(a), 2000, 1));
         let m = f.model;
-        eprintln!("RECOVERED {:?}; Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}", m, f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain);
+        eprintln!(
+            "RECOVERED {:?}; Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}",
+            m, f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain
+        );
         assert!(f.kept, "{:?}", f);
         // A shape below 1 is close to a mix of exponentials, so another form may be chosen.
         // Either way the curve must be the true one, within 3 standard errors of 2000 checks
@@ -490,7 +537,14 @@ mod tests {
         }
         // s0 is measured at age zero: one clock cannot blame the quick drop on the source,
         // so it misfits the curve instead
-        let plain = fit(&fine_bins(&ledger(|a| truth.predict(a), 2000, 1).iter().collect::<Vec<_>>()), true);
+        let plain = fit(
+            &fine_bins(
+                &ledger(|a| truth.predict(a), 2000, 1)
+                    .iter()
+                    .collect::<Vec<_>>(),
+            ),
+            true,
+        );
         assert_eq!(plain.s0, 1.0);
         assert!(f.gap_plain > 0.1, "{:?}", f);
     }
@@ -545,9 +599,16 @@ mod tests {
     // spec: reference-procedure
     #[test]
     fn test_one_clock_is_not_kept() {
-        let truth = Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY };
+        let truth = Model {
+            s0: 1.0,
+            baseline: 0.1,
+            half_life: 80.0 * DAY,
+        };
         let f = run(&ledger(|a| truth.predict(a), 2000, 2));
-        eprintln!("ONE CLOCK Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}", f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain);
+        eprintln!(
+            "ONE CLOCK Brier {:.5} vs {:.5}; gap {:.3} vs {:.3}",
+            f.brier_fast, f.brier_plain, f.gap_fast, f.gap_plain
+        );
         assert!(!f.kept, "fast share kept on one clock: {:?}", f);
     }
 
@@ -570,7 +631,12 @@ mod tests {
     #[test]
     fn test_fine_bins() {
         let obs: Vec<Observation> = (0..5000)
-            .map(|i| Observation { entity: format!("e{}", i), age: i as f64, correct: i % 3 == 0, state: None })
+            .map(|i| Observation {
+                entity: format!("e{}", i),
+                age: i as f64,
+                correct: i % 3 == 0,
+                state: None,
+            })
             .collect();
         let refs: Vec<&Observation> = obs.iter().collect();
         let b = fine_bins(&refs);
@@ -582,14 +648,24 @@ mod tests {
     /// tests"), through the full calibrate path, spread fallback included. Seeds are free; the
     /// bounds must hold for any. (written ledgers kept, ledgers whose written curve misses the
     /// truth by more than 3 standard errors at some age)
-    fn acceptance(truth: impl Fn(f64) -> f64, ages: &[f64], per_age: usize, seeds: std::ops::Range<u64>) -> (usize, usize) {
+    fn acceptance(
+        truth: impl Fn(f64) -> f64,
+        ages: &[f64],
+        per_age: usize,
+        seeds: std::ops::Range<u64>,
+    ) -> (usize, usize) {
         let (mut kept, mut wrong) = (0, 0);
         for seed in seeds {
             let mut rng = Rng(seed);
             let mut obs = Vec::new();
             for (ai, &age) in ages.iter().enumerate() {
                 for i in 0..per_age {
-                    obs.push(Observation { entity: format!("a{}-{}", ai, i), age, correct: rng.unit() < truth(age), state: None });
+                    obs.push(Observation {
+                        entity: format!("a{}-{}", ai, i),
+                        age,
+                        correct: rng.unit() < truth(age),
+                        state: None,
+                    });
                 }
             }
             let fits = crate::calibrate::calibrate(&obs).expect("calibrates");
@@ -601,7 +677,17 @@ mod tests {
                     let q = (n * p + 1.0) / (n + 2.0);
                     let se = (q * (1.0 - q) / n).sqrt();
                     let bad = (f.model.predict(a) - p).abs() > 3.0 * se;
-                    if bad { eprintln!("MISS seed {} age {} truth {:.4} written {:.4} se {:.4} model {:?}", seed, a, p, f.model.predict(a), se, f.model); }
+                    if bad {
+                        eprintln!(
+                            "MISS seed {} age {} truth {:.4} written {:.4} se {:.4} model {:?}",
+                            seed,
+                            a,
+                            p,
+                            f.model.predict(a),
+                            se,
+                            f.model
+                        );
+                    }
                     bad
                 });
                 wrong += miss as usize;
@@ -621,12 +707,24 @@ mod tests {
     // spec: acceptance
     #[test]
     fn acceptance_no_false_richer_curve() {
-        let a = Model { s0: 1.0, baseline: 0.1, half_life: 80.0 * DAY };
-        let b = Model { s0: 0.95, baseline: 0.0, half_life: 20.0 * DAY };
+        let a = Model {
+            s0: 1.0,
+            baseline: 0.1,
+            half_life: 80.0 * DAY,
+        };
+        let b = Model {
+            s0: 0.95,
+            baseline: 0.0,
+            half_life: 20.0 * DAY,
+        };
         let (ka, _) = acceptance(|t| a.predict(t), &days(), 500, 100..120);
         let (kb, _) = acceptance(|t| b.predict(t), &days(), 500, 120..140);
         eprintln!("ACCEPTANCE false keeps: {} of 40", ka + kb);
-        assert!(ka + kb <= 3, "a richer curve kept on one-clock truths in {} of 40 ledgers (bound: 3)", ka + kb);
+        assert!(
+            ka + kb <= 3,
+            "a richer curve kept on one-clock truths in {} of 40 ledgers (bound: 3)",
+            ka + kb
+        );
     }
 
     // spec: acceptance
@@ -634,9 +732,20 @@ mod tests {
     fn acceptance_shape_found() {
         let truth = ship();
         let (kept, wrong) = acceptance(|t| truth.predict(t), &minutes_ages(), 100, 300..320);
-        eprintln!("ACCEPTANCE shape: kept {} of 20, wrong curve in {}", kept, wrong);
-        assert!(kept >= 18, "shape kept in {} of 20 ledgers (bound: 18)", kept);
-        assert_eq!(wrong, 0, "written curve off by more than 3 standard errors in {} ledgers", wrong);
+        eprintln!(
+            "ACCEPTANCE shape: kept {} of 20, wrong curve in {}",
+            kept, wrong
+        );
+        assert!(
+            kept >= 18,
+            "shape kept in {} of 20 ledgers (bound: 18)",
+            kept
+        );
+        assert_eq!(
+            wrong, 0,
+            "written curve off by more than 3 standard errors in {} ledgers",
+            wrong
+        );
     }
 
     // spec: acceptance
@@ -644,8 +753,19 @@ mod tests {
     fn acceptance_two_clocks_found() {
         let truth = release();
         let (kept, wrong) = acceptance(|t| truth.predict(t), &days(), 500, 200..220);
-        eprintln!("ACCEPTANCE two clocks: kept {} of 20, wrong curve in {}", kept, wrong);
-        assert!(kept >= 18, "two clocks kept in {} of 20 ledgers (bound: 18)", kept);
-        assert_eq!(wrong, 0, "written curve off by more than 3 standard errors in {} ledgers", wrong);
+        eprintln!(
+            "ACCEPTANCE two clocks: kept {} of 20, wrong curve in {}",
+            kept, wrong
+        );
+        assert!(
+            kept >= 18,
+            "two clocks kept in {} of 20 ledgers (bound: 18)",
+            kept
+        );
+        assert_eq!(
+            wrong, 0,
+            "written curve off by more than 3 standard errors in {} ledgers",
+            wrong
+        );
     }
 }

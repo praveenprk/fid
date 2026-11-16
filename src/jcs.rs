@@ -32,7 +32,10 @@ fn write(value: &Value, out: &mut String) {
             out.push(']');
         }
         Value::Object(map) => {
-            let mut keys: Vec<(&String, Vec<u16>)> = map.keys().map(|k| (k, k.encode_utf16().collect())).collect();
+            let mut keys: Vec<(&String, Vec<u16>)> = map
+                .keys()
+                .map(|k| (k, k.encode_utf16().collect()))
+                .collect();
             keys.sort_by(|a, b| a.1.cmp(&b.1));
             out.push('{');
             for (i, (k, _)) in keys.iter().enumerate() {
@@ -90,13 +93,29 @@ pub fn number(x: f64) -> String {
     if k <= n && n <= 21 {
         format!("{}{}{}", sign, digits, "0".repeat((n - k) as usize))
     } else if 0 < n && n <= 21 {
-        format!("{}{}.{}", sign, &digits[..n as usize], &digits[n as usize..])
+        format!(
+            "{}{}.{}",
+            sign,
+            &digits[..n as usize],
+            &digits[n as usize..]
+        )
     } else if -6 < n && n <= 0 {
         format!("{}0.{}{}", sign, "0".repeat((-n) as usize), digits)
     } else {
         let e = n - 1;
-        let rest = if k > 1 { format!(".{}", &digits[1..]) } else { String::new() };
-        format!("{}{}{}e{}{}", sign, &digits[..1], rest, if e > 0 { "+" } else { "-" }, e.abs())
+        let rest = if k > 1 {
+            format!(".{}", &digits[1..])
+        } else {
+            String::new()
+        };
+        format!(
+            "{}{}{}e{}{}",
+            sign,
+            &digits[..1],
+            rest,
+            if e > 0 { "+" } else { "-" },
+            e.abs()
+        )
     }
 }
 

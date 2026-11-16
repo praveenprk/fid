@@ -178,9 +178,10 @@ Apache 2.0
 
 ```python
 import fid
+
 artifact = fid.stamp(record, source="crm", source_class="database", half_life="3y")
-fid.check(artifact, floor=0.7).status      # Status.SIGNAL / NOISE / UNKNOWN
-fid.expires_at(artifact, floor=0.7)        # when it falls below the floor
+fid.check(artifact, floor=0.7).status  # Status.SIGNAL / NOISE / UNKNOWN
+fid.expires_at(artifact, floor=0.7)  # when it falls below the floor
 ```
 
 The Python package calls the same Rust library, so the scores are

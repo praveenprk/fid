@@ -1,6 +1,6 @@
 """Tests for pypi_latest.py: version rules and the latest-version timeline. No network.
 
-    python3 -m unittest test_pypi_latest      (from calibration/)
+python3 -m unittest test_pypi_latest      (from calibration/)
 """
 
 import unittest
@@ -12,7 +12,12 @@ import pypi_latest as pl
 
 def files(day, yanked=False):
     at = datetime(2020, 1, 1, tzinfo=timezone.utc) + timedelta(days=day)
-    return [{"upload_time_iso_8601": at.isoformat().replace("+00:00", "Z"), "yanked": yanked}]
+    return [
+        {
+            "upload_time_iso_8601": at.isoformat().replace("+00:00", "Z"),
+            "yanked": yanked,
+        }
+    ]
 
 
 class Versions(unittest.TestCase):
@@ -32,15 +37,17 @@ class Versions(unittest.TestCase):
 
 class Timeline(unittest.TestCase):
     def setUp(self):
-        data = {"releases": {
-            "1.0": files(0),
-            "2.0rc1": files(5),       # pre-release: ignored
-            "2.0": files(10),
-            "1.9.9": files(20),       # backport after 2.0: does not change latest
-            "2.1": files(30, yanked=True),  # yanked: ignored
-            "2.2": files(40),
-            "3.0": [],                # no files: ignored
-        }}
+        data = {
+            "releases": {
+                "1.0": files(0),
+                "2.0rc1": files(5),  # pre-release: ignored
+                "2.0": files(10),
+                "1.9.9": files(20),  # backport after 2.0: does not change latest
+                "2.1": files(30, yanked=True),  # yanked: ignored
+                "2.2": files(40),
+                "3.0": [],  # no files: ignored
+            }
+        }
         self.changes = pl.timeline(pl.releases(data))
 
     def test_changes(self):
@@ -49,6 +56,7 @@ class Timeline(unittest.TestCase):
     def test_latest_at(self):
         def day(d):
             return datetime(2020, 1, 1, tzinfo=timezone.utc) + timedelta(days=d)
+
         self.assertIsNone(pl.latest_at(self.changes, day(-1)))
         self.assertEqual(pl.latest_at(self.changes, day(9))[0], "1.0")
         self.assertEqual(pl.latest_at(self.changes, day(25))[0], "2.0")
@@ -66,9 +74,13 @@ class Timeline(unittest.TestCase):
         obs = pl.observations({"stable": [(old, "1.0")]})
         self.assertTrue(all(c for _, _, c in obs["all"]))
         self.assertEqual(len(obs["all"]), len(pl.SNAPSHOTS) * len(pl.LAGS))
-        self.assertEqual(len(obs["dormant"]), len(obs["all"]) - 6 * len(pl.LAGS))  # quiet Jan–Jun 2015
+        self.assertEqual(
+            len(obs["dormant"]), len(obs["all"]) - 6 * len(pl.LAGS)
+        )  # quiet Jan–Jun 2015
         # a lag-0 observation is always correct
-        new = pl.observations({"busy": [(old + timedelta(days=30 * i), f"1.{i}") for i in range(130)]})
+        new = pl.observations(
+            {"busy": [(old + timedelta(days=30 * i), f"1.{i}") for i in range(130)]}
+        )
         self.assertTrue(all(c for _, lag, c in new["all"] if lag == 0))
         self.assertFalse(all(c for _, lag, c in new["all"] if lag >= 30 * fidcal.DAY))
 

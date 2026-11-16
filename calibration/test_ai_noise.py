@@ -1,6 +1,6 @@
 """Tests for ai_noise.py with a fake Messages client: no API calls.
 
-    python3 -m unittest test_ai_noise      (from calibration/)
+python3 -m unittest test_ai_noise      (from calibration/)
 """
 
 import json
@@ -43,14 +43,21 @@ class FakeClient:
                 for f in an.FIELDS:
                     truth = d["record"][f]
                     stated = f != "ceo" or d["record"]["ceo"] in text
-                    fields[f] = "" if not stated else ("wrong" if f == self.wrong_field else truth)
+                    fields[f] = (
+                        ""
+                        if not stated
+                        else ("wrong" if f == self.wrong_field else truth)
+                    )
                 out = json.dumps(fields)
         elif prompt.startswith("Summarize"):
             out = text[: len(text) // 2]
         else:
             out = text
-        return SimpleNamespace(stop_reason=stop, content=[SimpleNamespace(type="text", text=out)],
-                               usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+        return SimpleNamespace(
+            stop_reason=stop,
+            content=[SimpleNamespace(type="text", text=out)],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
 
 
 def run(docs, client, cache):
@@ -72,10 +79,14 @@ class Corpus(unittest.TestCase):
             c = d["conditions"]
             self.assertEqual(d["former_ceo"] in d["text"], c["superseded"], d["id"])
             self.assertEqual("billion" in d["text"], c["unit"], d["id"])
-            self.assertEqual(d["competitor"]["company"] in d["text"], c["competitor"], d["id"])
+            self.assertEqual(
+                d["competitor"]["company"] in d["text"], c["competitor"], d["id"]
+            )
 
     def test_corpus_is_reproducible(self):
-        self.assertEqual([d["text"] for d in an.corpus(20)], [d["text"] for d in an.corpus(20)])
+        self.assertEqual(
+            [d["text"] for d in an.corpus(20)], [d["text"] for d in an.corpus(20)]
+        )
 
     def test_hard_corpus_states_every_field(self):
         for d in an.corpus(80, hard=True):
@@ -85,7 +96,9 @@ class Corpus(unittest.TestCase):
             self.assertIn(f"{int(r['employees']):,}", text)
             self.assertIn(an._revenue(d), text)
             if d["style"] == "email":
-                self.assertTrue(text.startswith("Hi all,\n\n") and text.endswith("\n\nThanks"))
+                self.assertTrue(
+                    text.startswith("Hi all,\n\n") and text.endswith("\n\nThanks")
+                )
 
     def test_hard_traps_follow_conditions(self):
         for d in an.corpus(80, hard=True):
@@ -94,13 +107,18 @@ class Corpus(unittest.TestCase):
             self.assertEqual("billion" in text, c["unit"], d["id"])
             self.assertEqual("Correction:" in text, c["correction"], d["id"])
             self.assertEqual(h["subsidiary"]["ceo"] in text, c["subsidiary"], d["id"])
-            self.assertEqual(f"from {h['old_hq']} in {h['moved']}" in text, c["relocated"], d["id"])
+            self.assertEqual(
+                f"from {h['old_hq']} in {h['moved']}" in text, c["relocated"], d["id"]
+            )
             self.assertEqual(f"as {h['old_name']} and" in text, c["renamed"], d["id"])
             self.assertEqual("Management expects" in text, c["forecast"], d["id"])
             self.assertEqual(h["filler"][0] in text, c["buried"], d["id"])
             if c["correction"]:
                 # the wrong figure comes first, the right one only in the correction
-                self.assertLess(text.index(an._money(h["wrong_revenue_musd"], c["unit"])), text.index("Correction:"))
+                self.assertLess(
+                    text.index(an._money(h["wrong_revenue_musd"], c["unit"])),
+                    text.index("Correction:"),
+                )
 
     def test_hard_leaves_standard_corpus_alone(self):
         standard, hard = an.corpus(20), an.corpus(20, hard=True)
@@ -109,7 +127,10 @@ class Corpus(unittest.TestCase):
 
     def test_result_names(self):
         self.assertEqual(an.result_name(an.DEFAULT_MODEL, None, False), "ai_noise")
-        self.assertEqual(an.result_name("claude-haiku-5-5", "low", True), "ai_noise_hard_claude-haiku-5-5_low")
+        self.assertEqual(
+            an.result_name("claude-haiku-5-5", "low", True),
+            "ai_noise_hard_claude-haiku-5-5_low",
+        )
 
 
 class Scoring(unittest.TestCase):
@@ -142,9 +163,17 @@ class Pipeline(unittest.TestCase):
         # the rewrite loses nothing
         self.assertAlmostEqual(n["rewrite"], 0.0)
         # the summary loses exactly the CEOs stated in the second half of the text
-        lost = sum(d["record"]["ceo"] not in d["text"][: len(d["text"]) // 2] for d in self.docs)
-        self.assertAlmostEqual(n["accuracy"]["summarize"], (5 * len(self.docs) - lost) / (6 * len(self.docs)))
-        self.assertAlmostEqual(n["summarize"], 1 - n["accuracy"]["summarize"] / n["accuracy"]["extract"])
+        lost = sum(
+            d["record"]["ceo"] not in d["text"][: len(d["text"]) // 2]
+            for d in self.docs
+        )
+        self.assertAlmostEqual(
+            n["accuracy"]["summarize"],
+            (5 * len(self.docs) - lost) / (6 * len(self.docs)),
+        )
+        self.assertAlmostEqual(
+            n["summarize"], 1 - n["accuracy"]["summarize"] / n["accuracy"]["extract"]
+        )
 
     def test_cache_makes_reruns_free(self):
         client = FakeClient(self.docs)
@@ -158,13 +187,17 @@ class Pipeline(unittest.TestCase):
 
     def test_refused_documents_are_left_out(self):
         refused = {self.docs[0]["record"]["company"], self.docs[1]["record"]["company"]}
-        model, results = run(self.docs, FakeClient(self.docs, refuse=refused), self.cache)
+        model, results = run(
+            self.docs, FakeClient(self.docs, refuse=refused), self.cache
+        )
         rows = an.outcomes(self.docs, results)
         self.assertEqual(len({r["doc"] for r in rows}), len(self.docs) - 2)
         self.assertGreater(model.refusals, 0)
 
     def test_breakdown_ranges_and_yaml(self):
-        _, results = run(self.docs, FakeClient(self.docs, wrong_field="ceo"), self.cache)
+        _, results = run(
+            self.docs, FakeClient(self.docs, wrong_field="ceo"), self.cache
+        )
         rows = an.outcomes(self.docs, results)
         b = an.breakdown(rows)
         self.assertEqual(b["field"]["ceo"]["extract"], 1.0)
@@ -177,8 +210,20 @@ class Pipeline(unittest.TestCase):
         yaml = an.noise_yaml(b)
         self.assertIn("llm_summarize:\n  noise: ", yaml)
         self.assertIn("superseded:", yaml)
-        self.assertIn("| summarize |", an.markdown({"model": "fake", "effort": None, "documents": 40, "refused": 0,
-                                                     "breakdown": b, "held_out": h, "noise_model": yaml}))
+        self.assertIn(
+            "| summarize |",
+            an.markdown(
+                {
+                    "model": "fake",
+                    "effort": None,
+                    "documents": 40,
+                    "refused": 0,
+                    "breakdown": b,
+                    "held_out": h,
+                    "noise_model": yaml,
+                }
+            ),
+        )
 
 
 if __name__ == "__main__":

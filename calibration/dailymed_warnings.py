@@ -42,19 +42,28 @@ import fidcal
 OPENFDA = "https://api.fda.gov/drug/label.json"
 HISTORY = "https://dailymed.nlm.nih.gov/dailymed/services/v2/spls/{setid}/history.json"
 VERSION = "https://dailymed.nlm.nih.gov/dailymed/getFile.cfm?setid={setid}&type=zip&version={version}"
-SECTIONS = {"34066-1": "boxed warning", "34071-1": "warnings", "43685-7": "warnings and precautions"}
+SECTIONS = {
+    "34066-1": "boxed warning",
+    "34071-1": "warnings",
+    "43685-7": "warnings and precautions",
+}
 HL7 = "{urn:hl7-org:v3}"
 
 END = date(2026, 10, 1)
 MAX_LAG_DAYS = 1826
-SNAPSHOTS = [date(y, m, 1) for y in range(2008, END.year + 1) for m in range(1, 13)
-             if date(y, m, 1) + timedelta(days=MAX_LAG_DAYS) <= END]
+SNAPSHOTS = [
+    date(y, m, 1)
+    for y in range(2008, END.year + 1)
+    for m in range(1, 13)
+    if date(y, m, 1) + timedelta(days=MAX_LAG_DAYS) <= END
+]
 LAG_DAYS = [0, 30, 91, 182, 274, 365, 548, 730, 1095, 1461, 1826]
 LAGS = [d * fidcal.DAY for d in LAG_DAYS]
 RECENT, OLD = 365, 5 * 365
 
 
 # ── label text ───────────────────────────────────────────────────────────
+
 
 def normalize(text):
     """Words only: lower case, every run of non-alphanumeric characters as one space."""
@@ -70,7 +79,11 @@ def warnings_text(xml_bytes):
         if code is not None and code.get("code") in SECTIONS:
             parts.append(normalize(" ".join(section.itertext())))
     # A section nested in another warnings section is already in its parent's text
-    kept = [p for i, p in enumerate(parts) if not any(j != i and p in q for j, q in enumerate(parts) if len(q) > len(p))]
+    kept = [
+        p
+        for i, p in enumerate(parts)
+        if not any(j != i and p in q for j, q in enumerate(parts) if len(q) > len(p))
+    ]
     return " | ".join(kept) if kept else None
 
 
@@ -82,8 +95,13 @@ def xml_from_zip(data):
 
 # ── data ─────────────────────────────────────────────────────────────────
 
+
 def sample_set_ids(cache, n):
-    q = {"search": 'openfda.product_type:"HUMAN PRESCRIPTION DRUG"', "count": "set_id", "limit": 1000}
+    q = {
+        "search": 'openfda.product_type:"HUMAN PRESCRIPTION DRUG"',
+        "count": "set_id",
+        "limit": 1000,
+    }
     path = os.path.join(cache, "dailymed", "rx_set_ids.json")
     fidcal.download(OPENFDA + "?" + urllib.parse.urlencode(q), path, pause=0)
     with open(path) as f:
@@ -97,7 +115,13 @@ def history(cache, setid):
     fidcal.download(HISTORY.format(setid=setid), path, pause=0.2, attempts=3)
     with open(path) as f:
         rows = json.load(f)["data"]["history"]
-    return sorted((datetime.strptime(r["published_date"], "%b %d, %Y").date(), int(r["spl_version"])) for r in rows)
+    return sorted(
+        (
+            datetime.strptime(r["published_date"], "%b %d, %Y").date(),
+            int(r["spl_version"]),
+        )
+        for r in rows
+    )
 
 
 def version_text(cache, setid, version):
@@ -108,7 +132,9 @@ def version_text(cache, setid, version):
             text = json.load(f)["warnings"]
         return normalize(text) if text else text
     zpath = path[:-5] + ".zip"
-    fidcal.download(VERSION.format(setid=setid, version=version), zpath, pause=0.2, attempts=3)
+    fidcal.download(
+        VERSION.format(setid=setid, version=version), zpath, pause=0.2, attempts=3
+    )
     with open(zpath, "rb") as f:
         xml = xml_from_zip(f.read())
     text = warnings_text(xml) if xml else None
@@ -128,6 +154,7 @@ def timeline(versions):
 
 
 # ── observations ─────────────────────────────────────────────────────────
+
 
 def text_at(changes, at):
     """(text, since) in force on `at`, or None before the first version."""
@@ -171,7 +198,9 @@ def load_labels(cache, n, skip=0):
         try:
             hist = history(cache, setid)
             texts = [(at, version_text(cache, setid, v)) for at, v in hist]
-        except Exception as e:  # a label withdrawn from DailyMed, or a version that will not download
+        except (
+            Exception
+        ) as e:  # a label withdrawn from DailyMed, or a version that will not download
             fidcal.log(f"  {setid}: {e}")
             skipped += 1
             continue
@@ -185,29 +214,52 @@ def load_labels(cache, n, skip=0):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--labels", type=int, default=300, help="how many prescription labels to sample")
+    ap.add_argument(
+        "--labels", type=int, default=300, help="how many prescription labels to sample"
+    )
     args = ap.parse_args(argv)
     cache = fidcal.default_cache_dir()
 
     labels, skipped, versions_read = load_labels(cache, args.labels)
     changes = sum(len(c) - 1 for c in labels.values())
-    fidcal.log(f"{len(labels)} labels with warnings, {versions_read:,} versions, {changes:,} warnings changes, "
-               f"{skipped} skipped")
+    fidcal.log(
+        f"{len(labels)} labels with warnings, {versions_read:,} versions, {changes:,} warnings changes, "
+        f"{skipped} skipped"
+    )
 
     obs = observations(labels)
-    names = {"all": "all snapshots", "recent": "warnings changed in the year before",
-             "settled": "warnings unchanged for 1 to 5 years", "old": "warnings unchanged for over 5 years"}
+    names = {
+        "all": "all snapshots",
+        "recent": "warnings changed in the year before",
+        "settled": "warnings unchanged for 1 to 5 years",
+        "old": "warnings unchanged for over 5 years",
+    }
     truth = "the label's warnings text (boxed warning, warnings, warnings and precautions) is unchanged"
-    results = [fidcal.analyze(f"DailyMed warnings — {names[s]}", "the warnings of drug label X say Z",
-                              obs[s], LAGS, truth=truth)
-               for s in ("all", "recent", "settled", "old") if obs[s]]
-    results[0]["sample"] = {"labels_sampled": args.labels, "labels_with_warnings": len(labels),
-                            "labels_skipped": skipped, "versions_read": versions_read,
-                            "warnings_changes": changes}
-    fidcal.write_results(results, "dailymed_warnings",
-                         f"\nSample: {args.labels} prescription labels; {len(labels)} with warnings text, "
-                         f"{versions_read:,} versions read, {changes:,} changes to the warnings text, "
-                         f"{skipped} could not be read.\n")
+    results = [
+        fidcal.analyze(
+            f"DailyMed warnings — {names[s]}",
+            "the warnings of drug label X say Z",
+            obs[s],
+            LAGS,
+            truth=truth,
+        )
+        for s in ("all", "recent", "settled", "old")
+        if obs[s]
+    ]
+    results[0]["sample"] = {
+        "labels_sampled": args.labels,
+        "labels_with_warnings": len(labels),
+        "labels_skipped": skipped,
+        "versions_read": versions_read,
+        "warnings_changes": changes,
+    }
+    fidcal.write_results(
+        results,
+        "dailymed_warnings",
+        f"\nSample: {args.labels} prescription labels; {len(labels)} with warnings text, "
+        f"{versions_read:,} versions read, {changes:,} changes to the warnings text, "
+        f"{skipped} could not be read.\n",
+    )
 
 
 if __name__ == "__main__":

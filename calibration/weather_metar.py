@@ -38,6 +38,7 @@ def window():
         return end - timedelta(days=int(trailing)), end
     return date(YEAR, 1, 1), date(YEAR + 1, 1, 1)
 
+
 LAG_HOURS = [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 21, 24, 30, 36, 48, 60, 72]
 LAGS = [h * 3600 for h in LAG_HOURS]
 TEMP_TOLERANCE_F = 2.0
@@ -48,12 +49,24 @@ def fetch(cache_dir, station):
     params = {
         "station": station,
         "data": "tmpf,vsby,skyc1,skyl1,skyc2,skyl2,skyc3,skyl3,skyc4,skyl4",
-        "year1": start.year, "month1": start.month, "day1": start.day,
-        "year2": end.year, "month2": end.month, "day2": end.day,
-        "tz": "Etc/UTC", "format": "onlycomma", "latlon": "no",
-        "missing": "M", "trace": "T", "direct": "no", "report_type": "3",
+        "year1": start.year,
+        "month1": start.month,
+        "day1": start.day,
+        "year2": end.year,
+        "month2": end.month,
+        "day2": end.day,
+        "tz": "Etc/UTC",
+        "format": "onlycomma",
+        "latlon": "no",
+        "missing": "M",
+        "trace": "T",
+        "direct": "no",
+        "report_type": "3",
     }
-    url = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?" + urllib.parse.urlencode(params)
+    url = (
+        "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
+        + urllib.parse.urlencode(params)
+    )
     path = os.path.join(cache_dir, "metar", f"{station}_{start}_{end}.csv")
     return fidcal.download(url, path)
 
@@ -129,12 +142,30 @@ def main():
     temp, cat, adverse = observations(all_series)
     guess = dict(guess=6 * fidcal.HOUR, guess_label="weather_forecast: 6h")
     results = [
-        fidcal.analyze("METAR temperature", "the temperature at airport A is T",
-                       temp, LAGS, truth=f"within ±{TEMP_TOLERANCE_F:.0f} °F", **guess),
-        fidcal.analyze("METAR flight category", "airport A is VFR / MVFR / IFR / LIFR",
-                       cat, LAGS, truth="same flight category", **guess),
-        fidcal.analyze("METAR adverse conditions", "airport A is IFR or worse",
-                       adverse, LAGS, truth="still IFR or LIFR", **guess),
+        fidcal.analyze(
+            "METAR temperature",
+            "the temperature at airport A is T",
+            temp,
+            LAGS,
+            truth=f"within ±{TEMP_TOLERANCE_F:.0f} °F",
+            **guess,
+        ),
+        fidcal.analyze(
+            "METAR flight category",
+            "airport A is VFR / MVFR / IFR / LIFR",
+            cat,
+            LAGS,
+            truth="same flight category",
+            **guess,
+        ),
+        fidcal.analyze(
+            "METAR adverse conditions",
+            "airport A is IFR or worse",
+            adverse,
+            LAGS,
+            truth="still IFR or LIFR",
+            **guess,
+        ),
     ]
     fidcal.write_results(results, "weather_metar")
 

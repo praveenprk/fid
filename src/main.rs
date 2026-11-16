@@ -136,7 +136,11 @@ enum Commands {
 
         /// What one more re-check a day is worth, in staleness (e.g. 0.001:
         /// a daily re-check must cut staleness by 0.1 percentage points)
-        #[arg(long, required_unless_present = "staleness", conflicts_with = "staleness")]
+        #[arg(
+            long,
+            required_unless_present = "staleness",
+            conflicts_with = "staleness"
+        )]
         price: Option<f64>,
 
         /// Keep mean staleness at or below this instead (e.g. 0.05)
@@ -231,14 +235,24 @@ fn main() {
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Commands::Schedule { path, price, staleness, floor } => match run_schedule(&path, price, staleness, floor) {
+        Commands::Schedule {
+            path,
+            price,
+            staleness,
+            floor,
+        } => match run_schedule(&path, price, staleness, floor) {
             Ok(code) => std::process::exit(code),
             Err(e) => {
                 eprintln!("fid schedule: {}", e);
                 std::process::exit(EXIT_ERROR);
             }
         },
-        Commands::Calibrate { path, info_type, max_spread, period } => {
+        Commands::Calibrate {
+            path,
+            info_type,
+            max_spread,
+            period,
+        } => {
             match run_calibrate(&path, &info_type, max_spread, period.as_deref()) {
                 Ok(()) => {}
                 // The evidence cannot tell: an answer, like UNKNOWN, not an error
@@ -252,24 +266,32 @@ fn main() {
                 }
             }
         }
-        Commands::Drift { path, info_type, half_lives, max_spread } => {
-            match run_drift(&path, &info_type, &half_lives, max_spread) {
-                Ok(code) => std::process::exit(code),
-                Err(e) => {
-                    eprintln!("fid drift: {}", e);
-                    std::process::exit(EXIT_ERROR);
-                }
+        Commands::Drift {
+            path,
+            info_type,
+            half_lives,
+            max_spread,
+        } => match run_drift(&path, &info_type, &half_lives, max_spread) {
+            Ok(code) => std::process::exit(code),
+            Err(e) => {
+                eprintln!("fid drift: {}", e);
+                std::process::exit(EXIT_ERROR);
             }
-        }
+        },
     }
 }
 
 /// Read stdin, wrap it in a fidelity envelope, write JSON to stdout.
 fn run_stamp(args: StampArgs) -> Result<(), String> {
-    let source_class = args.source_class.as_deref().map(str::parse::<SourceClass>).transpose()?;
+    let source_class = args
+        .source_class
+        .as_deref()
+        .map(str::parse::<SourceClass>)
+        .transpose()?;
 
     // Registry values first, explicit flags override.
-    let (mut half_life, mut baseline, mut source_fidelity, mut echo, mut fast, mut shape) = (None, None, None, None, None, None);
+    let (mut half_life, mut baseline, mut source_fidelity, mut echo, mut fast, mut shape) =
+        (None, None, None, None, None, None);
     if let Some(path) = &args.half_lives {
         let info_type = args.info_type.as_deref().expect("clap enforces --type");
         let spec = HalfLives::load(path)?.lookup(info_type, args.state.as_deref())?;
@@ -286,7 +308,10 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
 
     let mut noise = 0.0;
     if let Some(path) = &args.noise_model {
-        let transform = args.transform.as_deref().expect("clap enforces --transform");
+        let transform = args
+            .transform
+            .as_deref()
+            .expect("clap enforces --transform");
         noise = NoiseModel::load(path)?.lookup(transform, args.condition.as_deref())?;
     }
     let noise = args.noise.unwrap_or(noise);
@@ -299,8 +324,18 @@ fn run_stamp(args: StampArgs) -> Result<(), String> {
             match fid::envelope::read(&text) {
                 Ok(Artifact::Understood(upstream)) => Some(upstream.fid),
                 // A writer cannot carry forward fields it does not know
-                Ok(Artifact::NotUnderstood(why)) => return Err(format!("cannot derive from --derived-from {}: {}", path, why)),
-                Err(e) => return Err(format!("--derived-from {} is not a valid fid-stamped artifact: {}", path, e)),
+                Ok(Artifact::NotUnderstood(why)) => {
+                    return Err(format!(
+                        "cannot derive from --derived-from {}: {}",
+                        path, why
+                    ))
+                }
+                Err(e) => {
+                    return Err(format!(
+                        "--derived-from {} is not a valid fid-stamped artifact: {}",
+                        path, e
+                    ))
+                }
             }
         }
         None => None,
@@ -347,7 +382,8 @@ fn read_stamped(path: &str) -> Result<Artifact, String> {
     } else {
         std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?
     };
-    fid::envelope::read(&text).map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))
+    fid::envelope::read(&text)
+        .map_err(|e| format!("{} is not a valid fid-stamped artifact: {}", path, e))
 }
 
 /// The artifact, when this fid understands its envelope. Otherwise say why on
@@ -395,7 +431,10 @@ fn run_calibrate(
     period: Option<&str>,
 ) -> Result<(), fid::calibrate::CalibrateError> {
     let period = period
-        .map(|p| fid::compute::parse_half_life(p)?.ok_or_else(|| "--period cannot be infinite".to_string()))
+        .map(|p| {
+            fid::compute::parse_half_life(p)?
+                .ok_or_else(|| "--period cannot be infinite".to_string())
+        })
         .transpose()?;
     let fits = fid::calibrate::calibrate_periodic(&read_ledger(path)?, max_spread, period)?;
     eprint!("{}", fid::calibrate::report(info_type, &fits));
@@ -413,7 +452,12 @@ fn read_ledger(path: &str) -> Result<Vec<fid::calibrate::Observation>, String> {
 }
 
 /// Test the registry against recent re-checks; the exit code is the verdict.
-fn run_drift(path: &str, info_type: &str, half_lives: &str, max_spread: f64) -> Result<i32, String> {
+fn run_drift(
+    path: &str,
+    info_type: &str,
+    half_lives: &str,
+    max_spread: f64,
+) -> Result<i32, String> {
     let registry = HalfLives::load(half_lives)?;
     let drifts = fid::drift::drift(&read_ledger(path)?, &registry, info_type, max_spread)?;
     eprint!("{}", fid::drift::report(info_type, &drifts, max_spread));
@@ -423,7 +467,12 @@ fn run_drift(path: &str, info_type: &str, half_lives: &str, max_spread: f64) -> 
 }
 
 /// Print when to re-check a stamped fact; exit code as `check` at the floor (0.5 if none).
-fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: Option<f64>) -> Result<i32, String> {
+fn run_schedule(
+    path: &str,
+    price: Option<f64>,
+    staleness: Option<f64>,
+    floor: Option<f64>,
+) -> Result<i32, String> {
     if let Some(f) = floor {
         fid::registry::check_unit(f, "floor")?;
     }
@@ -441,19 +490,32 @@ fn run_schedule(path: &str, price: Option<f64>, staleness: Option<f64>, floor: O
         (_, Some(s)) => format!("mean staleness at most {}", s),
         _ => unreachable!(),
     };
-    let guard = floor.map(|f| format!(", floor {:.2}", f)).unwrap_or_default();
+    let guard = floor
+        .map(|f| format!(", floor {:.2}", f))
+        .unwrap_or_default();
     match at {
         None => {
-            eprintln!("UNKNOWN  fidelity indeterminate (unknown source, or no half-life); no schedule");
+            eprintln!(
+                "UNKNOWN  fidelity indeterminate (unknown source, or no half-life); no schedule"
+            );
             println!("unknown");
         }
         Some(fid::envelope::Expiry::Never) => {
-            eprintln!("never    a re-check removes less staleness than it costs ({}{})", how, guard);
+            eprintln!(
+                "never    a re-check removes less staleness than it costs ({}{})",
+                how, guard
+            );
             println!("never");
         }
         Some(fid::envelope::Expiry::At(t)) => {
             let every = (t - stamped.fid.measured_at).num_milliseconds() as f64 / 1000.0;
-            eprintln!("recheck  {} (every {}; {}{})", t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), fid::check::format_age(every), how, guard);
+            eprintln!(
+                "recheck  {} (every {}; {}{})",
+                t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                fid::check::format_age(every),
+                how,
+                guard
+            );
             println!("{}", t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
         }
     }
@@ -475,7 +537,10 @@ fn run_ttl(path: &str, floor: f64) -> Result<i32, String> {
             println!("unknown");
         }
         Some(fid::envelope::Expiry::Never) => {
-            eprintln!("never    stays at or above floor {:.2} (no decay, or baseline at or above it)", floor);
+            eprintln!(
+                "never    stays at or above floor {:.2} (no decay, or baseline at or above it)",
+                floor
+            );
             println!("never");
         }
         Some(fid::envelope::Expiry::At(at)) => {
@@ -485,7 +550,12 @@ fn run_ttl(path: &str, floor: f64) -> Result<i32, String> {
             } else {
                 format!("{} ago", fid::check::format_age(-remaining))
             };
-            eprintln!("expires  {} ({}), floor {:.2}", at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), when, floor);
+            eprintln!(
+                "expires  {} ({}), floor {:.2}",
+                at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                when,
+                floor
+            );
             if let Some(e) = &stamped.fid.echo {
                 eprintln!("         first time below the floor; the fact comes back every {}, so check again later", e.period);
             }

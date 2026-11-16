@@ -157,7 +157,12 @@ mod tests {
                 state: None,
                 transforms: steps
                     .iter()
-                    .map(|&(s, n)| TransformStep { step: s.to_string(), noise: n, at: t0(), condition: None })
+                    .map(|&(s, n)| TransformStep {
+                        step: s.to_string(),
+                        noise: n,
+                        at: t0(),
+                        condition: None,
+                    })
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
@@ -183,7 +188,12 @@ mod tests {
         assert_eq!(lines[2].label, "aggregate.py");
         assert_eq!(lines[3].label, "temporal (30d)");
 
-        let expected = [0.97, 0.97 * 0.95, 0.97 * 0.95 * 0.92, 0.97 * 0.95 * 0.92 * 0.5];
+        let expected = [
+            0.97,
+            0.97 * 0.95,
+            0.97 * 0.95 * 0.92,
+            0.97 * 0.95 * 0.92 * 0.5,
+        ];
         for (line, want) in lines.iter().zip(expected) {
             assert!((line.fid.unwrap() - want).abs() < 1e-10, "{:?}", line);
         }
@@ -200,7 +210,10 @@ mod tests {
         s.fid.baseline = Some(0.2);
         let r = assess(&s, 0.50, t0() + Duration::days(1)).unwrap();
         let lines = chain_lines(&s, &r);
-        assert_eq!(lines[1].note, "−0.45 transform noise, given previous_leg_late");
+        assert_eq!(
+            lines[1].note,
+            "−0.45 transform noise, given previous_leg_late"
+        );
         // 0.45 decays halfway toward 0.2
         assert!((lines[2].fid.unwrap() - 0.325).abs() < 1e-10);
         assert!(lines[2].note.contains("baseline 0.20"));
@@ -230,7 +243,11 @@ mod tests {
 
     #[test]
     fn test_report_format() {
-        let s = stamped(SourceClass::Instrument, Some("30d"), &[("normalize.py", 0.05)]);
+        let s = stamped(
+            SourceClass::Instrument,
+            Some("30d"),
+            &[("normalize.py", 0.05)],
+        );
         let r = assess(&s, 0.50, t0()).unwrap();
         let text = report(&s, &r);
         let lines: Vec<&str> = text.lines().collect();

@@ -27,7 +27,12 @@ def _read(path):
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRAFT = os.path.join(ROOT, "spec", "draft-kumar-fid-00.md")
-BEHAVIOUR = ("src/", "bindings/python/src/", "bindings/python/python/", "conformance/generate.py")
+BEHAVIOUR = (
+    "src/",
+    "bindings/python/src/",
+    "bindings/python/python/",
+    "conformance/generate.py",
+)
 LABEL = "no-behaviour-change"
 
 
@@ -42,7 +47,9 @@ def check(body, labels, changed, known):
         return None
     if LABEL in labels:
         return None
-    text = re.sub(r"<!--.*?-->", "", body or "", flags=re.S)  # the template's hint is not an answer
+    text = re.sub(
+        r"<!--.*?-->", "", body or "", flags=re.S
+    )  # the template's hint is not an answer
     lines = [m.group(1) for m in re.finditer(r"(?im)^\s*spec:[ \t]*(.*?)\s*$", text)]
     refs = [r.strip() for line in lines for r in line.split(",") if r.strip()]
     if [r.lower() for r in refs] == ["none"]:
@@ -53,9 +60,11 @@ def check(body, labels, changed, known):
     if unknown:
         return f"'Spec:' names {unknown}, which are not anchors in the draft"
     if not (issues or named):
-        return (f"this PR changes behaviour ({', '.join(touched[:5])}{', ...' if len(touched) > 5 else ''}) "
-                f"but its description has no 'Spec: <draft anchor or #issue>' line; "
-                f"add one, or the label '{LABEL}' if behaviour does not change")
+        return (
+            f"this PR changes behaviour ({', '.join(touched[:5])}{', ...' if len(touched) > 5 else ''}) "
+            f"but its description has no 'Spec: <draft anchor or #issue>' line; "
+            f"add one, or the label '{LABEL}' if behaviour does not change"
+        )
     return None
 
 

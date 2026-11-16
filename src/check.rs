@@ -28,7 +28,10 @@ pub struct CheckResult {
 /// longer describes this content, so its fidelity cannot be trusted.
 pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<CheckResult, String> {
     if !floor.is_finite() || !(0.0..=1.0).contains(&floor) {
-        return Err(format!("invalid floor {} (must be between 0.0 and 1.0)", floor));
+        return Err(format!(
+            "invalid floor {} (must be between 0.0 and 1.0)",
+            floor
+        ));
     }
 
     let env = &stamped.fid;
@@ -41,7 +44,9 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     let transforms = transform_factor(&noise);
     let baseline = env.baseline.unwrap_or(0.0);
     // No half-life: the decay is unknown, so is the fidelity
-    let fidelity = source.filter(|_| env.decay_known()).map(|s| apply_decay(s * transforms, temporal, baseline));
+    let fidelity = source
+        .filter(|_| env.decay_known())
+        .map(|s| apply_decay(s * transforms, temporal, baseline));
 
     let integrity_ok = integrity_for(&env.fid_version, &stamped.content) == env.integrity;
     let status = match fidelity {
@@ -52,7 +57,15 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
     };
 
     Ok(CheckResult {
-        assessment: FidAssessment { source, temporal, baseline, transforms, fidelity, floor, status },
+        assessment: FidAssessment {
+            source,
+            temporal,
+            baseline,
+            transforms,
+            fidelity,
+            floor,
+            status,
+        },
         age_seconds,
         integrity_ok,
     })
@@ -61,7 +74,13 @@ pub fn assess(stamped: &Stamped, floor: f64, now: DateTime<Utc>) -> Result<Check
 /// Human-readable duration, coarsest two units (e.g. "3d 4h", "45s").
 pub fn format_age(seconds: f64) -> String {
     let s = seconds.max(0.0) as u64;
-    let units = [("y", 31_557_600), ("d", 86_400), ("h", 3_600), ("m", 60), ("s", 1)];
+    let units = [
+        ("y", 31_557_600),
+        ("d", 86_400),
+        ("h", 3_600),
+        ("m", 60),
+        ("s", 1),
+    ];
     let mut parts = Vec::new();
     let mut rest = s;
     for (name, size) in units {
@@ -82,7 +101,10 @@ pub fn format_age(seconds: f64) -> String {
 
 /// "half-life 2.3m (vessel_position/underway), baseline 0.73"
 pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> String {
-    let mut out = format!("half-life {}", env.half_life.as_deref().unwrap_or("unknown (none given)"));
+    let mut out = format!(
+        "half-life {}",
+        env.half_life.as_deref().unwrap_or("unknown (none given)")
+    );
     match (&env.info_type, &env.state) {
         (Some(t), Some(s)) => out.push_str(&format!(" ({}/{})", t, s)),
         (Some(t), None) => out.push_str(&format!(" ({})", t)),
@@ -93,13 +115,20 @@ pub fn decay_description(env: &crate::envelope::FidEnvelope, baseline: f64) -> S
         out.push_str(&format!(", baseline {:.2}", baseline));
     }
     if let Some(f) = &env.fast {
-        out.push_str(&format!(", {:.0}% on a {} clock", 100.0 * f.share, f.half_life));
+        out.push_str(&format!(
+            ", {:.0}% on a {} clock",
+            100.0 * f.share,
+            f.half_life
+        ));
     }
     if let Some(k) = env.shape {
         out.push_str(&format!(", shape {}", k));
     }
     if let Some(e) = &env.echo {
-        out.push_str(&format!(", echo every {} (strength {:.2})", e.period, e.strength));
+        out.push_str(&format!(
+            ", echo every {} (strength {:.2})",
+            e.period, e.strength
+        ));
     }
     out
 }
@@ -129,15 +158,28 @@ pub fn report(stamped: &Stamped, result: &CheckResult) -> String {
 
     let mut lines = Vec::new();
     lines.push(match (a.fidelity, &a.status) {
-        (Some(f), FidStatus::Signal) => format!("{:<8} fidelity {:.4} >= floor {:.2}", status, f, a.floor),
-        (Some(f), FidStatus::Noise) => format!("{:<8} fidelity {:.4} <  floor {:.2}", status, f, a.floor),
-        _ => format!("{:<8} fidelity indeterminate (floor {:.2})", status, a.floor),
+        (Some(f), FidStatus::Signal) => {
+            format!("{:<8} fidelity {:.4} >= floor {:.2}", status, f, a.floor)
+        }
+        (Some(f), FidStatus::Noise) => {
+            format!("{:<8} fidelity {:.4} <  floor {:.2}", status, f, a.floor)
+        }
+        _ => format!(
+            "{:<8} fidelity indeterminate (floor {:.2})",
+            status, a.floor
+        ),
     });
     if !result.integrity_ok {
         lines.push("  integrity mismatch: content changed since last stamp".to_string());
     }
     lines.push(match a.source {
-        Some(s) => format!("  source      {:.4}  {}{} ({})", s, class, measured_note(env), env.source_id),
+        Some(s) => format!(
+            "  source      {:.4}  {}{} ({})",
+            s,
+            class,
+            measured_note(env),
+            env.source_id
+        ),
         None => format!("  source      ?       {} ({})", class, env.source_id),
     });
     lines.push(format!(
@@ -185,7 +227,12 @@ mod tests {
                 state: None,
                 transforms: noise
                     .iter()
-                    .map(|&n| TransformStep { step: "t".to_string(), noise: n, at: t0(), condition: None })
+                    .map(|&n| TransformStep {
+                        step: "t".to_string(),
+                        noise: n,
+                        at: t0(),
+                        condition: None,
+                    })
                     .collect(),
                 fid_at_stamp: None,
                 derived_from: None,
