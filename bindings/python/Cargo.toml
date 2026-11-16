@@ -1,6 +1,6 @@
 [package]
 name = "fid-python"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "Python bindings for fid, information fidelity measurement"
 license = "Apache-2.0"
@@ -12,7 +12,7 @@ name = "_fid"
 crate-type = ["cdylib"]
 
 [dependencies]
-fid = { package = "fidmeter", version = "0.1", path = "../.." }
+fid = { package = "fidmeter", version = "0.2", path = "../.." }
 pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
 chrono = "0.4"
 serde_json = { version = "1", features = ["float_roundtrip"] }
