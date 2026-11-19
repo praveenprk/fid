@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before
 
 ## [Unreleased]
 
+### Changed
+- The minimum supported Rust version is 1.85, not 1.80. The locked
+  dependencies of 0.2.0 already needed 1.85; CI now builds and tests on it.
+
 ## [0.2.0] - 2026-11-17
 
 Breaking. If you pin `fidmeter = "0.1"`, you stay on 0.1.x until you change
