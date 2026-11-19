@@ -136,3 +136,33 @@ Risk    : fid's CI fetches eng-principles at the pinned commit. Moving the
           pin is a deliberate change with its own PR. If the fetch fails,
           the check fails and the merge is blocked (fail closed).
 Status  : PROPOSED
+
+---
+
+## DECISION-007 — fid runs develop, qa and main
+
+Date    : 2026-11-19
+Refs    : eng-principles ENG-DEC-010 (ACCEPTED), ENG-STD-005 §2.3, §2.4, §5.1; eng-principles f972b72; DECISION-006
+Decision: fid runs three long-lived branches. Pull requests target
+          `develop`; an automated contributor may merge into it once the
+          required checks pass (squash or rebase, linear history). PK
+          promotes develop → qa → main with merge commits and is the only
+          one who merges into `qa` and `main`. Judgments a contributor
+          needs go in docs/QUESTIONS.md, asked as real-world scenarios; PK
+          answers them at `qa`, and `commit-check / questions` (required
+          on `main`) fails a pull request into `main` while any entry is
+          OPEN. Rulesets: `develop-integrity`, `qa-integrity`, and
+          `main-branch-integrity`, which now allows merge commits only and
+          no longer requires linear history, so promotions keep the three
+          branches on the same commits. The shared check's pin moves from
+          74e7e76 (DECISION-006) to f972b72, which has the `questions` job.
+          Releases are signed, annotated tags on `main` (AGENTS.md).
+Reason  : The governor's time goes to judgment, in one place, instead of to
+          every merge (ENG-DEC-010). Merge commits on promotion keep
+          `develop`, `qa` and `main` from drifting apart, which squash or
+          rebase merges would cause by rewriting commits.
+Risk    : `main` history gains merge commits. The shared check skips them
+          and still checks every commit they bring. GitHub targets `main`
+          by default, so an outside pull request may need retargeting
+          (Q-001).
+Status  : PROPOSED
