@@ -361,7 +361,7 @@ pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
     for x0 in starts {
         let (x, _) = nelder_mead(&loss, &x0, 0.5, 400);
         let (x, v) = nelder_mead(&loss, &x, 0.1, 400);
-        if best.as_ref().map_or(true, |(_, bv)| v < *bv) {
+        if best.as_ref().is_none_or(|(_, bv)| v < *bv) {
             best = Some((x, v));
         }
     }

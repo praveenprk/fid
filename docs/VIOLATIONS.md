@@ -87,7 +87,8 @@ Code does : The first audit (eng-principles audit/audit.py, 2026-11-19, main 132
 Severity  : HIGH (proposed). Each MUST is unmet, but nothing released is wrong because of it.
 Impact    : An outside contributor finds no contribution or disclosure route. Users cannot verify a release came from the maintainer. The minimum Rust and Python versions are claimed without evidence.
 Fix       : contributing, security, changelog: this change (with private vulnerability reporting turned on, 2026-11-19).
-            msrv, py_min: CI jobs on the declared minimums (next change).
+            msrv, py_min: CI jobs `msrv` and `python-min` build and test on the declared minimums. 1.80 does not build
+            with the locked dependencies (clap 4.6 and indexmap 2.14 need 1.85), so rust-version becomes 1.85 (Q-004).
             signed: the next release tag is signed (AGENTS.md, Releases; Q-002). v0.2.0 is not re-tagged.
 When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
 Status    : OPEN

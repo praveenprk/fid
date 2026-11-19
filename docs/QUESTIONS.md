@@ -55,5 +55,40 @@ Options  : A — A dedicated address (for example a new mailbox or alias used
                private route.
 Recommend: A, because the address is published permanently and only
            conduct reports would reach it.
-Raised by: this PR (docs/ENG-DEC-011-contributor-front-door)
+Raised by: #24 (5dbcf7b)
+Status   : OPEN
+
+### Q-004
+Scenario : A company builds fid on a fixed Rust toolchain, 1.82, because
+           Cargo.toml says fid needs 1.80 or later. The build fails: the
+           dependencies fid 0.2.0 ships with (clap 4.6, indexmap 2.14)
+           need Rust 1.85. fid has claimed 1.80 without testing it.
+Options  : A — Correct the claim: rust-version becomes 1.85, the version
+               fid actually builds and passes its tests on, and a CI job
+               keeps it true. Shipped in the next release, listed under
+               Changed in CHANGELOG.md. Users on 1.80 to 1.84 were already
+               broken; nothing new breaks.
+           B — Keep 1.80: hold clap, indexmap and others at older versions
+               in Cargo.toml so 1.80 builds again. The claim becomes true,
+               but fid stays on old dependencies and their fixes.
+Recommend: A, because B only makes the claim true by holding fid back,
+           and A changes nothing for anyone whose build works today.
+Raised by: ci/V-ENG-008-01-msrv-python-supply-chain (A is applied there)
+Status   : OPEN
+
+### Q-005
+Scenario : A data team on Python 3.9 runs `pip install fidmeter`. 3.9
+           reached end of life in October 2025: no more security fixes,
+           and GitHub's newest runners (Ubuntu 26.04) no longer offer it.
+           fid still promises 3.9 (requires-python >=3.9, abi3-py39
+           wheels), and CI can test it only on the older Ubuntu 24.04
+           runner, which GitHub will also retire.
+Options  : A — Keep 3.9 for now. CI tests it on Ubuntu 24.04. Revisit when
+               that runner is retired or at 0.3.0. Nobody loses support.
+           B — Drop 3.9 in the next release: requires-python >=3.10 and
+               abi3-py310 wheels. 3.9 users keep 0.2.x. Before 1.0 this is
+               allowed in a minor release (DECISION-005).
+Recommend: A, because supporting 3.9 costs one CI job today and dropping
+           it gains nothing until the runner goes away.
+Raised by: ci/V-ENG-008-01-msrv-python-supply-chain
 Status   : OPEN
