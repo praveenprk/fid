@@ -75,3 +75,20 @@ Recommend: A, because B only makes the claim true by holding fid back,
            and A changes nothing for anyone whose build works today.
 Raised by: ci/V-ENG-008-01-msrv-python-supply-chain (A is applied there)
 Status   : OPEN
+
+### Q-005
+Scenario : A data team on Python 3.9 runs `pip install fidmeter`. 3.9
+           reached end of life in October 2025: no more security fixes,
+           and GitHub's newest runners (Ubuntu 26.04) no longer offer it.
+           fid still promises 3.9 (requires-python >=3.9, abi3-py39
+           wheels), and CI can test it only on the older Ubuntu 24.04
+           runner, which GitHub will also retire.
+Options  : A — Keep 3.9 for now. CI tests it on Ubuntu 24.04. Revisit when
+               that runner is retired or at 0.3.0. Nobody loses support.
+           B — Drop 3.9 in the next release: requires-python >=3.10 and
+               abi3-py310 wheels. 3.9 users keep 0.2.x. Before 1.0 this is
+               allowed in a minor release (DECISION-005).
+Recommend: A, because supporting 3.9 costs one CI job today and dropping
+           it gains nothing until the runner goes away.
+Raised by: ci/V-ENG-008-01-msrv-python-supply-chain
+Status   : OPEN

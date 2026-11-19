@@ -84,8 +84,10 @@ jobs:
 
   # The oldest Python the package supports (requires-python, and the abi3-py39
   # wheels on PyPI) builds and passes the package's tests (V-ENG-008-01).
+  # Python 3.9 is end-of-life and has no build for ubuntu-latest (26.04), so
+  # this job runs on 24.04 until Q-005 is answered.
   python-min:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
