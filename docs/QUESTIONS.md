@@ -23,7 +23,7 @@ Options  : A — Keep `main` as the default branch. CONTRIBUTING.md says to
                default branch, would have to name `main` explicitly.
 Recommend: A, because the front page then matches what crates.io and PyPI
            ship, and the shared questions check works unchanged.
-Raised by: chore/ENG-DEC-010-develop-qa-main
+Raised by: #23 (31b4c93)
 Status   : OPEN
 
 ### Q-002
@@ -38,5 +38,22 @@ Options  : A — Sign with an SSH key: `git config --global gpg.format ssh`,
                public key to GitHub, and keep the key's expiry and backup.
 Recommend: A, because it reuses a key you already manage and GitHub verifies
            it the same way.
-Raised by: chore/ENG-DEC-010-develop-qa-main
+Raised by: #23 (31b4c93)
+Status   : OPEN
+
+### Q-003
+Scenario : A contributor is insulted in a review thread and wants to tell
+           the maintainer privately, without posting in public.
+           CODE_OF_CONDUCT.md has to name a private way to reach you.
+Options  : A — A dedicated address (for example a new mailbox or alias used
+               only for fid conduct reports). Your personal address stays
+               out of the repository. You set it up once.
+           B — Your existing personal email. Nothing to set up. It becomes
+               public in the repository and in its history.
+           C — Your GitHub profile's contact only. Nothing new, but GitHub
+               has no private messages, so the reporter may have no
+               private route.
+Recommend: A, because the address is published permanently and only
+           conduct reports would reach it.
+Raised by: this PR (docs/ENG-DEC-011-contributor-front-door)
 Status   : OPEN
