@@ -43,7 +43,9 @@ fid follows eng-principles, mapped onto fid's own spec system
    CHANGELOG.md under the new version.
 2. Promote develop → qa → main.
 3. PK tags the merge commit on `main` with a signed, annotated tag:
-   `git tag -s vX.Y.Z -F <message file>`. The message names the release,
+   `git tag -s vX.Y.Z -F <message file>`, signed with PK's SSH signing
+   key (git `gpg.format ssh`; the key is registered on GitHub as a
+   signing key, Q-002). The message names the release,
    then lists the DECISION and V-ENG anchors it closes.
 4. The `release` workflow publishes to crates.io and PyPI. Then create the
    GitHub release page from the CHANGELOG section.
