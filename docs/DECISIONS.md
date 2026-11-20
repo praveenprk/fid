@@ -135,34 +135,59 @@ Reason  : One implementation for every project, defined where the
 Risk    : fid's CI fetches eng-principles at the pinned commit. Moving the
           pin is a deliberate change with its own PR. If the fetch fails,
           the check fails and the merge is blocked (fail closed).
-Status  : PROPOSED
+Status  : ACCEPTED (governor, 2026-11-21)
 
 ---
 
 ## DECISION-007 — fid runs develop, qa and main
 
-Date    : 2026-11-19
-Refs    : eng-principles ENG-DEC-010 (ACCEPTED), ENG-STD-005 §2.3, §2.4, §5.1; eng-principles f972b72; DECISION-006
-Decision: fid runs three long-lived branches. Pull requests target
-          `develop`; an automated contributor may merge into it once the
-          required checks pass (squash or rebase, linear history). PK
-          promotes develop → qa → main with merge commits and is the only
-          one who merges into `qa` and `main`. Judgments a contributor
-          needs go in docs/QUESTIONS.md, asked as real-world scenarios; PK
-          answers them at `qa`, and `commit-check / questions` (required
-          on `main`) fails a pull request into `main` while any entry is
-          OPEN. Rulesets: `develop-integrity`, `qa-integrity`, and
-          `main-branch-integrity`, which now allows merge commits only and
-          no longer requires linear history, so promotions keep the three
-          branches on the same commits. The shared check's pin moves from
-          74e7e76 (DECISION-006) to f972b72, which has the `questions` job.
-          Releases are signed, annotated tags on `main` (AGENTS.md).
-Reason  : The governor's time goes to judgment, in one place, instead of to
-          every merge (ENG-DEC-010). Merge commits on promotion keep
-          `develop`, `qa` and `main` from drifting apart, which squash or
-          rebase merges would cause by rewriting commits.
-Risk    : `main` history gains merge commits. The shared check skips them
-          and still checks every commit they bring. GitHub targets `main`
-          by default, so an outside pull request may need retargeting
-          (Q-001).
+Date    : 2026-11-19 (reasoning expanded 2026-11-21, after PK's review)
+Refs    : eng-principles ENG-DEC-010 (ACCEPTED), ENG-STD-005 §2.3, §2.4, §5.1; eng-principles f972b72; DECISION-006; Q-001
+Problem : Until now every change waited for PK to merge it into `main`.
+          Most of those merges needed no judgment (checks green, nothing
+          to decide), yet each one stopped the work. The few that did need
+          judgment were asked in chat, where they were easy to lose.
+Options : 1 — Trunk and tags, as large open-source projects do (rust-lang/
+              rust, tokio, openssh-portable): one integration branch that
+              every pull request targets; a release is a tag (Rust also
+              keeps `beta` and `stable` branches cut from it). A maintainer
+              reviews each pull request. Fits fid's size, but every merge
+              still waits for PK, which is the problem.
+          2 — git-flow (develop, release/*, main, hotfix/*): built for
+              teams shipping several versions at once. More branches than
+              fid needs.
+          3 — develop, qa, main (chosen): option 1's integration branch
+              (`develop`), plus one place where PK judges a batch (`qa`),
+              plus `main` holding only what PK has judged and released.
+Decision: fid runs three long-lived branches.
+          - `develop`: every pull request targets it. An automated
+            contributor may merge into it once the required checks pass
+            (squash or rebase; linear history).
+          - `qa`: PK merges `develop` into it when a batch is ready, after
+            answering its questions and judging its decisions.
+          - `main`: PK merges `qa` into it. Releases are signed, annotated
+            tags on `main` (AGENTS.md).
+          Promotions use merge commits. A judgment a contributor needs goes
+          in docs/QUESTIONS.md, asked as a real-world scenario, in the
+          pull request that raises it. `commit-check / questions`, required
+          on `main`, fails a pull request into `main` while any entry is
+          OPEN. Rulesets `develop-integrity`, `qa-integrity` and
+          `main-branch-integrity` enforce this on GitHub. Which branch is
+          GitHub's default is Q-001.
+Reason  : PK's time goes to judgment instead of to merges: routine changes
+          flow into `develop` without waiting, and judgments arrive
+          together, written down, at `qa` (ENG-DEC-010). `main` stays what
+          users get from crates.io and PyPI. Promotions use merge commits
+          because squash or rebase rewrites the commits, so `develop`,
+          `qa` and `main` would drift apart and every promotion would
+          conflict. Option 1 is the open-source norm, and `develop` is that
+          norm's integration branch; `qa` and `main` are what this project
+          adds so that PK judges in batches.
+Risk    : An automated contributor merges into `develop` without a human
+          review. Bounded by the required checks, by the questions
+          register, and by PK reviewing the whole batch at `qa` before
+          anything reaches users. `main` history gains merge commits; the
+          shared check skips them and still checks every commit they bring.
+          Outside contributors must target `develop` (CONTRIBUTING.md;
+          Q-001 decides whether GitHub does that by default).
 Status  : PROPOSED

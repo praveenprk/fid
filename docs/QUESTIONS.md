@@ -39,7 +39,7 @@ Options  : A — Sign with an SSH key: `git config --global gpg.format ssh`,
 Recommend: A, because it reuses a key you already manage and GitHub verifies
            it the same way.
 Raised by: #23 (31b4c93)
-Status   : OPEN
+Status   : ANSWERED (governor, 2026-11-21): A, sign with an SSH key → AGENTS.md Releases
 
 ### Q-003
 Scenario : A contributor is insulted in a review thread and wants to tell
@@ -56,7 +56,7 @@ Options  : A — A dedicated address (for example a new mailbox or alias used
 Recommend: A, because the address is published permanently and only
            conduct reports would reach it.
 Raised by: #24 (5dbcf7b)
-Status   : OPEN
+Status   : ANSWERED (governor, 2026-11-21): justpraveenhere@protonmail.com, for now, until fid has its own domain → CODE_OF_CONDUCT.md
 
 ### Q-004
 Scenario : A company builds fid on a fixed Rust toolchain, 1.82, because
@@ -74,7 +74,7 @@ Options  : A — Correct the claim: rust-version becomes 1.85, the version
 Recommend: A, because B only makes the claim true by holding fid back,
            and A changes nothing for anyone whose build works today.
 Raised by: ci/V-ENG-008-01-msrv-python-supply-chain (A is applied there)
-Status   : OPEN
+Status   : ANSWERED (governor, 2026-11-21): A, rust-version 1.85 → no change (applied in #25)
 
 ### Q-005
 Scenario : A data team on Python 3.9 runs `pip install fidmeter`. 3.9
@@ -91,4 +91,4 @@ Options  : A — Keep 3.9 for now. CI tests it on Ubuntu 24.04. Revisit when
 Recommend: A, because supporting 3.9 costs one CI job today and dropping
            it gains nothing until the runner goes away.
 Raised by: ci/V-ENG-008-01-msrv-python-supply-chain
-Status   : OPEN
+Status   : ANSWERED (governor, 2026-11-21): A, keep Python 3.9 for now → no change

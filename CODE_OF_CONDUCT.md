@@ -9,8 +9,8 @@ and publishing someone's private information are not acceptable.
 
 ## Reporting
 
-Report a problem to the maintainer privately at: **contact pending
-(docs/QUESTIONS.md Q-003)**. Every report is reviewed, and the reporter's
+Report a problem to the maintainer privately at
+**justpraveenhere@protonmail.com**. Every report is reviewed, and the reporter's
 privacy is respected.
 
 The maintainer enforces this code using the Contributor Covenant's

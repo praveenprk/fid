@@ -23,7 +23,7 @@
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | HIGH | RESOLVED (forward only) |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
-| V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | HIGH (proposed) | OPEN |
+| V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | MEDIUM | OPEN |
 
 ---
 
@@ -84,7 +84,7 @@ Code does : The first audit (eng-principles audit/audit.py, 2026-11-19, main 132
             tag v0.2.0 annotated but not signed (`gh api repos/praveenprk/fid/git/tags/<sha>` → verification.verified false);
             rust-version 1.80 in Cargo.toml, but no workflow builds with 1.80;
             requires-python >=3.9 (and abi3-py39 wheels on PyPI), but CI runs only 3.12.
-Severity  : HIGH (proposed). Each MUST is unmet, but nothing released is wrong because of it.
+Severity  : MEDIUM (governor, 2026-11-21; proposed HIGH). No gap changes what fid does, touches personal data, or breaks a compliance obligation; HIGH is for those.
 Impact    : An outside contributor finds no contribution or disclosure route. Users cannot verify a release came from the maintainer. The minimum Rust and Python versions are claimed without evidence.
 Fix       : contributing, security, changelog: this change (with private vulnerability reporting turned on, 2026-11-19).
             msrv, py_min: CI jobs `msrv` and `python-min` build and test on the declared minimums. 1.80 does not build
