@@ -223,7 +223,7 @@ pub fn fit_echo(bins: &[Bin], period: f64, start: &Model) -> EchoModel {
         let (x, _) = nelder_mead(&loss, &x0, 0.5, 600);
         // Restart from the optimum: Nelder–Mead stalls otherwise
         let (x, v) = nelder_mead(&loss, &x, 0.1, 600);
-        if best.as_ref().map_or(true, |(_, bv)| v < *bv) {
+        if best.as_ref().is_none_or(|(_, bv)| v < *bv) {
             best = Some((x, v));
         }
     }

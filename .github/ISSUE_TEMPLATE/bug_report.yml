@@ -1,0 +1,42 @@
+name: Bug report
+description: fid did something the draft or the docs say it should not
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem? Do not file it here; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `fid --version`, or the fidmeter version from pip or Cargo.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options: [CLI, Rust crate, Python package, Calibration scripts, Documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The command or code, and the input (a small artifact or envelope if you can share one).
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual
+      description: What you expected, what happened, and the draft section if you know it (spec/draft-kumar-fid-00.md).
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: OS and architecture, Rust or Python version.

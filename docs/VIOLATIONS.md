@@ -19,10 +19,11 @@
 | ID | Standard | Severity | Status |
 |----|----------|---------------------|--------|
 | V-ENG-002-01 | ENG-STD-002 §1.1 | HIGH | RESOLVED (forward only) |
-| V-ENG-004-01 | ENG-STD-004 §6.1 | HIGH | OPEN |
+| V-ENG-004-01 | ENG-STD-004 §6.1 | HIGH | RESOLVED |
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | HIGH | RESOLVED (forward only) |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
+| V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | MEDIUM | OPEN |
 
 ---
 
@@ -75,3 +76,20 @@ Fix       : Create docs/DECISIONS.md (with DECISION-002..004 backfilled), this r
 When      : This change.
 Status    : RESOLVED — 2026-11-15, adoption change on branch chore/DECISION-001-adopt-eng-principles (takes effect on merge)
 Anchor    : DECISION-001
+
+### V-ENG-008-01
+SPEC says : ENG-STD-008 §2 (eng-principles ENG-DEC-011) — MUST checks `contributing`, `security`, `changelog`, `signed`, `msrv`, `py_min`. §3.3 — "A failing MUST is a gap. A project registers its gaps as violations".
+Code does : The first audit (eng-principles audit/audit.py, 2026-11-19, main 132746d) fails these six:
+            no CONTRIBUTING.md; no SECURITY.md, so no private way to report a vulnerability; no CHANGELOG.md;
+            tag v0.2.0 annotated but not signed (`gh api repos/praveenprk/fid/git/tags/<sha>` → verification.verified false);
+            rust-version 1.80 in Cargo.toml, but no workflow builds with 1.80;
+            requires-python >=3.9 (and abi3-py39 wheels on PyPI), but CI runs only 3.12.
+Severity  : MEDIUM (governor, 2026-11-21; proposed HIGH). No gap changes what fid does, touches personal data, or breaks a compliance obligation; HIGH is for those.
+Impact    : An outside contributor finds no contribution or disclosure route. Users cannot verify a release came from the maintainer. The minimum Rust and Python versions are claimed without evidence.
+Fix       : contributing, security, changelog: this change (with private vulnerability reporting turned on, 2026-11-19).
+            msrv, py_min: CI jobs `msrv` and `python-min` build and test on the declared minimums. 1.80 does not build
+            with the locked dependencies (clap 4.6 and indexmap 2.14 need 1.85), so rust-version becomes 1.85 (Q-004).
+            signed: the next release tag is signed (AGENTS.md, Releases; Q-002). v0.2.0 is not re-tagged.
+When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
+Status    : OPEN
+Anchor    : ENG-DEC-011

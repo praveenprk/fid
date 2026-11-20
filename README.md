@@ -170,6 +170,12 @@ Thermodynamics — entropy increases; correspondence decays.
 78 years of information science. Zero imports into computing
 infrastructure. Until now.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests target `develop`.
+Report security problems privately ([SECURITY.md](SECURITY.md)). Changes are
+listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 Apache 2.0

@@ -1,0 +1,29 @@
+name: Change request
+description: Propose new or changed behaviour (it starts as a change to the draft)
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        fid's behaviour is defined by spec/draft-kumar-fid-00.md. A change in
+        behaviour changes the draft first, then the tests, then the code
+        (spec/README.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: The situation a user is in, and what fid does today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What fid should do instead. Name the draft sections it touches, if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: compat
+    attributes:
+      label: Compatibility
+      description: Does it change existing artifacts, exit codes or the Python API? (A breaking change raises the minor version before 1.0.)
