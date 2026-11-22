@@ -43,8 +43,8 @@ platforms.
 
 ## Your pull request
 
-- **Target branch:** `develop`, not `main`. Changes move develop → qa →
-  main. Only the maintainer merges into `qa` and `main` (DECISION-007).
+- **Target branch:** `main`, from a branch of your own. Releases are cut
+  from `stable`, which only the maintainer updates (DECISION-008).
 - **Branch name:** `type/ANCHOR-short-description`, e.g. `fix/31-ttl-rounding`.
 - **Title and every commit:** `type(scope): description — ANCHOR`.
   - Types: feat, fix, test, refactor, docs, chore, design.
