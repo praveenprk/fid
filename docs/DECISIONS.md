@@ -190,4 +190,32 @@ Risk    : An automated contributor merges into `develop` without a human
           shared check skips them and still checks every commit they bring.
           Outside contributors must target `develop` (CONTRIBUTING.md;
           Q-001 decides whether GitHub does that by default).
-Status  : PROPOSED
+Status  : WITHDRAWN (governor, 2026-11-22): never accepted; replaced by DECISION-008 (eng-principles ENG-DEC-012)
+
+---
+
+## DECISION-008 — fid runs main and stable
+
+Date    : 2026-11-22
+Refs    : eng-principles ENG-DEC-012 (ACCEPTED), ENG-STD-005 §2.3–2.5, §5.1; DECISION-007 (withdrawn); Q-001
+Decision: fid runs two long-lived branches, as the Rust project does.
+          `main` is the default and integration branch: every pull request
+          targets it from a work branch, and an automated contributor may
+          merge into it once all required checks pass and no question in
+          docs/QUESTIONS.md is OPEN. Security-related changes carry the
+          label `security` and only PK merges them. `stable` holds what is
+          released: PK promotes `main` → `stable` with a merge commit and
+          tags releases on it. `stable` starts at v0.2.0 (132746d).
+          `develop`, `qa` and their rulesets are removed once their work
+          is on `main`. Rulesets: `main-branch-integrity` (squash or
+          rebase, linear history, questions check required) and
+          `stable-integrity` (merge commit only).
+Reason  : eng-principles ENG-DEC-012 (governor, 2026-11-22). Outside
+          contributors find the layout they know from Rust: work lands on
+          `main`, releases come from `stable`. Judgment is given on the
+          pull request that needs it, so routine work does not wait.
+Risk    : Changes reach `main` without a human reading each one. Bounded by
+          the required checks, the questions check, PK merging
+          security-related changes, and PK's review of every promotion to
+          `stable` before a release.
+Status  : ACCEPTED (governor, 2026-11-22, by ENG-DEC-012)

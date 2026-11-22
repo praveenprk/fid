@@ -172,7 +172,7 @@ infrastructure. Until now.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests target `develop`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests target `main`.
 Report security problems privately ([SECURITY.md](SECURITY.md)). Changes are
 listed in [CHANGELOG.md](CHANGELOG.md).
 

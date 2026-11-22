@@ -1,9 +1,9 @@
 # QUESTIONS.md
 # fid — Questions for the governor
-# A judgment a contributor needs from PK, recorded when the work merges into
-# `develop` (DECISION-007, eng-principles ENG-DEC-010). PK answers at `qa`.
-# A pull request into `main` cannot merge while any entry is OPEN
-# (`commit-check / questions`).
+# A judgment a contributor needs from PK, added by the pull request into
+# `main` that needs it (DECISION-008, eng-principles ENG-DEC-012). PK answers
+# on that pull request. A pull request into `main` cannot merge while any
+# entry is OPEN (`commit-check / questions`).
 # Append only. An answered entry stays, with its answer.
 # Format: eng-principles templates/question.md
 
@@ -24,7 +24,7 @@ Options  : A — Keep `main` as the default branch. CONTRIBUTING.md says to
 Recommend: A, because the front page then matches what crates.io and PyPI
            ship, and the shared questions check works unchanged.
 Raised by: #23 (31b4c93)
-Status   : OPEN
+Status   : ANSWERED (governor, 2026-11-22): neither; `main` stays the default branch as the integration branch, and releases move to `stable`, as Rust does → DECISION-008
 
 ### Q-002
 Scenario : You are about to tag the next release on `main`. The tag must be

@@ -10,39 +10,43 @@ fid follows eng-principles, mapped onto fid's own spec system
 
 ## Roles
 
-- PK (GitHub: praveenprk) is the governor and the only one who merges into
-  `qa` and `main`. PK accepts decisions, confirms violation severities and
-  answers the questions in docs/QUESTIONS.md.
+- PK (GitHub: praveenprk) is the governor. PK merges `main` into `stable`,
+  tags releases, merges security-related changes, accepts decisions,
+  confirms violation severities, and answers the questions in
+  docs/QUESTIONS.md.
 - Contributors propose decisions (Status PROPOSED), file violations with
-  evidence, and open pull requests into `develop`. An automated contributor
-  may merge its own pull request into `develop` once the required checks
-  pass. Contributors do not merge into `qa` or `main`, and do not decide.
+  evidence, and open pull requests into `main`. An automated contributor
+  may merge its own pull request into `main` once all required checks pass
+  and no question is OPEN, unless the change is security-related.
 
-## Branches (DECISION-007, eng-principles ENG-STD-005 §2.4)
+## Branches (DECISION-008, eng-principles ENG-DEC-012)
 
 | Branch | Holds | Who merges into it | How |
 |--------|-------|--------------------|-----|
-| `develop` | Integrated work, open questions recorded | A contributor, checks green | Squash or rebase |
-| `qa` | A batch for the governor's judgment | PK | Merge commit, from `develop` |
-| `main` | What is released | PK | Merge commit, from `qa` |
+| `type/ANCHOR-short-description` | One piece of work | Its author | Commits |
+| `main` (default) | Integrated work | A contributor, checks green, no OPEN question; PK for security-related changes | Squash or rebase |
+| `stable` | What is released | PK | Merge commit, from `main` |
 
-- Every pull request targets `develop`. Changes move one way:
-  develop → qa → main. Nothing is committed to `qa` or `main` directly.
+- Every pull request targets `main`, from a work branch. Nothing is
+  committed to `main` or `stable` directly.
 - A judgment you need from PK goes in docs/QUESTIONS.md as a `Q-NNN`
-  entry, in the same pull request that raises it: a real-world scenario,
-  the options and what each changes, your recommendation. Keep working.
-  Do not wait for the answer in chat.
-- PK answers at `qa`. An answer that decides something becomes a
-  DECISION entry. A pull request into `main` cannot merge while any entry
-  is OPEN.
+  entry, added by the pull request that needs it: a real-world scenario,
+  the options and what each changes, your recommendation. PK answers on
+  that pull request; record the answer in the entry. The pull request
+  cannot merge into `main` while any entry is OPEN. An answer that
+  decides something becomes a DECISION entry.
+- Security-related changes (eng-principles ENG-STD-005 §2.5: vulnerability
+  reports or fixes, SECURITY.md, secrets or workflow permissions, branch
+  rules or required checks, integrity-checking code) carry the label
+  `security`. Only PK merges them.
 
 ## Releases (eng-principles ENG-STD-005 §5.1)
 
-1. On `develop`: set the version in Cargo.toml, bindings/python/Cargo.toml
-   and bindings/python/pyproject.toml, and move the Unreleased section of
-   CHANGELOG.md under the new version.
-2. Promote develop → qa → main.
-3. PK tags the merge commit on `main` with a signed, annotated tag:
+1. In a pull request into `main`: set the version in Cargo.toml,
+   bindings/python/Cargo.toml and bindings/python/pyproject.toml, and move
+   the Unreleased section of CHANGELOG.md under the new version.
+2. PK promotes `main` → `stable` (merge commit).
+3. PK tags the merge commit on `stable` with a signed, annotated tag:
    `git tag -s vX.Y.Z -F <message file>`, signed with PK's SSH signing
    key (git `gpg.format ssh`; the key is registered on GitHub as a
    signing key, Q-002). The message names the release,
@@ -89,9 +93,8 @@ fid follows eng-principles, mapped onto fid's own spec system
 | Rust formatted and clippy-clean; Python formatted and linted (ruff.toml) | `lint` job in the `ci` workflow: rustfmt, clippy, ruff, all pinned |
 | Behaviour changes cite the draft | `spec-ref` workflow (spec/spec_ref.py) |
 | Every requirement tested or a listed gap; vectors match | `rust` workflow (spec/traceability.py, conformance/generate.py) |
-| `main` changes only through a pull request with the checks green, by merge commit; no force-push or deletion | GitHub ruleset `main-branch-integrity` |
-| `qa` changes only through a pull request with the checks green, by merge commit | GitHub ruleset `qa-integrity` |
-| `develop` changes only through a pull request with the checks green; linear history | GitHub ruleset `develop-integrity` |
-| No pull request into `main` while a question is OPEN | `commit-check / questions`, required on `main` (eng-principles ENG-DEC-010) |
-| Only PK merges into `qa` and `main` | Rulesets need a pull request; the agent's local guard refuses those merges; review by PK |
+| `main` changes only through a pull request with the checks green; linear history; no force-push or deletion | GitHub ruleset `main-branch-integrity` |
+| `stable` changes only through a pull request from `main` with the checks green, by merge commit | GitHub ruleset `stable-integrity` |
+| No pull request into `main` while a question is OPEN | `commit-check / questions`, required on `main` (eng-principles ENG-DEC-010, ENG-DEC-012) |
+| Only PK merges into `stable` and merges security-related changes | The agent's local guard refuses those merges; review by PK |
 | Everything else | Review by PK |
