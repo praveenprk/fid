@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, stable]
   pull_request:
 
 permissions:
@@ -14,11 +14,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
+          toolchain: 1.99.0
           components: rustfmt, clippy
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: cargo fmt --check
@@ -34,8 +35,10 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
       - name: Conformance vectors match the spec
         run: python3 conformance/generate.py && git diff --exit-code conformance/
       - name: Every requirement in the draft is tested or a listed gap
@@ -45,9 +48,11 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: Build and test the Python package
@@ -62,14 +67,66 @@ jobs:
         working-directory: calibration
         run: ../bindings/python/.venv/bin/python -m unittest discover -p 'test_*.py' -v
 
+  # The minimum supported Rust version (rust-version in Cargo.toml) builds and
+  # passes the tests with the committed lockfile (V-ENG-008-01, Q-004).
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: "1.85"
+      - name: rust-version in Cargo.toml is the toolchain tested here
+        run: grep -qx 'rust-version = "1.85"' Cargo.toml
+      - run: cargo test --locked
+      - run: cargo check --locked
+        working-directory: bindings/python
+
+  # The oldest Python the package supports (requires-python, and the abi3-py39
+  # wheels on PyPI) builds and passes the package's tests (V-ENG-008-01).
+  # Python 3.9 is end-of-life and has no build for ubuntu-latest (26.04), so
+  # this job runs on 24.04 until Q-005 is answered.
+  python-min:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+      - name: requires-python's minimum is the version tested here
+        run: grep -qx 'requires-python = ">=3.9"' bindings/python/pyproject.toml
+      - name: Build and test the Python package
+        working-directory: bindings/python
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install "maturin>=1.5,<2"
+          maturin develop --release
+          python -m unittest discover -s tests -v
+
+  # Known vulnerabilities in locked Rust dependencies (RustSec advisory DB).
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: cargo-audit
+      - run: cargo audit
+      - run: cargo audit
+        working-directory: bindings/python
+
   spec:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
         with:
           ruby-version: "3.3"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: Install kramdown-rfc and xml2rfc
@@ -80,7 +137,7 @@ jobs:
         run: python3 -m unittest discover -s spec -p 'test_*.py' -v
       - name: Build the draft (fails on any error or kramdown-rfc warning)
         run: spec/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: draft-kumar-fid
           path: |
