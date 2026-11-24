@@ -24,6 +24,7 @@
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
 | V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | HIGH (per item, ENG-DEC-013) | OPEN |
+| V-ENG-008-03 | ENG-STD-008 §2 (`docs`) | MEDIUM | RESOLVED |
 
 ---
 
@@ -95,3 +96,13 @@ Fix       : contributing, security, changelog: this change (with private vulnera
 When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
 Status    : OPEN
 Anchor    : ENG-DEC-011
+
+### V-ENG-008-03
+SPEC says : ENG-STD-008 §2 — check `docs`: "Public API documented (missing_docs)" (SHOULD; Rust API Guidelines C-CRATE-DOC; severity MEDIUM, ours).
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `docs` for fid: "public API docs not enforced". At main a460eab, src/lib.rs has no crate doc and no `missing_docs` lint; `RUSTFLAGS="-W missing_docs" cargo check --lib` reports 99 undocumented public items (the crate, and fields, methods, constants and types in calibrate, check, compute, drift, echo, envelope, fast, registry and stamp).
+Severity  : MEDIUM (ENG-DEC-013 c: our rule, no behaviour change). Proposed; PK confirms.
+Impact    : A user of the fidmeter crate reads the source, not the docs, to learn a field's unit or meaning (e.g. whether a half-life is in seconds, or what a missing baseline means).
+Fix       : src/lib.rs gains a crate doc and `#![warn(missing_docs)]`; the 98 items gain doc comments. The `lint` job runs clippy with `-D warnings`, so a new undocumented public item fails CI.
+When      : This change.
+Status    : RESOLVED — on merge of this change (#30).
+Anchor    : ENG-DEC-015

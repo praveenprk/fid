@@ -26,13 +26,18 @@ pub const MIN_GAIN: f64 = 0.001;
 /// Decay to a baseline with a periodic return.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EchoModel {
+    /// Fraction correct when fresh.
     pub s0: f64,
+    /// Fraction correct the curve decays toward.
     pub baseline: f64,
+    /// Half-life of the decay, in seconds.
     pub half_life: f64,
+    /// The periodic return.
     pub echo: EchoParams,
 }
 
 impl EchoModel {
+    /// Expected fraction correct at `age` seconds.
     pub fn predict(&self, age: f64) -> f64 {
         apply_decay(
             self.s0,
@@ -51,14 +56,17 @@ pub struct EchoFit {
     pub decay: Model,
     /// Held-out Brier, both fitted on the train half
     pub brier_echo: f64,
+    /// Held-out Brier score of decay alone.
     pub brier_decay: f64,
     /// Largest gap from the binned curve, all data
     pub gap_echo: f64,
+    /// Largest gap of decay alone from the binned curve, all data.
     pub gap_decay: f64,
     /// Did the echo pass on the held-out half?
     pub kept: bool,
     /// Checks in bins young enough to measure s0, as in calibrate
     pub fresh_checks: usize,
+    /// s0, when `fresh_checks` is enough to call it measured.
     pub source_fidelity: Option<f64>,
 }
 

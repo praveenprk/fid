@@ -52,6 +52,7 @@ use sha2::{Digest, Sha256};
 
 /// Fewest observations, in total and in each half, a state needs.
 pub const MIN_OBSERVATIONS: usize = 50;
+/// Fewest observations each of the train and test halves needs.
 pub const MIN_PER_HALF: usize = 10;
 /// Fewest fresh checks for s0 to count as measured, not extrapolated.
 pub const MIN_FRESH: usize = 20;
@@ -75,23 +76,29 @@ const BINS: usize = 20;
 /// One fact, checked again at some age.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Observation {
+    /// What the fact is about; all re-checks of one entity fall on the same side of the train/test split.
     pub entity: String,
     /// Seconds between the fact's measurement and the check
     pub age: f64,
     /// Did the fact still hold when checked?
     pub correct: bool,
+    /// The thing's state when the fact was measured; each state is fitted on its own.
     pub state: Option<String>,
 }
 
 /// The fitted decay model. `half_life` is in seconds; infinite means no decay.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Model {
+    /// Fraction correct when fresh (age zero).
     pub s0: f64,
+    /// Fraction correct the curve decays toward (b).
     pub baseline: f64,
+    /// Seconds for the gap above the baseline to halve (h).
     pub half_life: f64,
 }
 
 impl Model {
+    /// Expected fraction correct at `age` seconds.
     pub fn predict(&self, age: f64) -> f64 {
         if self.half_life.is_infinite() {
             return self.s0;
@@ -103,7 +110,9 @@ impl Model {
 /// The middle 95% of bootstrap refits.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Range {
+    /// Low end (2.5th percentile).
     pub lo: f64,
+    /// High end (97.5th percentile).
     pub hi: f64,
 }
 
@@ -116,6 +125,7 @@ impl Range {
         Range { lo, hi }
     }
 
+    /// Whether `v` lies within the range, ends included.
     pub fn contains(&self, v: f64) -> bool {
         self.lo <= v && v <= self.hi
     }
@@ -124,31 +134,43 @@ impl Range {
 /// Uncertainty of the final model's values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Uncertainty {
+    /// Range of the half-life, in seconds.
     pub half_life: Range,
+    /// Range of the baseline.
     pub baseline: Range,
+    /// Range of the fraction correct when fresh.
     pub s0: Range,
 }
 
 /// Observations at one age (or one group of nearby ages).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bin {
+    /// Age of the bin, in seconds.
     pub age: f64,
+    /// Fraction of the bin's checks that were correct.
     pub correct: f64,
+    /// Number of checks in the bin.
     pub n: usize,
 }
 
 /// The result for one state (or for all data when there are no states).
 #[derive(Debug, Clone)]
 pub struct StateFit {
+    /// The state fitted; None when the data has no states.
     pub state: Option<String>,
+    /// Number of checks fitted.
     pub observations: usize,
+    /// Number of distinct entities among them.
     pub entities: usize,
+    /// The checks, binned by age.
     pub bins: Vec<Bin>,
     /// Final model, fitted on all data
     pub model: Model,
     /// Did the baseline beat decay-to-zero on the held-out half?
     pub uses_baseline: bool,
+    /// Largest gap between the binned curve and the final model.
     pub shape_error: f64,
+    /// First age where the binned curve falls to 0.5, if it does.
     pub empirical_half_life: Option<f64>,
     /// Checks in bins young enough to measure fidelity when fresh
     pub fresh_checks: usize,
@@ -160,8 +182,11 @@ pub struct StateFit {
     /// Half-life range, high end ÷ low end; infinite when one end is
     /// within the data and the other beyond it
     pub spread: f64,
+    /// Held-out Brier score of decay to a fitted baseline.
     pub brier_baseline: f64,
+    /// Held-out Brier score of decay to zero.
     pub brier_zero: f64,
+    /// Held-out Brier score of a constant: the train half's fraction correct.
     pub brier_constant: f64,
     /// The echo test, when a period was given
     pub echo: Option<crate::echo::EchoFit>,
@@ -712,6 +737,7 @@ pub enum CalibrateError {
 }
 
 impl CalibrateError {
+    /// The message, without saying whether it was refused or invalid.
     pub fn message(&self) -> &str {
         match self {
             Self::Refused(m) | Self::Invalid(m) => m,

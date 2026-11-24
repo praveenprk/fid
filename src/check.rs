@@ -15,6 +15,7 @@ use crate::envelope::{integrity_for, FidAssessment, FidStatus, Stamped};
 /// Result of checking one artifact.
 #[derive(Debug)]
 pub struct CheckResult {
+    /// The fidelity assessment: score, status and their parts.
     pub assessment: FidAssessment,
     /// Seconds since the original measurement
     pub age_seconds: f64,
