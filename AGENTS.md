@@ -90,6 +90,8 @@ fid follows eng-principles, mapped onto fid's own spec system
 | Rule | Mechanism |
 |------|-----------|
 | Title and commit format, anchors resolve, no co-author or attribution lines | `commit-check` workflow: eng-principles' shared check, with fid's scripts/hooks/types and anchors (DECISION-006) |
+| Rust formatted and clippy-clean; Python formatted and linted (ruff.toml) | `lint` job in the `ci` workflow: rustfmt, clippy, ruff, all pinned |
+| Nothing is published from an unsigned release tag, or one off `stable` | `check` job of the `release` workflow: the tag must be annotated, verified by GitHub, and on `stable` |
 | Rust formatted and clippy-clean; Python formatted and linted (ruff.toml); shell checked (shellcheck, shfmt); the site's pages and inline scripts formatted and linted (Prettier, ESLint) | `lint` job in the `ci` workflow, all pinned |
 | Behaviour changes cite the draft | `spec-ref` workflow (spec/spec_ref.py) |
 | Every requirement tested or a listed gap; vectors match | `rust` workflow (spec/traceability.py, conformance/generate.py) |
