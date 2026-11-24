@@ -20,6 +20,7 @@
 |----|----------|---------------------|--------|
 | V-ENG-002-01 | ENG-STD-002 §1.1 | HIGH | RESOLVED (forward only) |
 | V-ENG-004-01 | ENG-STD-004 §6.1 | HIGH | RESOLVED |
+| V-ENG-004-02 | ENG-STD-004 §6.1 (JavaScript, shell) | HIGH | RESOLVED |
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | HIGH | RESOLVED (forward only) |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
@@ -95,3 +96,13 @@ Fix       : contributing, security, changelog: this change (with private vulnera
 When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
 Status    : OPEN
 Anchor    : ENG-DEC-011
+
+### V-ENG-004-02
+SPEC says : ENG-STD-004 §6.1 — "Each project MUST pin one formatter and one linter per language and run them in CI." ENG-DEC-015 (Q-003): code is any executable text, inline `<script>` included; the audit's `fmt_lint` check asks for a formatter and a linter for each language found.
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `fmt_lint` for fid: JavaScript is detected in the inline `<script>` blocks of site/page.html and site/shell.html, and no JavaScript formatter or linter runs in CI. spec/build.sh (POSIX sh) is not checked either: at main a460eab, `grep -nE 'prettier|eslint|biome|shellcheck|shfmt' .github/workflows/*.yml` prints nothing. Rust and Python are covered (V-ENG-004-01).
+Severity  : HIGH (OpenSSF Best Practices MUST: warnings; ENG-DEC-013 b). Proposed; PK confirms.
+Impact    : A broken or careless change to the site's scripts or the draft's build script is caught only by eye. Running the tools found one shellcheck warning in spec/build.sh (SC2100, an unquoted assignment shellcheck reads as arithmetic).
+Fix       : The `lint` job in .github/workflows/ci.yml runs, pinned: shellcheck 0.10.0 and shfmt 3.12.0 on spec/build.sh (as eng-principles pins them); Prettier 3.10.1 on site/*.html (.prettierrc.json) and ESLint 10.15.0 with eslint-plugin-html 8.2.1 on their inline scripts (eslint.config.mjs, ESLint's recommended rules). The pages are reformatted once by Prettier; the scripts' syntax trees are unchanged. spec/build.sh quotes the assignment.
+When      : This change.
+Status    : RESOLVED — on merge of this change (#30).
+Anchor    : ENG-DEC-015
