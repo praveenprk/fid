@@ -1,0 +1,42 @@
+# Automated dependency update proposals (eng-principles ENG-STD-008
+# `dependabot`; OpenSSF Scorecard Dependency-Update-Tool; V-ENG-008-02).
+# Updates arrive as pull requests into `main`. Their titles carry no anchor,
+# so `commit-check` fails until the title gains one (e.g. "— V-ENG-008-02").
+# Dependency updates are security-related: PK merges them (AGENTS.md).
+# Tools CI installs by exact version (Rust toolchain, ruff, the maturin
+# range) are pinned in the workflows and are not covered here.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: cargo
+    directory: /bindings/python
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: pip
+    directory: /bindings/python
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  # The CI lint tools for the site's scripts (package.json and
+  # package-lock.json at the root, added by #34; until then this entry
+  # finds no manifest and does nothing).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"

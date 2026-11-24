@@ -25,6 +25,7 @@
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
 | V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | HIGH (per item, ENG-DEC-013) | OPEN |
+| V-ENG-008-02 | ENG-STD-008 §2 (`dependabot`) | HIGH (OpenSSF Scorecard) | RESOLVED |
 
 ---
 
@@ -96,6 +97,13 @@ Fix       : contributing, security, changelog: this change (with private vulnera
 When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
 Status    : OPEN
 Anchor    : ENG-DEC-011
+
+### V-ENG-008-02
+SPEC says : ENG-STD-008 §2 — check `dependabot`: "Automated dependency updates" (SHOULD; severity HIGH by OpenSSF Scorecard Dependency-Update-Tool, ENG-DEC-013). ENG-DEC-015: a failing HIGH check is fixed or registered as a violation.
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `dependabot` for fid: "no automated dependency updates". At main a460eab there is no .github/dependabot.yml and no renovate config (`git ls-tree -r --name-only a460eab | grep -iE 'dependabot|renovate'` prints nothing).
+Severity  : HIGH (OpenSSF Scorecard: Dependency-Update-Tool, High; ENG-DEC-013 a). Proposed; PK confirms.
+Impact    : A fixed version of a Rust crate, the maturin build backend or a pinned action reaches fid only if someone notices it by hand. `cargo audit` (CI job `supply-chain`) reports known advisories but proposes no update.
+Fix       : .github/dependabot.yml proposes weekly updates for cargo (/ and /bindings/python), pip (/bindings/python, the build requirements in pyproject.toml), npm (/, the CI lint tools of #34) and github-actions. Updates arrive as pull requests into `main`; PK merges them (security-related).
 
 ### V-ENG-004-02
 SPEC says : ENG-STD-004 §6.1 — "Each project MUST pin one formatter and one linter per language and run them in CI." ENG-DEC-015 (Q-003): code is any executable text, inline `<script>` included; the audit's `fmt_lint` check asks for a formatter and a linter for each language found.
