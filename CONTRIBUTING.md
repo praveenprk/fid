@@ -45,6 +45,11 @@ platforms.
 
 - **Target branch:** `main`, from a branch of your own. Releases are cut
   from `stable`, which only the maintainer updates (DECISION-008).
+- **Who merges:** once every required check passes, the pull request has
+  had a review, and no question in docs/QUESTIONS.md is OPEN, any
+  authorised contributor may merge it into `main`. Security-related
+  changes (label `security`) are merged only by the maintainer, who alone
+  promotes `main` to `stable` and tags releases (AGENTS.md, Roles).
 - **Branch name:** `type/ANCHOR-short-description`, e.g. `fix/31-ttl-rounding`.
 - **Title and every commit:** `type(scope): description — ANCHOR`.
   - Types: feat, fix, test, refactor, docs, chore, design.

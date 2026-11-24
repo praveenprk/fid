@@ -23,6 +23,7 @@
 | V-ENG-004-02 | ENG-STD-004 §6.1 (JavaScript, shell) | HIGH | RESOLVED |
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | HIGH | RESOLVED (forward only) |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
+| V-ENG-005-03 | ENG-STD-005 §2.6 | MEDIUM | RESOLVED |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
 | V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | HIGH (per item, ENG-DEC-013) | OPEN |
 | V-ENG-008-03 | ENG-STD-008 §2 (`docs`) | MEDIUM | RESOLVED |
@@ -124,4 +125,14 @@ Impact    : A broken or careless change to the site's scripts or the draft's bui
 Fix       : The `lint` job in .github/workflows/ci.yml runs, pinned: shellcheck 0.10.0 and shfmt 3.12.0 on spec/build.sh (as eng-principles pins them); Prettier 3.10.1 on site/*.html (.prettierrc.json) and ESLint 10.15.0 with eslint-plugin-html 8.2.1 on their inline scripts (eslint.config.mjs, ESLint's recommended rules). The npm tools and every transitive dependency are pinned by package.json and package-lock.json and installed with `npm ci`. The pages are reformatted once by Prettier; the scripts' syntax trees are unchanged. spec/build.sh quotes the assignment.
 When      : This change.
 Status    : RESOLVED — on merge of this change (#30).
+Anchor    : ENG-DEC-015
+
+### V-ENG-005-03
+SPEC says : ENG-STD-005 §2.6 (ENG-DEC-015, Q-005, Q-007) — "A release (a promotion to `stable` and its tag) MUST NOT happen without a release record stating: the commit released; every required check's result at that commit; the open violations; and who authorised the release." "A project's AGENTS.md MUST record which roles, human or automated, may merge into `main` and which may release." §2.3 restates who may merge into `main` in role-neutral words.
+Code does : At main 6b8c6ad, AGENTS.md Releases has no release record step; its tag message lists only the release name and anchors. AGENTS.md Roles says only "an automated contributor may merge its own pull request", not the role-neutral rule, and does not say that an automated contributor never releases. CONTRIBUTING.md does not say who merges. No release has happened since ENG-DEC-015 (v0.2.0 predates it), so no release lacks a record yet.
+Severity  : MEDIUM (ENG-DEC-013 c: our rule, no behaviour change, no release affected yet). Proposed; PK confirms.
+Impact    : The next release could be promoted and tagged with no record of what was checked, which violations were open, or who signed it off.
+Fix       : AGENTS.md Roles states who may merge into `main` and who may release, in ENG-DEC-015's words. Releases gains the release record (docs/templates/release-record.md): drafted in the promotion pull request, approved there by PK, and used as the signed tag's message and on the release page. Promotion goes through a pull request from `main` (§2.4). CONTRIBUTING.md says who merges.
+When      : This change.
+Status    : RESOLVED — on merge of this change.
 Anchor    : ENG-DEC-015

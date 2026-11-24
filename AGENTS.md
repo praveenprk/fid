@@ -8,16 +8,21 @@ bind humans.
 fid follows eng-principles, mapped onto fid's own spec system
 (docs/DECISIONS.md DECISION-001).
 
-## Roles
+## Roles (eng-principles ENG-STD-005 §2.3, §2.6; ENG-DEC-012, ENG-DEC-015)
 
-- PK (GitHub: praveenprk) is the governor. PK merges `main` into `stable`,
-  tags releases, merges security-related changes, accepts decisions,
+- PK (GitHub: praveenprk) is the governor. PK accepts decisions,
   confirms violation severities, and answers the questions in
   docs/QUESTIONS.md.
+- **Merging into `main`:** any authorised contributor, human or automated,
+  may merge a pull request into `main` once every required check passes,
+  it has had an automated or human review, and no question is OPEN. A
+  security-related change (ENG-STD-005 §2.5) is merged only by PK.
+- **Releasing:** only PK promotes `main` → `stable` and tags a release,
+  each on its release record (Releases, below). An automated contributor
+  never promotes or tags; allowing it would need its own decision and
+  signing identity.
 - Contributors propose decisions (Status PROPOSED), file violations with
-  evidence, and open pull requests into `main`. An automated contributor
-  may merge its own pull request into `main` once all required checks pass
-  and no question is OPEN, unless the change is security-related.
+  evidence, and open pull requests into `main`.
 
 ## Branches (DECISION-008, eng-principles ENG-DEC-012)
 
@@ -40,19 +45,26 @@ fid follows eng-principles, mapped onto fid's own spec system
   rules or required checks, integrity-checking code) carry the label
   `security`. Only PK merges them.
 
-## Releases (eng-principles ENG-STD-005 §5.1)
+## Releases (eng-principles ENG-STD-005 §2.6, §5.1)
 
 1. In a pull request into `main`: set the version in Cargo.toml,
    bindings/python/Cargo.toml and bindings/python/pyproject.toml, and move
    the Unreleased section of CHANGELOG.md under the new version.
-2. PK promotes `main` → `stable` (merge commit).
-3. PK tags the merge commit on `stable` with a signed, annotated tag:
+2. Write the release record (docs/templates/release-record.md): the
+   commit to be released; every required check's result at that commit;
+   the open violations in docs/VIOLATIONS.md; and who authorises the
+   release. Any contributor may draft it. It goes in the description of
+   the promotion pull request.
+3. PK promotes `main` → `stable` through a pull request from `main`,
+   merged with a merge commit, approving it on that record.
+4. PK tags the merge commit on `stable` with a signed, annotated tag:
    `git tag -s vX.Y.Z -F <message file>`, signed with PK's SSH signing
    key (git `gpg.format ssh`; the key is registered on GitHub as a
-   signing key, Q-002). The message names the release,
-   then lists the DECISION and V-ENG anchors it closes.
-4. The `release` workflow publishes to crates.io and PyPI. Then create the
-   GitHub release page from the CHANGELOG section.
+   signing key, Q-002). The message is the release record, then the
+   DECISION and V-ENG anchors the release closes.
+5. The `release` workflow publishes to crates.io and PyPI; it refuses a
+   tag that is unsigned or not on `stable`. Then create the GitHub
+   release page from the CHANGELOG section, with the release record.
 
 ## Before work
 
