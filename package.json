@@ -1,0 +1,12 @@
+{
+  "name": "fid-ci-tools",
+  "private": true,
+  "description": "JavaScript formatter and linter for the site's inline scripts, run by the lint job in CI (V-ENG-004-02). Not part of fid.",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.15.0",
+    "eslint-plugin-html": "8.2.1",
+    "globals": "17.14.0",
+    "prettier": "3.10.1"
+  }
+}

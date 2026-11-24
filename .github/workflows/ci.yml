@@ -31,6 +31,21 @@ jobs:
       - run: pip install ruff==0.17.5
       - run: ruff check .
       - run: ruff format --check .
+      # Shell: shellcheck and shfmt, as eng-principles pins them
+      # (ENG-DEC-015; V-ENG-004-02).
+      - run: pip install shellcheck-py==0.10.0.1 shfmt-py==3.12.0.2
+      - run: shellcheck spec/build.sh
+      - run: shfmt -d -i 4 -ci -sr spec/build.sh
+      # JavaScript: the inline <script> blocks of site/*.html. Prettier formats
+      # the pages (.prettierrc.json); ESLint lints the scripts (eslint.config.mjs).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      # Exact versions in package.json; every transitive package pinned by
+      # package-lock.json (integrity hashes). npm ci fails if they disagree.
+      - run: npm ci
+      - run: npx --no-install prettier --check site/*.html eslint.config.mjs .prettierrc.json package.json
+      - run: npx --no-install eslint site/
 
   rust:
     runs-on: ubuntu-latest

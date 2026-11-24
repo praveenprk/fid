@@ -4,7 +4,7 @@
 # KRAMDOWN_OFFLINE is set (offline, every reference is a placeholder).
 set -eu
 cd "$(dirname "$0")"
-draft=draft-kumar-fid-00
+draft="draft-kumar-fid-00"
 out=build
 mkdir -p "$out"
 if ! kramdown-rfc "$draft.md" > "$out/$draft.xml" 2> "$out/kramdown.log"; then
