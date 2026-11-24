@@ -35,6 +35,26 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ env.TAG }}
+      # Nothing is published from a tag GitHub cannot verify (AGENTS.md,
+      # Releases; eng-principles ENG-STD-005 §5.1; OpenSSF Scorecard
+      # Signed-Releases; V-ENG-008-01). Every publishing job needs `check`.
+      - name: Tag is annotated, signed and verified by GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.type)
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)
+          if [ "$type" != tag ]; then
+            echo "::error::$TAG is a lightweight tag: tag with git tag -s"
+            exit 1
+          fi
+          verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq .verification.verified)
+          reason=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq .verification.reason)
+          echo "tag=$TAG object=$sha verified=$verified reason=$reason"
+          if [ "$verified" != true ]; then
+            echo "::error::$TAG is not signed with a key GitHub verifies ($reason)"
+            exit 1
+          fi
       - name: Tag matches Cargo.toml and pyproject.toml
         run: |
           tag="${TAG#v}"

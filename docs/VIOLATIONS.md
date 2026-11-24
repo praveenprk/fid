@@ -92,6 +92,8 @@ Fix       : contributing, security, changelog: this change (with private vulnera
             msrv, py_min: CI jobs `msrv` and `python-min` build and test on the declared minimums. 1.80 does not build
             with the locked dependencies (clap 4.6 and indexmap 2.14 need 1.85), so rust-version becomes 1.85 (Q-004).
             signed: the next release tag is signed (AGENTS.md, Releases; Q-002). v0.2.0 is not re-tagged.
+            signed, enforced (#30): the `check` job of .github/workflows/release.yml, which every publishing job needs,
+            fails unless the tag is annotated and GitHub verifies its signature, so an unsigned tag publishes nothing.
 When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
 Status    : OPEN
 Anchor    : ENG-DEC-011
