@@ -55,6 +55,22 @@ jobs:
             echo "::error::$TAG is not signed with a key GitHub verifies ($reason)"
             exit 1
           fi
+      # Releases are tagged on `stable` (DECISION-008): a signed tag on any
+      # other branch publishes nothing.
+      - name: Tagged commit is on stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit=$(git rev-parse HEAD)
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$commit...stable" --jq .status)
+          echo "tag=$TAG commit=$commit stable is $status of it"
+          case "$status" in
+            identical | ahead) ;;
+            *)
+              echo "::error::$TAG ($commit) is not on stable"
+              exit 1
+              ;;
+          esac
       - name: Tag matches Cargo.toml and pyproject.toml
         run: |
           tag="${TAG#v}"
