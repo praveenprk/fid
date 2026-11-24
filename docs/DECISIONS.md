@@ -254,7 +254,10 @@ Decision: fid keeps docs/RUNS.md. Each row: date (UTC); fid version or
           link or path when public); command; result (exit codes and the
           figure that mattered); issues (none, or the issue number opened
           for each). A row is never edited, only followed by a correcting
-          row. fid's maturity is raised in eng-principles CONFORMANCE.md
+          row. The file is public: a private run names its target in
+          general terms, with no private commit IDs, paths or data, and
+          Input reads "private" (phasectl #20).
+          fid's maturity is raised in eng-principles CONFORMANCE.md
           only after the ledger shows sustained use; how many rows over
           how long is the governor's ruling, and fid does not claim L4
           before it.

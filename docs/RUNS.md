@@ -6,6 +6,10 @@
 # than testing fid. Calibration studies (calibration/results/) and CI runs
 # are not entered here.
 # Append only, by pull request. A row is never edited; a later row corrects it.
+# This file is public. A run on private systems or data names its target in
+# general terms ("a private vessel-tracking service") and gives no private
+# commit IDs, paths, hostnames or data; write "private" in Input where it
+# is not public (as phasectl rules for its field record, phasectl #20).
 #
 # Columns: Date (UTC) | fid (version or commit) | Where, for whom | Input |
 #          Command | Result | Issues (none, or #N)
