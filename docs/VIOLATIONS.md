@@ -102,7 +102,7 @@ SPEC says : ENG-STD-008 §2 — check `dependabot`: "Automated dependency update
 Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `dependabot` for fid: "no automated dependency updates". At main a460eab there is no .github/dependabot.yml and no renovate config (`git ls-tree -r --name-only a460eab | grep -iE 'dependabot|renovate'` prints nothing).
 Severity  : HIGH (OpenSSF Scorecard: Dependency-Update-Tool, High; ENG-DEC-013 a). Proposed; PK confirms.
 Impact    : A fixed version of a Rust crate, the maturin build backend or a pinned action reaches fid only if someone notices it by hand. `cargo audit` (CI job `supply-chain`) reports known advisories but proposes no update.
-Fix       : .github/dependabot.yml proposes weekly updates for cargo (/ and /bindings/python), pip (/bindings/python, the build requirements in pyproject.toml) and github-actions. Updates arrive as pull requests into `main`; PK merges them (security-related).
+Fix       : .github/dependabot.yml proposes weekly updates for cargo (/ and /bindings/python), pip (/bindings/python, the build requirements in pyproject.toml), npm (/, the CI lint tools of #34) and github-actions. Updates arrive as pull requests into `main`; PK merges them (security-related).
 When      : This change.
 Status    : RESOLVED — on merge of this change (#30).
 Anchor    : ENG-DEC-015
