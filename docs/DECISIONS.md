@@ -219,3 +219,51 @@ Risk    : Changes reach `main` without a human reading each one. Bounded by
           security-related changes, and PK's review of every promotion to
           `stable` before a release.
 Status  : ACCEPTED (governor, 2026-11-22, by ENG-DEC-012)
+
+---
+
+## DECISION-009 — fid keeps a dated ledger of runs in real use
+
+Date    : 2026-11-25
+Refs    : #30; eng-principles ENG-STD-009 §2.3, §3.1, CONFORMANCE.md (fid at L3, 2026-11-23); calibration/results/; docs/LEDGER.md (a different ledger: the re-check CSV `fid calibrate` reads)
+Problem : eng-principles rates fid L3: it passes its tests on real inputs
+          (the calibration studies, committed under calibration/results/).
+          L4 asks that fid "runs in a real operating environment, and a
+          dated, committed record of runs, inputs, results and issues
+          shows it" (ENG-STD-009 §3.1). The studies are dated by their
+          commits, but they are experiments on historical data, not fid
+          used to make a decision, and nothing records an issue found in
+          use. No such record exists.
+Options : A — docs/RUNS.md (chosen): an append-only table, one row per
+              run in real use, added by pull request. Real use means fid's
+              output was used, or meant to be used, for something other
+              than testing fid: a stamped feed, a `check` gating an action,
+              a registry from `calibrate` put into service, a `drift` check
+              on a live registry. The governor's own use counts
+              (ENG-STD-009 §3.1). Studies and CI runs do not.
+          B — A scheduled workflow runs fid on live public data (e.g.
+              `fid drift` on the METAR registry entries each week) and
+              records the run. Automatic, but a workflow cannot commit to
+              `main` without a pull request (ruleset), and a run nobody
+              acts on is closer to a study than to use.
+          C — Count the calibration results as the record. Cheapest, but
+              ENG-STD-009 §2.3 forbids advancing a level on evidence that
+              does not meet it, and they record no issues found in use.
+Decision: fid keeps docs/RUNS.md. Each row: date (UTC); fid version or
+          commit; where it ran and for whom; input (what, how much, a
+          link or path when public); command; result (exit codes and the
+          figure that mattered); issues (none, or the issue number opened
+          for each). A row is never edited, only followed by a correcting
+          row. fid's maturity is raised in eng-principles CONFORMANCE.md
+          only after the ledger shows sustained use; how many rows over
+          how long is the governor's ruling, and fid does not claim L4
+          before it.
+Reason  : It is the record ENG-STD-009 §3.1 names, kept the way fid keeps
+          its other registers (append only, by pull request). It separates
+          use from study, which C does not, and needs no new machinery,
+          which B does. B can be added later as one more source of rows.
+Risk    : A ledger filled by hand stays empty if nobody writes to it, and
+          fid stays L3; that is the honest outcome. Rows describe use the
+          reviewer did not see; each names its input so it can be checked
+          where the input is public.
+Status  : PROPOSED
