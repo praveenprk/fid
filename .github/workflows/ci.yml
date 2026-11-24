@@ -41,8 +41,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
-      - run: npm install --no-save --no-package-lock prettier@3.10.1 eslint@10.15.0 eslint-plugin-html@8.2.1 globals@17.14.0 @eslint/js@10.0.1
-      - run: npx --no-install prettier --check site/*.html eslint.config.mjs .prettierrc.json
+      # Exact versions in package.json; every transitive package pinned by
+      # package-lock.json (integrity hashes). npm ci fails if they disagree.
+      - run: npm ci
+      - run: npx --no-install prettier --check site/*.html eslint.config.mjs .prettierrc.json package.json
       - run: npx --no-install eslint site/
 
   rust:
