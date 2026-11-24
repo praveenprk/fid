@@ -39,6 +39,7 @@ pub enum Verdict {
 }
 
 impl Verdict {
+    /// The process exit code for this verdict.
     pub fn exit_code(&self) -> i32 {
         match self {
             Self::Current => 0,
@@ -59,8 +60,11 @@ impl Verdict {
 /// The registry's values for one state; half-life in seconds.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Registered {
+    /// Registered half-life, in seconds; infinite means no decay.
     pub half_life: f64,
+    /// Registered baseline; 0 when the registry has none.
     pub baseline: f64,
+    /// Registered fraction correct when fresh, if any.
     pub source_fidelity: Option<f64>,
 }
 
@@ -69,6 +73,7 @@ pub struct Registered {
 pub struct StateDrift {
     /// calibrate's fit of the recent checks, with 95% ranges
     pub recent: StateFit,
+    /// The registry's values for this state.
     pub registered: Registered,
     /// The registry's curve, s0 refitted when the registry has none
     pub registry_model: Model,
@@ -76,12 +81,17 @@ pub struct StateDrift {
     pub refit: Model,
     /// Likelihood-ratio statistic, after the overdispersion correction
     pub chi2: f64,
+    /// Degrees of freedom of the test: 3 when the registry fixes s0, else 2.
     pub df: usize,
+    /// Overdispersion factor from repeated checks of one entity (at least 1).
     pub dispersion: f64,
+    /// Chance of a statistic this large if the registry still holds.
     pub p_value: f64,
     /// Largest gap between each curve and the recent binned data
     pub registry_gap: f64,
+    /// Largest gap between the recent refit and the recent binned data.
     pub refit_gap: f64,
+    /// CURRENT, DRIFTED or UNKNOWN for this state.
     pub verdict: Verdict,
 }
 

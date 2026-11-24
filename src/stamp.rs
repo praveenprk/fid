@@ -70,7 +70,9 @@ impl StampOptions {
 /// Result of a stamp: the artifact plus any warnings for stderr.
 #[derive(Debug)]
 pub struct StampOutput {
+    /// The stamped artifact.
     pub stamped: Stamped,
+    /// Warnings to print on stderr.
     pub warnings: Vec<String>,
 }
 

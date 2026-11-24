@@ -205,14 +205,18 @@ pub struct Echo {
 /// An echo in seconds, validated.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EchoParams {
+    /// Seconds between returns.
     pub period: f64,
+    /// Height of the first return, before fading (r).
     pub strength: f64,
+    /// Half-width of each return, in seconds.
     pub width: f64,
     /// None: the returns never fade
     pub fade: Option<f64>,
 }
 
 impl Echo {
+    /// Parse and validate the echo's durations and values.
     pub fn params(&self) -> Result<EchoParams, String> {
         let duration = |name: &str, text: &str| {
             parse_half_life(text)?.ok_or_else(|| format!("echo {} cannot be infinite", name))
@@ -408,11 +412,14 @@ pub struct Fast {
 /// A fast share in seconds, validated.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FastParams {
+    /// Fraction of facts on the fast clock, 0 to 1.
     pub share: f64,
+    /// Half-life of the fast clock, in seconds.
     pub half_life: f64,
 }
 
 impl Fast {
+    /// Validate the share and parse the fast half-life.
     pub fn params(&self) -> Result<FastParams, String> {
         if !self.share.is_finite() || !(0.0..=1.0).contains(&self.share) {
             return Err(format!(
@@ -433,9 +440,13 @@ impl Fast {
 /// and the clocks' shape (None: 1, the exponential).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Curve {
+    /// Main half-life in seconds; None means no decay.
     pub half_life: Option<f64>,
+    /// Share on a faster clock, if any.
     pub fast: Option<FastParams>,
+    /// Periodic return, if any.
     pub echo: Option<EchoParams>,
+    /// Shape of the clocks; None means 1, the exponential.
     pub shape: Option<f64>,
 }
 

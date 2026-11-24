@@ -112,6 +112,7 @@ pub fn not_understood(fid: &serde_json::Map<String, Value>) -> Option<String> {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Read {
+    /// A valid artifact the scorer can read.
     Understood(Stamped),
     /// Fidelity cannot be computed: scorers answer UNKNOWN (draft, Check)
     NotUnderstood(String),
@@ -470,7 +471,9 @@ impl FidEnvelope {
 /// When a fact's fidelity falls below a floor.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Expiry {
+    /// At this instant.
     At(DateTime<Utc>),
+    /// The fidelity never falls below the floor.
     Never,
 }
 
@@ -480,7 +483,9 @@ pub enum Expiry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Stamped {
+    /// The fidelity envelope.
     pub fid: FidEnvelope,
+    /// The wrapped content, as JSON.
     pub content: Value,
 }
 
@@ -530,6 +535,7 @@ pub enum FidStatus {
 }
 
 impl FidStatus {
+    /// The process exit code for this status.
     pub fn exit_code(&self) -> i32 {
         match self {
             Self::Signal => 0,
