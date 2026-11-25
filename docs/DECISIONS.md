@@ -305,4 +305,4 @@ Risk    : A contributor answers its own question, so a weak Recommend
           overrule it by a later entry; the exclusions keep security
           merges, settings and tags with PK; and PK may withdraw the rule
           by superseding this entry.
-Status  : PROPOSED (backfilled; in effect since 2026-11-25 by the governor's instruction, pending governor acceptance)
+Status  : ACCEPTED (governor, 2026-11-26)
