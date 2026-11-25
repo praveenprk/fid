@@ -7,6 +7,9 @@ name: Commit check
 # scripts/hooks/types and scripts/hooks/anchors. Its `questions` job fails a
 # pull request into main while docs/QUESTIONS.md has an OPEN entry
 # (ENG-DEC-010, DECISION-007).
+# Since eng-principles f13eb83 (ENG-DEC-021), a Dependabot pull request
+# passes with Dependabot's own title, and its GitHub-signed version-bump
+# commits need no anchor; the author is taken from the event, not the PR text.
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -18,6 +21,6 @@ permissions:
 
 jobs:
   commit-check:
-    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@f972b72d677281e33373ed6e3368027ec443a4d0
+    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@f13eb831c53c112356bdf14ea600abfcb6bb4c22
     with:
       config: scripts/hooks

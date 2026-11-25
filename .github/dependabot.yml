@@ -1,7 +1,9 @@
 # Automated dependency update proposals (eng-principles ENG-STD-008
 # `dependabot`; OpenSSF Scorecard Dependency-Update-Tool; V-ENG-008-02).
-# Updates arrive as pull requests into `main`. Their titles carry no anchor,
-# so `commit-check` fails until the title gains one (e.g. "— V-ENG-008-02").
+# Updates arrive as pull requests into `main`. Their titles carry no anchor;
+# `commit-check` accepts them as Dependabot version bumps (eng-principles
+# ENG-DEC-021). Do not use "Update branch" on them: that adds a commit
+# Dependabot did not sign, which needs an anchor. Ask "@dependabot rebase".
 # Dependency updates are security-related: PK merges them (AGENTS.md).
 # Tools CI installs by exact version (Rust toolchain, ruff, the maturin
 # range) are pinned in the workflows and are not covered here.
