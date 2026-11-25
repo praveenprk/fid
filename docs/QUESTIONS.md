@@ -5,6 +5,8 @@
 # on that pull request. A pull request into `main` cannot merge while any
 # entry is OPEN (`commit-check / questions`).
 # Append only. An answered entry stays, with its answer.
+# A question a contributor raises is answered by its Recommend option under
+# the governor's standing rule (DECISION-010).
 # Format: eng-principles templates/question.md
 
 ---

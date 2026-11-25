@@ -270,3 +270,35 @@ Risk    : A ledger filled by hand stays empty if nobody writes to it, and
           reviewer did not see; each names its input so it can be checked
           where the input is public.
 Status  : PROPOSED
+
+---
+
+## DECISION-010 — A contributor's own questions are answered by their Recommend option
+
+Date    : 2026-11-25
+Refs    : DECISION-008; docs/QUESTIONS.md; eng-principles ENG-DEC-012, ENG-STD-005 §2.5; #30
+Decision: The governor's standing rule, as given on 2026-11-25:
+          "for every Q-NNN you raise, take the Recommend option as my
+          answer and record it as "ANSWERED (governor, standing rule
+          2026-11-25): <option>". Security merges, settings and tags
+          still wait for me."
+          So a contributor who raises a question in docs/QUESTIONS.md
+          records, in the same pull request, its Recommend option as the
+          answer, in the form above, followed by any DECISION entry that
+          answer needs. The rule covers only questions the contributor
+          raises in that pull request, not OPEN entries raised by others.
+          It does not cover merging `security`-labelled pull requests,
+          changing repository or host settings (rulesets, branches,
+          labels), or creating or signing tags: those wait for PK.
+Reason  : Routine judgments stopped blocking merges into `main`
+          (`commit-check / questions`) while PK is away. The rule was
+          given only in a working session, and Q-006 is the first answer
+          recorded under it; this entry puts its authority where a reader
+          of docs/QUESTIONS.md can find it.
+Risk    : A contributor answers its own question, so a weak Recommend
+          becomes the answer unreviewed. Bounded by: the answer is
+          visible in the pull request and the register; PK can overrule
+          it by a later entry; the exclusions keep security merges,
+          settings and tags with PK; and PK may withdraw the rule by
+          superseding this entry.
+Status  : PROPOSED (backfilled; in effect since 2026-11-25 by the governor's instruction, pending governor acceptance)
