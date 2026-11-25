@@ -16,7 +16,9 @@ fid follows eng-principles, mapped onto fid's own spec system
 - **Merging into `main`:** any authorised contributor, human or automated,
   may merge a pull request into `main` once every required check passes,
   it has had an automated or human review, and no question is OPEN. A
-  security-related change (ENG-STD-005 §2.5) is merged only by PK.
+  security-related change (ENG-STD-005 §2.5) is merged only by PK, and so
+  is a pull request that records an answer under the governor's standing
+  rule on questions (DECISION-010).
 - **Releasing:** only PK promotes `main` → `stable` and tags a release,
   each on its release record (Releases, below). An automated contributor
   never promotes or tags; allowing it would need its own decision and
@@ -29,7 +31,7 @@ fid follows eng-principles, mapped onto fid's own spec system
 | Branch | Holds | Who merges into it | How |
 |--------|-------|--------------------|-----|
 | `type/ANCHOR-short-description` | One piece of work | Its author | Commits |
-| `main` (default) | Integrated work | A contributor, checks green, no OPEN question; PK for security-related changes | Squash or rebase |
+| `main` (default) | Integrated work | A contributor, checks green, no OPEN question; PK for security-related changes and for answers under DECISION-010 | Squash or rebase |
 | `stable` | What is released | PK | Merge commit, from `main` |
 
 - Every pull request targets `main`, from a work branch. Nothing is
@@ -39,7 +41,10 @@ fid follows eng-principles, mapped onto fid's own spec system
   the options and what each changes, your recommendation. PK answers on
   that pull request; record the answer in the entry. The pull request
   cannot merge into `main` while any entry is OPEN. An answer that
-  decides something becomes a DECISION entry.
+  decides something becomes a DECISION entry. Under the governor's
+  standing rule (DECISION-010), a contributor records the Recommend
+  option of a question it raises as the answer; only PK merges a pull
+  request that does so.
 - Security-related changes (eng-principles ENG-STD-005 §2.5: vulnerability
   reports or fixes, SECURITY.md, secrets or workflow permissions, branch
   rules or required checks, integrity-checking code) carry the label
