@@ -306,3 +306,34 @@ Risk    : A contributor answers its own question, so a weak Recommend
           merges, settings and tags with PK; and PK may withdraw the rule
           by superseding this entry.
 Status  : PROPOSED (backfilled; in effect since 2026-11-25 by the governor's instruction, pending governor acceptance)
+
+---
+
+## DECISION-011 — An agent may merge a pull request that only records what the governor accepted first-hand
+
+Date    : 2026-11-26
+Refs    : DECISION-008, DECISION-010; eng-principles ENG-DEC-012, ENG-DEC-015, ENG-STD-005 §2.5; relayed by engineering-fa from the governor, 2026-11-26
+Decision: Relayed by engineering-fa from the governor on 2026-11-26, to be
+          recorded in each repository: a pull request whose only change
+          records something the governor has already accepted
+          first-hand, such as a decision's acceptance or a question's
+          answer, may be merged by an automated contributor once every
+          required check passes and the master review (engineering-fa)
+          is ok. A pull request labelled `security` still goes to the
+          governor.
+          This does not reach answers recorded under the standing rule
+          on questions (DECISION-010): the governor did not give those
+          first-hand, and DECISION-010 keeps their merge with PK.
+Reason  : Writing down an acceptance the governor has already given
+          needs no further judgment, so it need not wait for PK to merge.
+          This entry reached fid by relay, not from the governor in this
+          repository's working session, so it stays PROPOSED until PK
+          accepts it first-hand or by merging this pull request.
+Risk    : An agent records an acceptance the governor did not give and
+          merges it. Bounded by: the acceptance must be first-hand, and
+          the pull request must say where and when it was given; the
+          master review checks that; the change may hold nothing else;
+          `security`-labelled pull requests, settings and tags stay with
+          PK; and the record stays in the register, where PK can reverse
+          it by a later entry.
+Status  : PROPOSED
