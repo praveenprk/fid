@@ -48,7 +48,7 @@ Risk    : Commits made before adoption stay unanchored, and history is not
           rewritten. ENG-* anchors are not checked against eng-principles,
           so a mistyped one is accepted. The checks bind only once the
           ruleset requires `commit-check`.
-Status  : PROPOSED
+Status  : ACCEPTED (governor, 2026-11-26)
 
 ---
 
@@ -61,7 +61,7 @@ Decision: The crate and the PyPI package are named `fidmeter`. The
 Reason  : As recorded in f6759b2: "The name fid is taken on both registries."
           The commit also records that "no code changes for users" follow.
 Risk    : none recorded
-Status  : PROPOSED (backfilled; in effect since the cited commit, pending governor acceptance)
+Status  : ACCEPTED (governor, 2026-11-26)
 
 ---
 
@@ -76,7 +76,7 @@ Reason  : As recorded in e69e35f: "bindings/python wraps the Rust library
           (no reimplementation)". MILESTONE.md says this is "so Python
           systems call one implementation instead of porting the formula".
 Risk    : none recorded
-Status  : PROPOSED (backfilled; in effect since the cited commit, pending governor acceptance)
+Status  : ACCEPTED (governor, 2026-11-26)
 
 ---
 
@@ -92,7 +92,7 @@ Reason  : As recorded in beea159 and conformance/README.md: "fid and
           `generate.py` have to agree". The order of change is "Change the
           spec here, then `generate.py`, then fid."
 Risk    : none recorded
-Status  : PROPOSED (backfilled; in effect since the cited commit, pending governor acceptance)
+Status  : ACCEPTED (governor, 2026-11-26)
 
 ---
 
@@ -269,7 +269,7 @@ Risk    : A ledger filled by hand stays empty if nobody writes to it, and
           fid stays L3; that is the honest outcome. Rows describe use the
           reviewer did not see; each names its input so it can be checked
           where the input is public.
-Status  : PROPOSED
+Status  : ACCEPTED (governor, 2026-11-26)
 
 ---
 
