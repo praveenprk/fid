@@ -92,3 +92,31 @@ Recommend: A, because supporting 3.9 costs one CI job today and dropping
            it gains nothing until the runner goes away.
 Raised by: ci/V-ENG-008-01-msrv-python-supply-chain
 Status   : ANSWERED (governor, 2026-11-21): A, keep Python 3.9 for now → no change
+
+### Q-006
+Scenario : Dependabot proposes sha2 0.10.9 → 0.11.1 (#42). fid builds and
+           passes its tests with it on current Rust, but sha2 0.11.1 and
+           0.11.2 need Rust 1.88, and fid promises Rust 1.85 (Cargo.toml
+           rust-version; CI job `msrv`, Q-004). A company that builds fid on a
+           fixed 1.85 toolchain would find the next release no longer
+           builds. sha2 0.10.9 has no known advisory (`cargo audit` passes;
+           the one RustSec entry for sha2, RUSTSEC-2021-0100, is for 0.9.7).
+           The fingerprints are unchanged: the conformance vectors pass with
+           either version.
+Options  : A — Hold sha2 at 0.10 and keep Rust 1.85. dependabot.yml ignores
+               sha2 0.11 and later until fid raises its minimum Rust for
+               some other reason, or a fix fid needs exists only in 0.11.
+               #42 is closed. Nothing changes for any user.
+           B — Raise the minimum Rust to 1.88 and take sha2 0.11.2. Users on
+               Rust 1.85 to 1.87 can no longer build the next release; it
+               goes under Changed in CHANGELOG.md, and the `msrv` job moves
+               to 1.88. Rust 1.88 is from June 2025.
+           C — Pin sha2 to exactly 0.11.0, the last 0.11 release that still
+               builds on 1.85. fid moves to 0.11 but can take no 0.11 patch
+               fix without B.
+Recommend: A, because 0.11 brings fid nothing it needs today, holding it
+           breaks nobody, and it is undone by deleting one ignore rule. B is
+           the right move when another reason to raise the minimum Rust
+           comes along.
+Raised by: chore/Q-006-hold-sha2-msrv (A is applied there), after #42 failed `msrv`
+Status   : ANSWERED (governor, standing rule 2026-11-25): A, hold sha2 at 0.10, rust-version stays 1.85 → .github/dependabot.yml ignores sha2 >= 0.11
