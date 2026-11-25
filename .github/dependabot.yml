@@ -13,6 +13,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # sha2 0.11.1 and later need Rust 1.88; fid supports 1.85 (Q-006).
+      # Remove this rule when rust-version is raised.
+      - dependency-name: sha2
+        versions: [">= 0.11"]
   - package-ecosystem: cargo
     directory: /bindings/python
     schedule:
