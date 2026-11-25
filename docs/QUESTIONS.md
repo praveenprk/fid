@@ -6,7 +6,8 @@
 # entry is OPEN (`commit-check / questions`).
 # Append only. An answered entry stays, with its answer.
 # A question a contributor raises is answered by its Recommend option under
-# the governor's standing rule (DECISION-010).
+# the governor's standing rule (DECISION-010); a pull request that records
+# such an answer is merged by the governor, as a security-related change is.
 # Format: eng-principles templates/question.md
 
 ---
