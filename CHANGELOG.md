@@ -8,9 +8,21 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-27
+
+A patch release. Behaviour is unchanged; fid computes, stamps and checks
+exactly as 0.2.0 did.
+
 ### Changed
 - The minimum supported Rust version is 1.85, not 1.80. The locked
   dependencies of 0.2.0 already needed 1.85; CI now builds and tests on it.
+- The Python package builds against PyO3 0.30 (was 0.29). The command line
+  uses clap 4.6.9 (was 4.6.7).
+- Every public item of the Rust crate is documented.
+
+### Security
+- A release is published to crates.io and PyPI only from an annotated tag
+  that is signed, verified by GitHub, and on `stable`.
 
 ## [0.2.0] - 2026-11-17
 
@@ -46,7 +58,8 @@ the pin.
 - The Python package (`import fid`).
 - Calibration against public ground-truth data (docs/FINDINGS.md).
 
-[Unreleased]: https://github.com/praveenprk/fid/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/praveenprk/fid/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/praveenprk/fid/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/praveenprk/fid/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/praveenprk/fid/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/praveenprk/fid/releases/tag/v0.1.0
