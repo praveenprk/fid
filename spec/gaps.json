@@ -35,12 +35,6 @@
    "what": "derived-stamp rules tested only by Rust unit tests, no vectors"
   }
  ],
- "recheck": [
-  {
-   "issue": 16,
-   "what": "no envelope-level vectors for recheck_at"
-  }
- ],
  "conformance": [
   {
    "exempt": "enforced by spec/traceability.py in CI",

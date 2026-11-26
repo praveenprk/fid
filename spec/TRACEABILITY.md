@@ -25,7 +25,7 @@ neither tested nor listed as a gap.
 | versioning | Versioning | envelope (11) | `test_cannot_derive_from_an_envelope_not_understood`, `test_no_half_life_warns` | covered |
 | check | Check | envelope (32) | `check_below_floor_is_noise`, `check_fresh_artifact_is_signal`, `check_stale_artifact_decays_to_noise`, `check_tampered_content_is_unknown`, `check_unknown_source_is_unknown`, `test_no_half_life_is_unknown` | covered |
 | expiry | Expiry | envelope (32) | `ttl_never_and_unknown`, `ttl_prints_expiry_and_exit_code` | covered |
-| recheck | Re-check time | — | `schedule_prints_recheck_time_and_exit_code` | partial: #16: no envelope-level vectors for recheck_at |
+| recheck | Re-check time | recheck_at (35) | `schedule_prints_recheck_time_and_exit_code` | covered |
 | half-life-registry | Half-life registry | registry (14) | `stamp_carries_a_fast_share_from_the_registry`, `stamp_looks_up_state_half_life`, `test_bad_baseline_is_error`, `test_bad_source_fidelity_is_error`, `test_echo_lookup_and_validation`, `test_example_files_parse`, `test_fast_lookup_and_validation`, `test_half_life_with_baseline`, `test_shape_lookup_and_validation`, `test_simple_half_life`, `test_state_half_life`, `test_state_is_whole`, `test_state_overrides_source_fidelity`, `test_stateful_type_without_state_is_error`, `test_unknown_field_is_error`, `test_unknown_type_state_is_error`, `test_unparseable_half_life_fails_on_lookup_only` | covered |
 | noise-model | Noise model | — | `stamp_looks_up_conditional_noise`, `test_noise_lookup_errors`, `test_noise_lookup` | covered |
 | ledger | Re-check Ledgers | ledger_csv (13) | — | covered |

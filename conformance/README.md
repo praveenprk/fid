@@ -189,6 +189,14 @@ first exceeds `target` (`never` if it does not); an error when
 
 A floor, when given, caps either interval at the time to floor.
 
+The `recheck_at` vectors read complete envelopes and check price- and
+staleness-based schedules, written as RFC 3339 to the millisecond, or
+`never` or `unknown`. They cover the one-second bound, no decay, floor
+caps (including a fact already at or below the floor), unknown envelopes,
+and rejection of malformed prices and staleness targets (`"inf"` and
+`"nan"` stand for non-finite inputs). As for `schedule`, a price-based
+time is checked by its cost, since any search within 1e-7 is conforming.
+
 ## Integrity
 
 From `fid_version` 1.0: `"sha256:" + hex(sha256(JCS(content)))`, JCS being
