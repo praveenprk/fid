@@ -199,6 +199,10 @@ I-JSON: a writer refuses integers beyond 2^53 (`writer_errors`).
 A stamped artifact has exactly the members `fid` and `content`; a reader
 rejects anything else, such as a third top-level member (`reader_errors`).
 
+A non-finite value where the draft says "number" is rejected, in an
+envelope (`1e999`) and in a registry (`.nan`, `.inf`), each against a finite
+control that reads (`number_errors`).
+
 Versions 0.1 to 0.4 use the legacy form below, and are verified with it:
 `"sha256:" + hex(sha256(canonical JSON of content))`, where canonical is:
 
