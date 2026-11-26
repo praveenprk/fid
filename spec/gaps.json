@@ -1,10 +1,4 @@
 {
- "timestamps": [
-  {
-   "issue": 16,
-   "what": "no vector for rounding at exactly .5 ms"
-  }
- ],
  "envelope-fields": [
   {
    "issue": 16,

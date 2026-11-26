@@ -619,6 +619,31 @@ fn derived_stamps() {
 }
 
 #[test]
+fn timestamp_rounding() {
+    let v = vectors();
+    for c in cases(&v, "timestamp_rounding") {
+        let name = c["name"].as_str().unwrap();
+        let stamped = match fid::envelope::read_value(c["stamped"].clone())
+            .unwrap_or_else(|e| panic!("{}: {}", name, e))
+        {
+            fid::envelope::Read::Understood(s) => s,
+            fid::envelope::Read::NotUnderstood(why) => {
+                panic!("{}: not understood: {}", name, why)
+            }
+        };
+        let got = match stamped
+            .fid
+            .expires_at(c["floor"].as_f64().unwrap())
+            .unwrap()
+        {
+            Some(Expiry::At(t)) => t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            other => panic!("{}: expected a timestamp, got {:?}", name, other),
+        };
+        assert_eq!(got, c["expires_at"].as_str().unwrap(), "{}", name);
+    }
+}
+
+#[test]
 fn envelopes() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
