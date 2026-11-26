@@ -1268,6 +1268,37 @@ def writer_error_cases():
     ]
 
 
+def reader_error_cases():
+    """Artifacts a reader must reject: not exactly {"fid", "content"} (draft, Structure)."""
+    env = envelope({"reading": 42}, "instrument", "7d")["fid"]
+    cases = [
+        (
+            {"fid": env, "content": {"reading": 42}, "note": "x"},
+            "a third top-level member",
+        ),
+        (
+            {"fid": env, "content": 1, "ext": {}},
+            "ext at the top level, not in the envelope",
+        ),
+        ({"fid": env}, "no content"),
+        ({"content": {"reading": 42}}, "no envelope"),
+        ({"fid": env, "contents": {"reading": 42}}, "content misnamed"),
+        ([env, {"reading": 42}], "not an object"),
+    ]
+    for artifact, _ in cases:
+        assert structure_error(artifact) is not None
+    return [{"artifact": a, "error": e} for a, e in cases]
+
+
+def structure_error(artifact):
+    """Why an artifact is not {"fid", "content"} (draft, Structure), or None."""
+    if not isinstance(artifact, dict):
+        return "not an object"
+    if set(artifact) != {"fid", "content"}:
+        return "members other than exactly 'fid' and 'content'"
+    return None
+
+
 # A half-life registry as JSON text (YAML 1.2 reads JSON unchanged)
 REGISTRY = {
     "plain": "1y",
@@ -1626,6 +1657,7 @@ GROUP_SECTIONS = {
     "integrity": ["integrity", "legacy-canonical"],
     "integrity_jcs": ["integrity"],
     "writer_errors": ["structure", "stamping"],
+    "reader_errors": ["structure"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -1814,6 +1846,7 @@ def main():
         "integrity": integrity_cases(),
         "integrity_jcs": jcs_cases(),
         "writer_errors": writer_error_cases(),
+        "reader_errors": reader_error_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),

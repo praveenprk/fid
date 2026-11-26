@@ -17,12 +17,6 @@
    "what": "no vector combines an echo with a shape or a fast share"
   }
  ],
- "structure": [
-  {
-   "issue": 16,
-   "what": "no vector rejects a third top-level member"
-  }
- ],
  "envelope-fields": [
   {
    "issue": 16,

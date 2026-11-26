@@ -202,6 +202,12 @@ class Conformance(unittest.TestCase):
                         got.total_seconds() / c["seconds"], 1.0, delta=1e-6
                     )
 
+    def test_reader_errors(self):
+        for c in V["reader_errors"]:
+            with self.subTest(c["error"]):
+                with self.assertRaises(ValueError):
+                    fid.check(c["artifact"], 0.5, now=when(V["envelope"][0]["now"]))
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):

@@ -2115,6 +2115,126 @@
    ]
   }
  ],
+ "reader_errors": [
+  {
+   "artifact": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": {
+     "reading": 42
+    },
+    "note": "x"
+   },
+   "error": "a third top-level member",
+   "sections": [
+    "structure"
+   ]
+  },
+  {
+   "artifact": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "content": 1,
+    "ext": {}
+   },
+   "error": "ext at the top level, not in the envelope",
+   "sections": [
+    "structure"
+   ]
+  },
+  {
+   "artifact": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    }
+   },
+   "error": "no content",
+   "sections": [
+    "structure"
+   ]
+  },
+  {
+   "artifact": {
+    "content": {
+     "reading": 42
+    }
+   },
+   "error": "no envelope",
+   "sections": [
+    "structure"
+   ]
+  },
+  {
+   "artifact": {
+    "fid": {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    "contents": {
+     "reading": 42
+    }
+   },
+   "error": "content misnamed",
+   "sections": [
+    "structure"
+   ]
+  },
+  {
+   "artifact": [
+    {
+     "fid_version": "0.2",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "7d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd"
+    },
+    {
+     "reading": 42
+    }
+   ],
+   "error": "not an object",
+   "sections": [
+    "structure"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",

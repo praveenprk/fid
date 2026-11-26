@@ -376,6 +376,17 @@ fn writer_errors() {
 }
 
 #[test]
+fn reader_errors() {
+    let v = vectors();
+    for c in cases(&v, "reader_errors") {
+        let got = fid::envelope::read_value(c["artifact"].clone());
+        assert!(got.is_err(), "{}: a reader must reject", c["error"]);
+        let text = serde_json::to_string(&c["artifact"]).unwrap();
+        assert!(fid::envelope::read(&text).is_err(), "{}: read", c["error"]);
+    }
+}
+
+#[test]
 fn envelopes() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
