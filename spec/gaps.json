@@ -11,12 +11,6 @@
    "what": "no vector for rounding at exactly .5 ms"
   }
  ],
- "temporal": [
-  {
-   "issue": 16,
-   "what": "no vector combines an echo with a shape or a fast share"
-  }
- ],
  "structure": [
   {
    "issue": 16,

@@ -1639,6 +1639,278 @@
    ]
   }
  ],
+ "temporal": [
+  {
+   "name": "echo, default shape, one clock, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": null,
+   "fidelity": 0.18626352061295315,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, default shape, one clock, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": null,
+   "fidelity": 0.39083676442446563,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, default shape, a fast share, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": null,
+   "fidelity": 0.1806680358040304,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, default shape, a fast share, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": null,
+   "fidelity": 0.3906568243881969,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, below 1 shape, one clock, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 0.5,
+   "fidelity": 0.3441447861825866,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, below 1 shape, one clock, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 0.5,
+   "fidelity": 0.48800355204156,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, below 1 shape, a fast share, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 0.5,
+   "fidelity": 0.312804929918603,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, below 1 shape, a fast share, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 0.5,
+   "fidelity": 0.46981899137697375,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, above 1 shape, one clock, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 1.7,
+   "fidelity": 0.15830900245134022,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, above 1 shape, one clock, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": null,
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 1.7,
+   "fidelity": 0.38993706424311997,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, above 1 shape, a fast share, between returns",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 43200.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 1.7,
+   "fidelity": 0.15830441090353187,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  },
+  {
+   "name": "echo, above 1 shape, a fast share, at the first return",
+   "fidelity_at_measurement": 1.0,
+   "age_seconds": 86400.0,
+   "half_life_seconds": 8712.0,
+   "baseline": 0.13,
+   "fast": {
+    "share": 0.2,
+    "half_life": "0.5h"
+   },
+   "echo": {
+    "period": "24h",
+    "strength": 0.31,
+    "width": "3.75h",
+    "fade": "345h"
+   },
+   "shape": 1.7,
+   "fidelity": 0.38993706424311975,
+   "sections": [
+    "temporal",
+    "fidelity",
+    "tolerances"
+   ]
+  }
+ ],
  "schedule": [
   {
    "name": "one day half-life, cheap re-checks",
