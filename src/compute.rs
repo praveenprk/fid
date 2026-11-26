@@ -387,7 +387,8 @@ pub fn time_to_floor_echo(
         )
     };
     let step = half_life_seconds.min(echo.width) / 50.0;
-    first_below(&at, floor, start, step, start + 10_000.0 * echo.period)
+    // "within 10,000 periods" counts from measurement, not from `start`
+    first_below(&at, floor, start, step, 10_000.0 * echo.period)
 }
 
 /// Decay `fidelity` by the temporal factor, toward `baseline` rather than 0.
@@ -739,13 +740,8 @@ impl Curve {
                 if let Some(f) = self.fast {
                     shortest = shortest.min(f.half_life);
                 }
-                first_below(
-                    &at,
-                    floor,
-                    start,
-                    shortest / 50.0,
-                    start + 10_000.0 * e.period,
-                )
+                // within 10,000 periods of measurement (draft, Time to floor)
+                first_below(&at, floor, start, shortest / 50.0, 10_000.0 * e.period)
             }
         }
     }
@@ -1232,6 +1228,37 @@ mod tests {
             time_to_floor_echo(0.4, h, b, 0.5, &e),
             TimeToFloor::After(0.0)
         );
+    }
+
+    // spec: time-to-floor
+    #[test]
+    fn test_echo_search_ends_10000_periods_after_measurement() {
+        // Found by the nightshift runner while closing #16: the search ran
+        // to 10,000 periods after the plain-curve crossing, not after t = 0.
+        let e = EchoParams {
+            period: 0.1,
+            strength: 0.1,
+            width: 1e-6,
+            fade: None,
+        };
+        let end = 10_000.0 * e.period; // 1000 s
+        for (h, inside) in [(999.55, true), (1000.55, false)] {
+            let got = time_to_floor_echo(1.0, h, 0.0, 0.5, &e);
+            let general = Curve {
+                half_life: Some(h),
+                fast: None,
+                echo: Some(e),
+                shape: Some(1.0),
+            }
+            .time_to_floor(1.0, 0.0, 0.5);
+            for got in [got, general] {
+                match (inside, got) {
+                    (true, TimeToFloor::After(t)) => assert!(t <= end && (t - h).abs() < 1e-3),
+                    (false, TimeToFloor::Never) => {}
+                    _ => panic!("h = {}: {:?}", h, got),
+                }
+            }
+        }
     }
 
     fn fast(share: f64, half_life: &str) -> Fast {

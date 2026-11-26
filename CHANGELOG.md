@@ -8,6 +8,13 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before
 
 ## [Unreleased]
 
+### Fixed
+- With an echo, the time to floor is "never" when no crossing occurs within
+  10,000 periods of measurement, as the draft says. Before, the search ran
+  to 10,000 periods after the crossing of the curve without its echo, so a
+  crossing past that limit (e.g. a 1000.55 s half-life with a 0.1 s echo
+  period) was returned instead of "never".
+
 ## [0.2.1] - 2026-11-27
 
 A patch release. Behaviour is unchanged; fid computes, stamps and checks
