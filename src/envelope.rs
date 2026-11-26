@@ -35,6 +35,19 @@ const MEMBERS: &[(&str, (u32, u32))] = &[
     ("shape", (0, 4)),
     ("ext", (1, 0)),
 ];
+/// Members every envelope carries, since 0.1 (draft, Fields: Req. yes).
+/// half_life, fid_at_stamp and derived_from may be null, never absent.
+const REQUIRED: &[&str] = &[
+    "fid_version",
+    "source_class",
+    "source_id",
+    "measured_at",
+    "half_life",
+    "transforms",
+    "fid_at_stamp",
+    "derived_from",
+    "integrity",
+];
 const ECHO_MEMBERS: &[&str] = &["period", "strength", "width", "fade"];
 const FAST_MEMBERS: &[&str] = &["share", "half_life"];
 const STEP_MEMBERS: &[&str] = &["step", "noise", "at", "condition"];
@@ -144,6 +157,11 @@ pub fn read_value(value: Value) -> Result<Read, String> {
     }
     if let Some(reason) = not_understood(fid) {
         return Ok(Read::NotUnderstood(reason));
+    }
+    // Required members may be null but not absent (draft, Fields); serde
+    // alone would read a missing Option as None.
+    if let Some(name) = REQUIRED.iter().find(|m| !fid.contains_key(**m)) {
+        return Err(format!("required member '{}' is missing", name));
     }
     serde_json::from_value(value)
         .map(Read::Understood)
@@ -549,6 +567,40 @@ impl FidStatus {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+
+    // spec: envelope-fields
+    #[test]
+    fn a_missing_required_member_is_malformed() {
+        let full = serde_json::to_value(Stamped {
+            fid: sample_envelope(),
+            content: Value::from(1),
+        })
+        .unwrap();
+        assert!(matches!(read_value(full.clone()), Ok(Read::Understood(_))));
+        for name in REQUIRED {
+            let mut v = full.clone();
+            v["fid"].as_object_mut().unwrap().remove(*name);
+            let err = read_value(v)
+                .err()
+                .unwrap_or_else(|| panic!("{} missing was read", name));
+            assert!(
+                err.contains(name) || *name == "fid_version",
+                "{}: {}",
+                name,
+                err
+            );
+        }
+        // null stays valid where the draft allows it
+        for name in ["half_life", "fid_at_stamp", "derived_from"] {
+            let mut v = full.clone();
+            v["fid"][name] = Value::Null;
+            assert!(
+                matches!(read_value(v), Ok(Read::Understood(_))),
+                "{} null",
+                name
+            );
+        }
+    }
 
     fn sample_envelope() -> FidEnvelope {
         let at = Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap();
