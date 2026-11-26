@@ -122,6 +122,16 @@ class Envelopes(unittest.TestCase):
         with self.assertRaises(ValueError):
             fid.stamp({}, source="x", now=datetime(2026, 1, 1))  # naive
 
+    def test_missing_required_member_is_error(self):
+        # draft, Fields: half_life, fid_at_stamp, derived_from may be null, not absent
+        art = fid.stamp({"r": 1}, source="x", source_class="database", half_life="7d")
+        for name in ("half_life", "fid_at_stamp", "derived_from"):
+            with self.subTest(name):
+                broken = {"fid": dict(art["fid"]), "content": art["content"]}
+                del broken["fid"][name]
+                with self.assertRaises(ValueError):
+                    fid.check(broken)
+
 
 class Registries(unittest.TestCase):
     def test_half_life_states(self):
