@@ -17,12 +17,6 @@
    "what": "no vectors for missing fields, out-of-range or mistyped values"
   }
  ],
- "stamping": [
-  {
-   "issue": 16,
-   "what": "derived-stamp rules tested only by Rust unit tests, no vectors"
-  }
- ],
  "conformance": [
   {
    "exempt": "enforced by spec/traceability.py in CI",
