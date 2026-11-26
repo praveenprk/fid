@@ -1732,6 +1732,227 @@ STALENESS = [
 ]
 
 
+def recheck_envelope(f, half_life, baseline, fast=None, echo=None, shape=None):
+    """An envelope whose source fidelity and curve give recheck_at its inputs."""
+    extra = {"source_fidelity": f}
+    for name, value in (("fast", fast), ("echo", echo), ("shape", shape)):
+        if value is not None:
+            extra[name] = value
+    return envelope(
+        {"reading": 42},
+        "instrument",
+        "infinite" if half_life is None else f"{half_life}s",
+        baseline=baseline,
+        **extra,
+    )
+
+
+def recheck_at_case(
+    name, stamped, price=None, staleness=None, floor=None, error=None, exact=False
+):
+    """Apply the draft's Re-check time operation to a complete envelope."""
+    case = {
+        "name": name,
+        "artifact_json": json.dumps(stamped, ensure_ascii=False),
+        "price": price,
+        "staleness": staleness,
+        "floor": floor,
+    }
+    if error is not None:
+        case["error"] = error
+        return case
+
+    env = stamped["fid"]
+    measured = datetime.fromisoformat(env["measured_at"].replace("Z", "+00:00"))
+    source = envelope_source(env["source_class"], env.get("source_fidelity"))
+    if not_understood(env) is not None or source is None or env["half_life"] is None:
+        case["recheck_at"] = "unknown"
+        return case
+
+    hl = parse_half_life(env["half_life"])
+    noise = [t["noise"] for t in env["transforms"]]
+    f = fidelity(source, 0.0, None, noise, 0.0)
+    baseline = env.get("baseline") or 0.0
+    fast, echo, shape = env.get("fast"), env.get("echo"), env.get("shape")
+    no_decay = hl is None and echo is None
+    cost = None
+    if price is not None:
+        if no_decay:
+            interval, cost = None, 1 - min(max(baseline, 0.0), max(f, 0.0))
+        else:
+            interval, cost = best_interval(f, hl, baseline, price, fast, echo, shape)
+    elif no_decay:
+        interval = None
+    else:
+        interval = interval_for_staleness(f, hl, baseline, staleness, fast, echo, shape)
+
+    ttl = None
+    if floor is not None:
+        if fast is not None or shape is not None:
+            ttl = curve_time_to_floor(f, hl, baseline, floor, fast, echo, shape)
+        elif echo is not None:
+            ttl = echo_time_to_floor(f, hl, baseline, floor, echo)
+        else:
+            ttl = time_to_floor(f, hl, baseline, floor)
+    capped = ttl is not None and (interval is None or ttl < interval)
+    seconds = ttl if capped else interval
+    case["exact"] = capped or exact
+    if seconds is None:
+        case["recheck_at"] = "never"
+    else:
+        ms = math.floor(seconds * 1000 + 0.5)
+        case["recheck_at"] = rfc3339(measured + timedelta(milliseconds=ms))
+        if not case["exact"]:
+            case["seconds"] = interval
+            if price is not None:
+                case["cost"] = cost
+    return case
+
+
+def recheck_at_cases():
+    """Envelope-level recheck_at results, bounds, unknowns and malformed inputs."""
+    out = []
+    for case in SCHEDULE:
+        n, f, h, b, price, fast, echo, shape = (
+            case if len(case) == 8 else case + (None,)
+        )
+        out.append(
+            recheck_at_case(
+                n, recheck_envelope(f, h, b, fast, echo, shape), price=price
+            )
+        )
+    for case in STALENESS:
+        n, f, h, b, target, fast, echo, shape = (
+            case if len(case) == 8 else case + (None,)
+        )
+        out.append(
+            recheck_at_case(
+                n,
+                recheck_envelope(f, h, b, fast, echo, shape),
+                staleness=target,
+            )
+        )
+
+    ordinary = recheck_envelope(1.0, DAY, 0.1)
+    out += [
+        recheck_at_case(
+            "price: floor caps the interval", ordinary, price=1e-2, floor=0.99
+        ),
+        recheck_at_case(
+            "price: a later floor does not cap", ordinary, price=1e-2, floor=0.2
+        ),
+        recheck_at_case(
+            "price: never is still capped by a floor",
+            ordinary,
+            price=100.0,
+            floor=0.5,
+        ),
+        recheck_at_case(
+            "price: the one-second lower bound",
+            ordinary,
+            price=1e-11,
+            exact=True,
+        ),
+        recheck_at_case(
+            "no decay: never",
+            recheck_envelope(0.9, None, 0.1),
+            price=1e-3,
+        ),
+        recheck_at_case(
+            "no decay: a floor cannot make it finite",
+            recheck_envelope(0.9, None, 0.1),
+            price=1e-3,
+            floor=0.5,
+        ),
+        recheck_at_case(
+            "already below the floor: recheck at measurement",
+            recheck_envelope(0.25, 7 * DAY, 0.0),
+            price=1e-3,
+            floor=0.5,
+        ),
+        recheck_at_case(
+            "exactly at the floor: recheck at measurement",
+            recheck_envelope(0.5, 7 * DAY, 0.0),
+            price=1e-3,
+            floor=0.5,
+        ),
+        recheck_at_case("staleness 1: never", ordinary, staleness=1.0),
+        recheck_at_case(
+            "source class and transforms feed the floor cap",
+            envelope(
+                {"reading": 42},
+                "instrument",
+                "1d",
+                transforms=[("clean", 0.1)],
+            ),
+            price=100.0,
+            floor=0.5,
+        ),
+        recheck_at_case(
+            "unknown source: unknown",
+            envelope(
+                {"reading": 42},
+                "unknown",
+                "1d",
+                version="0.3",
+                source_fidelity=1.0,
+            ),
+            price=1e-3,
+        ),
+        recheck_at_case(
+            "null half-life: unknown",
+            envelope({"reading": 42}, "instrument", None),
+            price=1e-3,
+        ),
+        recheck_at_case(
+            "not understood: unknown",
+            envelope(
+                {"reading": 42},
+                "instrument",
+                "1d",
+                version="1.1",
+                source_fidelity=1.0,
+            ),
+            price=1e-3,
+        ),
+    ]
+    bad_integrity = recheck_envelope(1.0, DAY, 0.1)
+    bad_integrity["fid"]["integrity"] = "sha256:" + "0" * 64
+    out.append(
+        recheck_at_case(
+            "integrity does not affect the schedule", bad_integrity, price=1e-2
+        )
+    )
+
+    for price in (0.0, -1e-3, "inf", "nan"):
+        out.append(
+            recheck_at_case(
+                f"malformed price: {price}",
+                ordinary,
+                price=price,
+                error="price must be finite and positive",
+            )
+        )
+    for target in (-0.1, 1.1, "nan"):
+        out.append(
+            recheck_at_case(
+                f"malformed staleness: {target}",
+                ordinary,
+                staleness=target,
+                error="staleness target must be in [0, 1]",
+            )
+        )
+    out.append(
+        recheck_at_case(
+            "staleness below a fresh fact's staleness",
+            recheck_envelope(0.9, DAY, 0.1),
+            staleness=0.05,
+            error="target is below 1 - f",
+        )
+    )
+    return out
+
+
 # The draft sections (spec/draft-kumar-fid-00.md anchors) each group of vectors tests
 GROUP_SECTIONS = {
     "parse_duration": ["durations"],
@@ -1753,6 +1974,7 @@ GROUP_SECTIONS = {
     "writer_errors": ["structure", "stamping"],
     "reader_errors": ["structure"],
     "number_errors": ["numbers"],
+    "recheck_at": ["recheck"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -1943,6 +2165,7 @@ def main():
         "writer_errors": writer_error_cases(),
         "reader_errors": reader_error_cases(),
         "number_errors": number_error_cases(),
+        "recheck_at": recheck_at_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),

@@ -375,6 +375,104 @@ fn writer_errors() {
     }
 }
 
+fn recheck_number(value: &Value) -> f64 {
+    if let Some(n) = value.as_f64() {
+        return n;
+    }
+    match value.as_str().unwrap() {
+        "inf" => f64::INFINITY,
+        "-inf" => f64::NEG_INFINITY,
+        "nan" => f64::NAN,
+        other => panic!("unknown non-finite marker {}", other),
+    }
+}
+
+#[test]
+fn recheck_at() {
+    let v = vectors();
+    for c in cases(&v, "recheck_at") {
+        let name = c["name"].as_str().unwrap();
+        let read = fid::envelope::read(c["artifact_json"].as_str().unwrap())
+            .unwrap_or_else(|e| panic!("{}: {}", name, e));
+        let run = |stamped: &fid::envelope::Stamped| {
+            let floor = c["floor"].as_f64();
+            if c["price"].is_null() {
+                stamped
+                    .fid
+                    .recheck_for_staleness(recheck_number(&c["staleness"]), floor)
+            } else {
+                stamped.fid.recheck_at(recheck_number(&c["price"]), floor)
+            }
+        };
+
+        if let Some(reason) = c.get("error") {
+            let fid::envelope::Read::Understood(stamped) = read else {
+                panic!("{}: error case must be understood", name)
+            };
+            assert!(run(&stamped).is_err(), "{}: {}", name, reason);
+            continue;
+        }
+
+        let want = c["recheck_at"].as_str().unwrap();
+        if want == "unknown" {
+            match read {
+                fid::envelope::Read::NotUnderstood(_) => {}
+                fid::envelope::Read::Understood(stamped) => {
+                    assert_eq!(run(&stamped).unwrap(), None, "{}", name)
+                }
+            }
+            continue;
+        }
+        let fid::envelope::Read::Understood(stamped) = read else {
+            panic!("{}: envelope must be understood", name)
+        };
+        let got = run(&stamped).unwrap();
+        if want == "never" {
+            assert_eq!(got, Some(Expiry::Never), "{}", name);
+            continue;
+        }
+        let Some(Expiry::At(at)) = got else {
+            panic!("{}: got {:?}, want {}", name, got, want)
+        };
+        let rendered = at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        assert_eq!(time(&rendered), at, "{}: written time must read", name);
+        if c["exact"].as_bool().unwrap() {
+            assert_eq!(rendered, want, "{}: exact time", name);
+            continue;
+        }
+
+        let seconds = (at - stamped.fid.measured_at).num_milliseconds() as f64 / 1000.0;
+        let expected = c["seconds"].as_f64().unwrap();
+        if c["price"].is_null() {
+            // The interval is as close as schedules require; the written time is rounded to ms.
+            assert!(
+                (seconds - expected).abs() <= 0.0005 + 1e-6 * expected,
+                "{}: {} vs {}",
+                name,
+                seconds,
+                expected
+            );
+        } else {
+            let curve = stamped.fid.curve().unwrap();
+            let f = stamped.fid.at_measurement().unwrap();
+            let baseline = stamped.fid.baseline.unwrap_or(0.0);
+            let price = recheck_number(&c["price"]);
+            let cost = |t: f64| curve.mean_staleness(f, baseline, t) + price * 86_400.0 / t;
+            let best = c["cost"].as_f64().unwrap();
+            close(cost(expected), best, 1e-7, name);
+            assert!(
+                cost(seconds) <= best + 1e-7,
+                "{}: {} at {} vs {} at {}",
+                name,
+                cost(seconds),
+                seconds,
+                best,
+                expected
+            );
+        }
+    }
+}
+
 #[test]
 fn reader_errors() {
     let v = vectors();
