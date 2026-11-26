@@ -164,6 +164,10 @@ temporal = (1 − share) × clock(half_life) + share × clock(fast.half_life)
 fidelity = b + (f − b) × temporal                 (b clamped as above)
 ```
 
+The `temporal` vectors combine an echo with the default shape and shapes
+below and above 1, each with one clock and with a fast share, between
+returns and at the first return.
+
 Time to floor is the first time fidelity falls below the floor (`never`
 if floor ≤ b); with no echo the curve only falls, so any search that
 finds the crossing within 1e-6 s is fine.

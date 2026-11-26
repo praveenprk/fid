@@ -159,6 +159,21 @@ class Conformance(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     fid.fidelity(0.9, 3600, c["half_life_seconds"], fast=c["fast"])
 
+    def test_temporal(self):
+        for c in V["temporal"]:
+            with self.subTest(c["name"]):
+                got = _fid.fidelity(
+                    c["fidelity_at_measurement"],
+                    c["age_seconds"],
+                    c["half_life_seconds"],
+                    [],
+                    c["baseline"],
+                    json.dumps(c["echo"]),
+                    None if c["fast"] is None else json.dumps(c["fast"]),
+                    c["shape"],
+                )
+                self.assertAlmostEqual(got, c["fidelity"], delta=TOL)
+
     def test_schedule(self):
         for c in V["schedule"]:
             with self.subTest(c["name"]):
