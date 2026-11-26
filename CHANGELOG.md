@@ -8,6 +8,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before
 
 ## [Unreleased]
 
+### Fixed
+- An envelope that lacks `half_life`, `fid_at_stamp` or `derived_from` is
+  now rejected as malformed (exit 3), as the draft's Fields table requires.
+  These members may be null but not absent. Before, a missing `half_life`
+  read as null (UNKNOWN, exit 2) and the other two were ignored. Every
+  envelope fid has written carries all three, so only envelopes written
+  by other tools can be affected.
+
 ## [0.2.1] - 2026-11-27
 
 A patch release. Behaviour is unchanged; fid computes, stamps and checks
