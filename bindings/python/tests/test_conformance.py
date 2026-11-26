@@ -4,6 +4,7 @@ import json
 import math
 import os
 import unittest
+import warnings
 from datetime import datetime
 
 import fid
@@ -302,6 +303,55 @@ class Conformance(unittest.TestCase):
                 best = c["cost"]
                 self.assertAlmostEqual(cost(expected), best, delta=1e-7)
                 self.assertLessEqual(cost(seconds), best + 1e-7)
+
+    def test_derived_stamps(self):
+        for c in V["derived_stamps"]:
+            with self.subTest(c["name"]):
+                o = c["options"]
+                kwargs = {
+                    k: o[k]
+                    for k in (
+                        "source_class",
+                        "noise",
+                        "half_life",
+                        "baseline",
+                        "source_fidelity",
+                        "echo",
+                        "fast",
+                        "shape",
+                        "state",
+                        "condition",
+                        "derived_from",
+                    )
+                }
+                kwargs["type"] = o["info_type"]
+
+                def run():
+                    return fid.stamp(
+                        c["input"],
+                        source=o["source"],
+                        upstream=c["upstream"],
+                        now=when(c["now"]),
+                        **kwargs,
+                    )
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    if "error" in c:
+                        with self.assertRaises(ValueError):
+                            run()
+                        continue
+                    got = run()
+
+                want = dict(c["stamped"])
+                want["fid"] = dict(c["stamped"]["fid"])
+                got_fidelity = got["fid"].pop("fid_at_stamp")
+                want_fidelity = want["fid"].pop("fid_at_stamp")
+                if want_fidelity is None:
+                    self.assertIsNone(got_fidelity)
+                else:
+                    self.assertAlmostEqual(got_fidelity, want_fidelity, delta=TOL)
+                self.assertEqual(got, want)
 
     def test_envelopes(self):
         for c in V["envelope"]:
