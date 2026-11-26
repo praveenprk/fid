@@ -8,6 +8,7 @@ fid and this file have to agree.
     python3 conformance/generate.py      # rewrites vectors.json and ledger-example.csv
 """
 
+import copy
 import hashlib
 import json
 import math
@@ -1393,6 +1394,202 @@ def number_error_cases():
     return out
 
 
+DERIVED_OVERRIDES = (
+    "half_life",
+    "baseline",
+    "echo",
+    "fast",
+    "shape",
+    "info_type",
+    "state",
+)
+
+
+def derived_options(source="step", **changes):
+    """Options for one derived stamp; null means that no override was given."""
+    options = {
+        "source": source,
+        "source_class": None,
+        "noise": 0.0,
+        "half_life": None,
+        "baseline": None,
+        "source_fidelity": None,
+        "echo": None,
+        "fast": None,
+        "shape": None,
+        "info_type": None,
+        "state": None,
+        "condition": None,
+        "derived_from": None,
+    }
+    options.update(changes)
+    return options
+
+
+def derived_upstream(source_id, source_class="instrument", half_life="1d", **extra):
+    """A version 0.4 input, so every derived case also checks the move to 1.0."""
+    stamped = envelope({"v": 1}, source_class, half_life, version="0.4", **extra)
+    stamped["fid"]["source_id"] = source_id
+    return stamped
+
+
+def derived_stamp(input_value, options, now, upstream=None):
+    """The draft's Stamping and derivation rules, without calling fid."""
+    stamped_input = isinstance(input_value, dict) and "fid" in input_value
+    upstream_stamp = input_value if stamped_input else upstream
+    if upstream_stamp is None:
+        raise ValueError("a derived stamp needs an upstream artifact")
+    reason = not_understood(upstream_stamp["fid"])
+    if reason is not None:
+        raise ValueError(reason)
+
+    content = input_value["content"] if stamped_input else input_value
+    env = copy.deepcopy(upstream_stamp["fid"])
+    # Source class, source id, measured source fidelity and measurement time
+    # stay upstream. Only the fields the draft permits may be replaced.
+    for field in DERIVED_OVERRIDES:
+        if options[field] is not None:
+            env[field] = copy.deepcopy(options[field])
+    step = {
+        "step": options["source"],
+        "noise": options["noise"],
+        "at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if options["condition"] is not None:
+        step["condition"] = options["condition"]
+    env["transforms"].append(step)
+    env["derived_from"] = options["derived_from"]
+    env["fid_version"] = "1.0"
+    env["integrity"] = integrity(content, "1.0")
+
+    source = envelope_source(env["source_class"], env.get("source_fidelity"))
+    if source is None or env["half_life"] is None:
+        env["fid_at_stamp"] = None
+    else:
+        measured = datetime.fromisoformat(env["measured_at"].replace("Z", "+00:00"))
+        age = (now - measured).total_seconds()
+        noise = [t["noise"] for t in env["transforms"]]
+        fresh = fidelity(source, 0.0, None, noise, 0.0)
+        env["fid_at_stamp"] = curve_fidelity(
+            fresh,
+            age,
+            parse_half_life(env["half_life"]),
+            env.get("baseline") or 0.0,
+            env.get("fast"),
+            env.get("echo"),
+            env.get("shape"),
+        )
+    return {"fid": env, "content": copy.deepcopy(content)}
+
+
+def derived_case(name, input_value, options, now, upstream=None):
+    case = {
+        "name": name,
+        "input": input_value,
+        "upstream": upstream,
+        "options": options,
+        "now": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    try:
+        case["stamped"] = derived_stamp(input_value, options, now, upstream)
+    except ValueError as e:
+        case["error"] = str(e)
+    return case
+
+
+def derived_stamp_cases():
+    """One language-neutral case for each derived-stamp rule in src/stamp.rs."""
+    return [
+        derived_case(
+            "append one step and keep the source and original measurement",
+            derived_upstream("sensor-12", transforms=[("normalise", 0.05)]),
+            derived_options("aggregate.py", noise=0.10),
+            T0 + timedelta(days=1),
+        ),
+        derived_case(
+            "source class cannot be replaced",
+            derived_upstream("sensor-12"),
+            derived_options(source_class="hearsay"),
+            T0,
+        ),
+        derived_case(
+            "measured source fidelity is kept",
+            derived_upstream("crm", "database", "90d", source_fidelity=0.62),
+            derived_options(source_fidelity=0.99),
+            T0 + timedelta(days=90),
+        ),
+        derived_case(
+            "half-life may be replaced",
+            derived_upstream("sensor-12"),
+            derived_options(half_life="1y"),
+            T0 + timedelta(days=365.25),
+        ),
+        derived_case(
+            "baseline is inherited and decay starts at measurement",
+            derived_upstream("db", "database", baseline=0.70),
+            derived_options("copy"),
+            T0 + timedelta(days=1),
+        ),
+        derived_case(
+            "fast share is inherited",
+            derived_upstream(
+                "pypi", half_life="80d", fast={"share": 0.3, "half_life": "3d"}
+            ),
+            derived_options("copy"),
+            T0,
+        ),
+        derived_case(
+            "type, state and baseline are inherited",
+            derived_upstream(
+                "ais", info_type="vessel_position", state="underway", baseline=0.1
+            ),
+            derived_options(),
+            T0,
+        ),
+        derived_case(
+            "state may be replaced",
+            derived_upstream("ais", state="underway"),
+            derived_options(state="moored"),
+            T0,
+        ),
+        derived_case(
+            "condition is recorded on the appended step",
+            derived_upstream("schedule", "database", "infinite"),
+            derived_options("flight_leg", noise=0.54, condition="previous_leg_late"),
+            T0,
+        ),
+        derived_case(
+            "a separate upstream artifact supplies the source",
+            "plain text",
+            derived_options("report.py", noise=0.05, derived_from="upstream.json"),
+            T0,
+            derived_upstream("db", "database", "infinite"),
+        ),
+        derived_case(
+            "stamped input takes precedence over separate upstream",
+            derived_upstream("a", "database", "1y"),
+            derived_options(),
+            T0,
+            derived_upstream("b", "hearsay", "infinite"),
+        ),
+        derived_case(
+            "an envelope not understood cannot be derived",
+            {"fid": {"fid_version": "2.0", "anything": 1}, "content": 1},
+            derived_options(),
+            T0,
+        ),
+        derived_case(
+            "integrity is recomputed when derived content changed",
+            {
+                "fid": derived_upstream("sensor-12", half_life="infinite")["fid"],
+                "content": {"v": 2},
+            },
+            derived_options(),
+            T0,
+        ),
+    ]
+
+
 # A half-life registry as JSON text (YAML 1.2 reads JSON unchanged)
 REGISTRY = {
     "plain": "1y",
@@ -1975,6 +2172,7 @@ GROUP_SECTIONS = {
     "reader_errors": ["structure"],
     "number_errors": ["numbers"],
     "recheck_at": ["recheck"],
+    "derived_stamps": ["stamping"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -2166,6 +2364,7 @@ def main():
         "reader_errors": reader_error_cases(),
         "number_errors": number_error_cases(),
         "recheck_at": recheck_at_cases(),
+        "derived_stamps": derived_stamp_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),
