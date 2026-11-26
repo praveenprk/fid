@@ -228,6 +228,34 @@ fn check_errors_exit_3() {
     assert_eq!(fid(&["check"], "").status.code(), Some(3));
 }
 
+// spec: envelope-fields, cli
+#[test]
+fn check_missing_required_member_is_error_not_unknown() {
+    // half_life, fid_at_stamp and derived_from may be null, never absent;
+    // a missing half_life used to read as null and answer UNKNOWN (exit 2)
+    let artifact = stamped(&[
+        "--source",
+        "s",
+        "--source-class",
+        "database",
+        "--half-life",
+        "7d",
+    ]);
+    for name in ["half_life", "fid_at_stamp", "derived_from"] {
+        let mut v: serde_json::Value = serde_json::from_str(&artifact).unwrap();
+        v["fid"].as_object_mut().unwrap().remove(name);
+        let out = fid(&["check", "-", "--floor", "0.5"], &v.to_string());
+        assert_eq!(
+            out.status.code(),
+            Some(3),
+            "{} missing: {}",
+            name,
+            stderr(&out)
+        );
+        assert!(stderr(&out).contains(name), "{}: {}", name, stderr(&out));
+    }
+}
+
 // spec: cli
 #[test]
 fn check_in_shell_pipeline() {
