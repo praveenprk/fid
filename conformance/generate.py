@@ -2150,6 +2150,35 @@ def recheck_at_cases():
     return out
 
 
+def temporal_cases():
+    """Echo returns compose with every shape and a fast share (draft, Temporal factor)."""
+    half_life = 2.42 * 3600
+    fast = {"share": 0.2, "half_life": "0.5h"}
+    shapes = (("default", None), ("below 1", 0.5), ("above 1", 1.7))
+    clocks = (("one clock", None), ("a fast share", fast))
+    ages = (("between returns", 12 * 3600.0), ("at the first return", 24 * 3600.0))
+    out = []
+    for shape_name, shape in shapes:
+        for clock_name, fa in clocks:
+            for age_name, age in ages:
+                out.append(
+                    {
+                        "name": f"echo, {shape_name} shape, {clock_name}, {age_name}",
+                        "fidelity_at_measurement": 1.0,
+                        "age_seconds": age,
+                        "half_life_seconds": half_life,
+                        "baseline": 0.13,
+                        "fast": fa,
+                        "echo": TEMPERATURE,
+                        "shape": shape,
+                        "fidelity": curve_fidelity(
+                            1.0, age, half_life, 0.13, fa, TEMPERATURE, shape
+                        ),
+                    }
+                )
+    return out
+
+
 # The draft sections (spec/draft-kumar-fid-00.md anchors) each group of vectors tests
 GROUP_SECTIONS = {
     "parse_duration": ["durations"],
@@ -2164,6 +2193,7 @@ GROUP_SECTIONS = {
     "fast_time_to_floor": ["time-to-floor", "tolerances"],
     "fast_errors": ["temporal"],
     "shape_errors": ["temporal"],
+    "temporal": ["temporal", "fidelity", "tolerances"],
     "schedule": ["staleness", "tolerances"],
     "staleness_target": ["staleness", "tolerances"],
     "integrity": ["integrity", "legacy-canonical"],
@@ -2323,6 +2353,7 @@ def main():
             {"shape": k, "half_life_seconds": h, "error": reason}
             for k, h, reason in SHAPE_ERRORS
         ],
+        "temporal": temporal_cases(),
         "schedule": [
             dict(
                 zip(
