@@ -387,6 +387,55 @@ fn reader_errors() {
 }
 
 #[test]
+fn number_errors() {
+    let v = vectors();
+    for c in cases(&v, "number_errors") {
+        let field = c["field"].as_str().unwrap();
+        match c["where"].as_str().unwrap() {
+            "envelope" => {
+                let text = c["artifact_json"].as_str().unwrap();
+                let got = fid::envelope::read(text);
+                assert!(
+                    got.is_err(),
+                    "envelope {}: {} must be rejected",
+                    field,
+                    text
+                );
+                let control = c["control_json"].as_str().unwrap();
+                assert!(
+                    matches!(
+                        fid::envelope::read(control),
+                        Ok(fid::envelope::Read::Understood(_))
+                    ),
+                    "envelope {}: control {} must read",
+                    field,
+                    control
+                );
+            }
+            _ => {
+                let text = c["registry"].as_str().unwrap();
+                let got = fid::registry::HalfLives::from_yaml(text)
+                    .and_then(|r| r.lookup(c["type"].as_str().unwrap(), None));
+                assert!(
+                    got.is_err(),
+                    "registry {}: {:?} must be rejected",
+                    field,
+                    text
+                );
+                let control = fid::registry::HalfLives::from_yaml(c["control"].as_str().unwrap())
+                    .and_then(|r| r.lookup(c["type"].as_str().unwrap(), None));
+                assert!(
+                    control.is_ok(),
+                    "registry {}: control must read: {:?}",
+                    field,
+                    control
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn envelopes() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
