@@ -196,6 +196,8 @@ RFC 8785 (keys sorted by UTF-16 code units, numbers as ECMAScript writes
 them: `1.0` is `1`, exponent form from 1e21 and below 1e-6). The
 `integrity_jcs` vectors include the RFC's own example. Content must be
 I-JSON: a writer refuses integers beyond 2^53 (`writer_errors`).
+A stamped artifact has exactly the members `fid` and `content`; a reader
+rejects anything else, such as a third top-level member (`reader_errors`).
 
 Versions 0.1 to 0.4 use the legacy form below, and are verified with it:
 `"sha256:" + hex(sha256(canonical JSON of content))`, where canonical is:
