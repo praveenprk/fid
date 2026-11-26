@@ -10,6 +10,9 @@ name: Commit check
 # Since eng-principles f13eb83 (ENG-DEC-021), a Dependabot pull request
 # passes with Dependabot's own title, and its GitHub-signed version-bump
 # commits need no anchor; the author is taken from the event, not the PR text.
+# Since eng-principles f8743aa (#43), a pull request into another branch, such
+# as main → stable, does not re-check commits already on main; its title and
+# description are still checked.
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -21,6 +24,6 @@ permissions:
 
 jobs:
   commit-check:
-    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@f13eb831c53c112356bdf14ea600abfcb6bb4c22
+    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@f8743aa8e937e2a562678fdeb3a7d49529863fa7
     with:
       config: scripts/hooks
