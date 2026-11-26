@@ -2115,6 +2115,284 @@
    ]
   }
  ],
+ "number_errors": [
+  {
+   "where": "envelope",
+   "field": "baseline",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "baseline",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": -1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "source_fidelity",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": 1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "source_fidelity",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": -1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "shape",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"shape\": 1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"shape\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "shape",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"shape\": -1e999}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"shape\": 0.5}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "echo.strength",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"2.42h\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"echo\": {\"period\": \"24h\", \"strength\": 1e999, \"width\": \"3h\", \"fade\": \"345h\"}}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"2.42h\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"echo\": {\"period\": \"24h\", \"strength\": 0.5, \"width\": \"3h\", \"fade\": \"345h\"}}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "echo.strength",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"2.42h\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"echo\": {\"period\": \"24h\", \"strength\": -1e999, \"width\": \"3h\", \"fade\": \"345h\"}}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"2.42h\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"echo\": {\"period\": \"24h\", \"strength\": 0.5, \"width\": \"3h\", \"fade\": \"345h\"}}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "fast.share",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"80d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"fast\": {\"share\": 1e999, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"80d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"fast\": {\"share\": 0.5, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "fast.share",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"80d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"fast\": {\"share\": -1e999, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"80d\", \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"fast\": {\"share\": 0.5, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "transforms.noise",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 1e999, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.5, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "transforms.noise",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": -1e999, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.5, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "fid_at_stamp",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 1e999, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.5, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "envelope",
+   "field": "fid_at_stamp",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": -1e999, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [], \"fid_at_stamp\": 0.5, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "baseline",
+   "registry": "x:\n  half_life: 1d\n  baseline: .nan\n",
+   "control": "x:\n  half_life: 1d\n  baseline: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "baseline",
+   "registry": "x:\n  half_life: 1d\n  baseline: .inf\n",
+   "control": "x:\n  half_life: 1d\n  baseline: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "baseline",
+   "registry": "x:\n  half_life: 1d\n  baseline: -.inf\n",
+   "control": "x:\n  half_life: 1d\n  baseline: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "shape",
+   "registry": "x:\n  half_life: 1d\n  shape: .nan\n",
+   "control": "x:\n  half_life: 1d\n  shape: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "shape",
+   "registry": "x:\n  half_life: 1d\n  shape: .inf\n",
+   "control": "x:\n  half_life: 1d\n  shape: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "shape",
+   "registry": "x:\n  half_life: 1d\n  shape: -.inf\n",
+   "control": "x:\n  half_life: 1d\n  shape: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "source_fidelity",
+   "registry": "x:\n  half_life: 1d\n  source_fidelity: .nan\n",
+   "control": "x:\n  half_life: 1d\n  source_fidelity: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "source_fidelity",
+   "registry": "x:\n  half_life: 1d\n  source_fidelity: .inf\n",
+   "control": "x:\n  half_life: 1d\n  source_fidelity: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "source_fidelity",
+   "registry": "x:\n  half_life: 1d\n  source_fidelity: -.inf\n",
+   "control": "x:\n  half_life: 1d\n  source_fidelity: 0.5\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "echo.strength",
+   "registry": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: .nan, width: 3h, fade: 345h}\n",
+   "control": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: 0.5, width: 3h, fade: 345h}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "echo.strength",
+   "registry": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: .inf, width: 3h, fade: 345h}\n",
+   "control": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: 0.5, width: 3h, fade: 345h}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "echo.strength",
+   "registry": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: -.inf, width: 3h, fade: 345h}\n",
+   "control": "x:\n  half_life: 2h\n  echo: {period: 24h, strength: 0.5, width: 3h, fade: 345h}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "fast.share",
+   "registry": "x:\n  half_life: 80d\n  fast: {share: .nan, half_life: 3d}\n",
+   "control": "x:\n  half_life: 80d\n  fast: {share: 0.5, half_life: 3d}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "fast.share",
+   "registry": "x:\n  half_life: 80d\n  fast: {share: .inf, half_life: 3d}\n",
+   "control": "x:\n  half_life: 80d\n  fast: {share: 0.5, half_life: 3d}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  },
+  {
+   "where": "registry",
+   "field": "fast.share",
+   "registry": "x:\n  half_life: 80d\n  fast: {share: -.inf, half_life: 3d}\n",
+   "control": "x:\n  half_life: 80d\n  fast: {share: 0.5, half_life: 3d}\n",
+   "type": "x",
+   "sections": [
+    "numbers"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",

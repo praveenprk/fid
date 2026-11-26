@@ -202,6 +202,37 @@ class Conformance(unittest.TestCase):
                         got.total_seconds() / c["seconds"], 1.0, delta=1e-6
                     )
 
+    def test_number_errors(self):
+        import tempfile
+
+        for c in V["number_errors"]:
+            with self.subTest(where=c["where"], field=c["field"]):
+                if c["where"] == "envelope":
+                    now = when(V["envelope"][0]["now"])
+                    with self.assertRaises(ValueError):
+                        fid.check(c["artifact_json"], 0.5, now=now)
+                    self.assertIsNone(
+                        fid.check(c["control_json"], 0.5, now=now).not_understood
+                    )
+                    continue
+                with tempfile.NamedTemporaryFile(
+                    "w", suffix=".yaml", delete=False
+                ) as f:
+                    f.write(c["registry"])
+                try:
+                    with self.assertRaises(ValueError):
+                        fid.registry(f.name, c["type"], None)
+                finally:
+                    os.unlink(f.name)
+                with tempfile.NamedTemporaryFile(
+                    "w", suffix=".yaml", delete=False
+                ) as f:
+                    f.write(c["control"])
+                try:
+                    fid.registry(f.name, c["type"], None)
+                finally:
+                    os.unlink(f.name)
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):

@@ -1,10 +1,4 @@
 {
- "numbers": [
-  {
-   "issue": 16,
-   "what": "no vector rejects a non-finite value in every numeric field"
-  }
- ],
  "timestamps": [
   {
    "issue": 16,

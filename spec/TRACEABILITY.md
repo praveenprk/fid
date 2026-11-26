@@ -7,7 +7,7 @@ neither tested nor listed as a gap.
 
 | Section | Title | Vectors | Tests | Status |
 |---|---|---|---|---|
-| numbers | Numbers | — | — | gap: #16: no vector rejects a non-finite value in every numeric field |
+| numbers | Numbers | number_errors (29) | — | covered |
 | durations | Durations | parse_duration (43) | — | covered |
 | half-lives | Half-lives | envelope (2), parse_half_life (18) | — | covered |
 | timestamps | Timestamps | envelope (32) | — | partial: #16: no vector for rounding at exactly .5 ms |

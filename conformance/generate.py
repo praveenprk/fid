@@ -1268,6 +1268,100 @@ def writer_error_cases():
     ]
 
 
+MARK = 0.123456789  # stands in for a non-finite value, which JSON cannot write
+
+
+def number_error_cases():
+    """Non-finite values where the draft says "number" are rejected (draft, Numbers).
+
+    Each case has a control: the same text with 0.5 in place of the
+    non-finite value, which must read, so the rejection is the number's.
+
+    JSON has no NaN or infinity, but 1e999 parses to infinity in many
+    readers, so an envelope reader must reject it. A YAML registry can write
+    .nan and .inf directly.
+    """
+    reading = {"reading": 42}
+    one = "1.0"
+    echo = {"period": "24h", "strength": 0.31, "width": "3h", "fade": "345h"}
+    bases = [
+        ("baseline", envelope(reading, "instrument", "7d", baseline=0.2, version=one)),
+        (
+            "source_fidelity",
+            envelope(reading, "instrument", "7d", version=one, source_fidelity=0.9),
+        ),
+        ("shape", envelope(reading, "instrument", "7d", version=one, shape=2.0)),
+        (
+            "echo.strength",
+            envelope(reading, "instrument", "2.42h", version=one, echo=echo),
+        ),
+        (
+            "fast.share",
+            envelope(
+                reading,
+                "instrument",
+                "80d",
+                version=one,
+                fast={"share": 0.3, "half_life": "3d"},
+            ),
+        ),
+        (
+            "transforms.noise",
+            envelope(
+                reading, "instrument", "7d", transforms=[("clean", 0.05)], version=one
+            ),
+        ),
+        ("fid_at_stamp", envelope(reading, "instrument", "7d", version=one)),
+    ]
+    fields = []
+    for field, art in bases:
+        env = art["fid"]
+        if field == "transforms.noise":
+            env["transforms"][0]["noise"] = MARK
+        elif "." in field:
+            outer, inner = field.split(".")
+            env[outer][inner] = MARK
+        else:
+            env[field] = MARK
+        fields.append((field, art))
+    out = []
+    for field, art in fields:
+        text = json.dumps(art, ensure_ascii=False)
+        assert text.count(repr(MARK)) == 1, field
+        for value in ("1e999", "-1e999"):
+            out.append(
+                {
+                    "where": "envelope",
+                    "field": field,
+                    "artifact_json": text.replace(repr(MARK), value),
+                    "control_json": text.replace(repr(MARK), "0.5"),
+                }
+            )
+    registry = [
+        ("baseline", "x:\n  half_life: 1d\n  baseline: {v}\n"),
+        ("shape", "x:\n  half_life: 1d\n  shape: {v}\n"),
+        ("source_fidelity", "x:\n  half_life: 1d\n  source_fidelity: {v}\n"),
+        (
+            "echo.strength",
+            "x:\n  half_life: 2h\n  echo: {{period: 24h, strength: {v},"
+            " width: 3h, fade: 345h}}\n",
+        ),
+        ("fast.share", "x:\n  half_life: 80d\n  fast: {{share: {v}, half_life: 3d}}\n"),
+    ]
+    for field, text in registry:
+        for value in (".nan", ".inf", "-.inf"):
+            out.append(
+                {
+                    "where": "registry",
+                    "field": field,
+                    "registry": text.format(v=value),
+                    "control": text.format(v="0.5"),
+                    "type": "x",
+                }
+            )
+    return out
+
+
 # A half-life registry as JSON text (YAML 1.2 reads JSON unchanged)
 REGISTRY = {
     "plain": "1y",
@@ -1626,6 +1720,7 @@ GROUP_SECTIONS = {
     "integrity": ["integrity", "legacy-canonical"],
     "integrity_jcs": ["integrity"],
     "writer_errors": ["structure", "stamping"],
+    "number_errors": ["numbers"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -1814,6 +1909,7 @@ def main():
         "integrity": integrity_cases(),
         "integrity_jcs": jcs_cases(),
         "writer_errors": writer_error_cases(),
+        "number_errors": number_error_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),
