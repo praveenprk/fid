@@ -285,6 +285,25 @@ fn fast_shares() {
 }
 
 #[test]
+fn temporal() {
+    let v = vectors();
+    let tol = v["tolerance"].as_f64().unwrap();
+    for c in cases(&v, "temporal") {
+        let got = apply_decay(
+            c["fidelity_at_measurement"].as_f64().unwrap(),
+            case_curve(c).temporal(c["age_seconds"].as_f64().unwrap()),
+            c["baseline"].as_f64().unwrap(),
+        );
+        close(
+            got,
+            c["fidelity"].as_f64().unwrap(),
+            tol,
+            c["name"].as_str().unwrap(),
+        );
+    }
+}
+
+#[test]
 fn schedules() {
     let v = vectors();
     for c in cases(&v, "schedule") {
