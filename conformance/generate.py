@@ -1142,6 +1142,56 @@ def envelope_cases():
     ]
 
 
+def timestamp_rounding_cases():
+    """Computed timestamps round half up to a millisecond (draft, Timestamps).
+
+    With source fidelity 1 and floor 0.5, a half-life of t makes the time to
+    floor exactly t, isolating the timestamp rounding from the decay curve.
+    """
+    just_before_second = datetime(2026, 1, 1, 0, 0, 0, 999000, tzinfo=timezone.utc)
+    cases = [
+        ("exactly .5 ms rounds up", T0, 0.0005),
+        ("just below .5 ms rounds down", T0, 0.000499),
+        ("just above .5 ms rounds up", T0, 0.000501),
+        (
+            "just below .5 ms at a second boundary stays below it",
+            just_before_second,
+            0.000499,
+        ),
+        (
+            "exactly .5 ms at a second boundary rounds across it",
+            just_before_second,
+            0.0005,
+        ),
+        (
+            "just above .5 ms at a second boundary rounds across it",
+            just_before_second,
+            0.000501,
+        ),
+    ]
+    out = []
+    for name, measured, seconds in cases:
+        stamped = envelope(
+            {"reading": 42},
+            "instrument",
+            f"{seconds}s",
+            measured=measured,
+            version="1.0",
+            source_fidelity=1.0,
+        )
+        stamped["fid"]["measured_at"] = rfc3339(measured)
+        ms = math.floor(seconds * 1000 + 0.5)
+        out.append(
+            {
+                "name": name,
+                "stamped": stamped,
+                "floor": 0.5,
+                "expires_at": rfc3339(measured + timedelta(milliseconds=ms)),
+            }
+        )
+    return out
+
+
 # Airport temperature, rounded from calibration/results/weather_periodic.json
 TEMPERATURE = {"period": "24h", "strength": 0.31, "width": "3.75h", "fade": "345h"}
 
@@ -1626,6 +1676,7 @@ GROUP_SECTIONS = {
     "integrity": ["integrity", "legacy-canonical"],
     "integrity_jcs": ["integrity"],
     "writer_errors": ["structure", "stamping"],
+    "timestamp_rounding": ["timestamps"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -1814,6 +1865,7 @@ def main():
         "integrity": integrity_cases(),
         "integrity_jcs": jcs_cases(),
         "writer_errors": writer_error_cases(),
+        "timestamp_rounding": timestamp_rounding_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),

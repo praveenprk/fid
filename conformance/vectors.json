@@ -2115,6 +2115,158 @@
    ]
   }
  ],
+ "timestamp_rounding": [
+  {
+   "name": "exactly .5 ms rounds up",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.000Z",
+     "half_life": "0.0005s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:00.001Z",
+   "sections": [
+    "timestamps"
+   ]
+  },
+  {
+   "name": "just below .5 ms rounds down",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.000Z",
+     "half_life": "0.000499s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:00.000Z",
+   "sections": [
+    "timestamps"
+   ]
+  },
+  {
+   "name": "just above .5 ms rounds up",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.000Z",
+     "half_life": "0.000501s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:00.001Z",
+   "sections": [
+    "timestamps"
+   ]
+  },
+  {
+   "name": "just below .5 ms at a second boundary stays below it",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.999Z",
+     "half_life": "0.000499s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:00.999Z",
+   "sections": [
+    "timestamps"
+   ]
+  },
+  {
+   "name": "exactly .5 ms at a second boundary rounds across it",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.999Z",
+     "half_life": "0.0005s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:01.000Z",
+   "sections": [
+    "timestamps"
+   ]
+  },
+  {
+   "name": "just above .5 ms at a second boundary rounds across it",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "conformance",
+     "measured_at": "2026-01-01T00:00:00.999Z",
+     "half_life": "0.000501s",
+     "transforms": [],
+     "fid_at_stamp": 1.0,
+     "derived_from": null,
+     "integrity": "sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd",
+     "source_fidelity": 1.0
+    },
+    "content": {
+     "reading": 42
+    }
+   },
+   "floor": 0.5,
+   "expires_at": "2026-01-01T00:00:01.000Z",
+   "sections": [
+    "timestamps"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",

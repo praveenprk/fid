@@ -202,6 +202,13 @@ class Conformance(unittest.TestCase):
                         got.total_seconds() / c["seconds"], 1.0, delta=1e-6
                     )
 
+    def test_timestamp_rounding(self):
+        for c in V["timestamp_rounding"]:
+            with self.subTest(c["name"]):
+                self.assertEqual(
+                    fid.expires_at(c["stamped"], c["floor"]), when(c["expires_at"])
+                )
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):

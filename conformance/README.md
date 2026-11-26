@@ -116,7 +116,9 @@ An envelope is `{"fid": {...}, "content": ...}`. Fields used in scoring:
 **expires_at(stamped, floor)** — `measured_at` + time to floor, rounded
 half up to the millisecond, written `YYYY-MM-DDTHH:MM:SS.mmmZ`; or
 `never`; or `unknown` for an unknown source. It does not depend on `now`
-or on integrity.
+or on integrity. The `timestamp_rounding` vectors cover exactly .5 ms,
+immediately below and above it, and rounding on both sides of a second
+boundary.
 
 ## Echo
 

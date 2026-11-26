@@ -10,7 +10,7 @@ neither tested nor listed as a gap.
 | numbers | Numbers | — | — | gap: #16: no vector rejects a non-finite value in every numeric field |
 | durations | Durations | parse_duration (43) | — | covered |
 | half-lives | Half-lives | envelope (2), parse_half_life (18) | — | covered |
-| timestamps | Timestamps | envelope (32) | — | partial: #16: no vector for rounding at exactly .5 ms |
+| timestamps | Timestamps | envelope (32), timestamp_rounding (6) | — | covered |
 | source-classes | Source Classes | envelope (3), source_fidelity (12) | `check_unknown_source_is_unknown`, `stamp_unknown_source_is_indeterminate` | covered |
 | at-measurement | Fidelity at measurement | envelope (2), fidelity (16) | — | covered |
 | temporal | Temporal factor | echo (9), echo_errors (5), fast (11), fast_errors (5), fidelity (16), shape_errors (4) | — | partial: #16: no vector combines an echo with a shape or a fast share |
