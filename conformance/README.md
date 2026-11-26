@@ -118,6 +118,13 @@ half up to the millisecond, written `YYYY-MM-DDTHH:MM:SS.mmmZ`; or
 `never`; or `unknown` for an unknown source. It does not depend on `now`
 or on integrity.
 
+The `derived_stamps` vectors restamp version 0.4 envelopes as 1.0: the
+source fields and original measurement time are kept, exactly one step
+is appended, and integrity and `fid_at_stamp` are recomputed. Cases cover
+permitted overrides, inherited decay fields, a conditioned step, separate
+upstream input and its precedence, an envelope that is not understood,
+and changed content.
+
 ## Echo
 
 A fact that comes back once per period (`fid_version` 0.3 envelopes

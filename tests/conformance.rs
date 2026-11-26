@@ -47,6 +47,20 @@ fn time(s: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&Utc)
 }
 
+fn assert_stamped(mut got: Value, mut want: Value, name: &str, tol: f64) {
+    match (
+        got["fid"]["fid_at_stamp"].as_f64(),
+        want["fid"]["fid_at_stamp"].as_f64(),
+    ) {
+        (Some(g), Some(w)) => close(g, w, tol, name),
+        (None, None) => {}
+        (g, w) => panic!("{}: fid_at_stamp {:?}, want {:?}", name, g, w),
+    }
+    got["fid"].as_object_mut().unwrap().remove("fid_at_stamp");
+    want["fid"].as_object_mut().unwrap().remove("fid_at_stamp");
+    assert_eq!(got, want, "{}", name);
+}
+
 #[test]
 fn durations() {
     let v = vectors();
@@ -372,6 +386,58 @@ fn writer_errors() {
             time("2026-01-01T00:00:00Z"),
         );
         assert!(got.is_err(), "{}: a writer must refuse", c["error"]);
+    }
+}
+
+#[test]
+fn derived_stamps() {
+    let v = vectors();
+    let tol = v["tolerance"].as_f64().unwrap();
+    for c in cases(&v, "derived_stamps") {
+        let name = c["name"].as_str().unwrap();
+        let o = &c["options"];
+        let opts = fid::stamp::StampOptions {
+            source: o["source"].as_str().unwrap().to_string(),
+            source_class: o["source_class"].as_str().map(|s| s.parse().unwrap()),
+            noise: o["noise"].as_f64().unwrap(),
+            half_life: o["half_life"].as_str().map(str::to_string),
+            baseline: o["baseline"].as_f64(),
+            source_fidelity: o["source_fidelity"].as_f64(),
+            echo: serde_json::from_value(o["echo"].clone()).unwrap(),
+            fast: serde_json::from_value(o["fast"].clone()).unwrap(),
+            shape: o["shape"].as_f64(),
+            info_type: o["info_type"].as_str().map(str::to_string),
+            state: o["state"].as_str().map(str::to_string),
+            condition: o["condition"].as_str().map(str::to_string),
+            derived_from: o["derived_from"].as_str().map(str::to_string),
+        };
+        let upstream = if c["upstream"].is_null() {
+            None
+        } else {
+            Some(
+                match fid::envelope::read_value(c["upstream"].clone()).unwrap() {
+                    fid::envelope::Read::Understood(s) => s.fid,
+                    fid::envelope::Read::NotUnderstood(why) => panic!("{}: {}", name, why),
+                },
+            )
+        };
+        let got = fid::stamp::stamp(
+            &serde_json::to_string(&c["input"]).unwrap(),
+            &opts,
+            upstream,
+            time(c["now"].as_str().unwrap()),
+        );
+        if let Some(reason) = c.get("error") {
+            assert!(got.is_err(), "{}: {}", name, reason);
+            continue;
+        }
+        let out = got.unwrap_or_else(|e| panic!("{}: {}", name, e));
+        assert_stamped(
+            serde_json::to_value(out.stamped).unwrap(),
+            c["stamped"].clone(),
+            name,
+            tol,
+        );
     }
 }
 

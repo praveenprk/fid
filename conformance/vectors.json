@@ -2115,6 +2115,816 @@
    ]
   }
  ],
+ "derived_stamps": [
+  {
+   "name": "append one step and keep the source and original measurement",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "normalise",
+       "noise": 0.05,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.9215,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "aggregate.py",
+    "source_class": null,
+    "noise": 0.1,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-02T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "normalise",
+       "noise": 0.05,
+       "at": "2026-01-01T00:00:00Z"
+      },
+      {
+       "step": "aggregate.py",
+       "noise": 0.1,
+       "at": "2026-01-02T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.414675,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "source class cannot be replaced",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": "hearsay",
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "measured source fidelity is kept",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "database",
+     "source_id": "crm",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "90d",
+     "transforms": [],
+     "fid_at_stamp": 0.62,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "source_fidelity": 0.62
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": 0.99,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-04-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "database",
+     "source_id": "crm",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "90d",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-04-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.31,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "source_fidelity": 0.62
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "half-life may be replaced",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": "1y",
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2027-01-01T06:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1y",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2027-01-01T06:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.485,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "baseline is inherited and decay starts at measurement",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "database",
+     "source_id": "db",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "baseline": 0.7
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "copy",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-02T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "database",
+     "source_id": "db",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "copy",
+       "noise": 0.0,
+       "at": "2026-01-02T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.8,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "baseline": 0.7
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "fast share is inherited",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "pypi",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "80d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "fast": {
+      "share": 0.3,
+      "half_life": "3d"
+     }
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "copy",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "pypi",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "80d",
+     "transforms": [
+      {
+       "step": "copy",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "fast": {
+      "share": 0.3,
+      "half_life": "3d"
+     }
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "type, state and baseline are inherited",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "ais",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "baseline": 0.1,
+     "info_type": "vessel_position",
+     "state": "underway"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "ais",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "baseline": 0.1,
+     "info_type": "vessel_position",
+     "state": "underway"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "state may be replaced",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "ais",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "state": "underway"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": "moored",
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "ais",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1d",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91",
+     "state": "moored"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "condition is recorded on the appended step",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "database",
+     "source_id": "schedule",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "flight_leg",
+    "source_class": null,
+    "noise": 0.54,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": "previous_leg_late",
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "database",
+     "source_id": "schedule",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [
+      {
+       "step": "flight_leg",
+       "noise": 0.54,
+       "at": "2026-01-01T00:00:00Z",
+       "condition": "previous_leg_late"
+      }
+     ],
+     "fid_at_stamp": 0.414,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "a separate upstream artifact supplies the source",
+   "input": "plain text",
+   "upstream": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "database",
+     "source_id": "db",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "options": {
+    "source": "report.py",
+    "source_class": null,
+    "noise": 0.05,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": "upstream.json"
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "database",
+     "source_id": "db",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [
+      {
+       "step": "report.py",
+       "noise": 0.05,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.855,
+     "derived_from": "upstream.json",
+     "integrity": "sha256:86696ae0a7dd4789bb5a8256f0a58a13243fe65bafb37c44f3c73e2228fd78b7"
+    },
+    "content": "plain text"
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "stamped input takes precedence over separate upstream",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "database",
+     "source_id": "a",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1y",
+     "transforms": [],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "upstream": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "hearsay",
+     "source_id": "b",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [],
+     "fid_at_stamp": 0.17,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "database",
+     "source_id": "a",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "1y",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.9,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 1
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "an envelope not understood cannot be derived",
+   "input": {
+    "fid": {
+     "fid_version": "2.0",
+     "anything": 1
+    },
+    "content": 1
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "error": "version not implemented",
+   "sections": [
+    "stamping"
+   ]
+  },
+  {
+   "name": "integrity is recomputed when derived content changed",
+   "input": {
+    "fid": {
+     "fid_version": "0.4",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:afbf9d0f3560b0fd7795e81c42a0a79ee6b6fc67e064f77826aee642cad28d91"
+    },
+    "content": {
+     "v": 2
+    }
+   },
+   "upstream": null,
+   "options": {
+    "source": "step",
+    "source_class": null,
+    "noise": 0.0,
+    "half_life": null,
+    "baseline": null,
+    "source_fidelity": null,
+    "echo": null,
+    "fast": null,
+    "shape": null,
+    "info_type": null,
+    "state": null,
+    "condition": null,
+    "derived_from": null
+   },
+   "now": "2026-01-01T00:00:00Z",
+   "stamped": {
+    "fid": {
+     "fid_version": "1.0",
+     "source_class": "instrument",
+     "source_id": "sensor-12",
+     "measured_at": "2026-01-01T00:00:00Z",
+     "half_life": "infinite",
+     "transforms": [
+      {
+       "step": "step",
+       "noise": 0.0,
+       "at": "2026-01-01T00:00:00Z"
+      }
+     ],
+     "fid_at_stamp": 0.97,
+     "derived_from": null,
+     "integrity": "sha256:2b5442799fccc3af2e7e790017697373913b7afcac933d72fb5876de994f659a"
+    },
+    "content": {
+     "v": 2
+    }
+   },
+   "sections": [
+    "stamping"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",
