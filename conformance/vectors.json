@@ -2513,6 +2513,439 @@
    ]
   }
  ],
+ "recheck_at": [
+  {
+   "name": "one day half-life, cheap re-checks",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.0001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T00:25:53.452Z",
+   "seconds": 1553.4523859422802,
+   "cost": 0.011146763351484481,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "one day half-life, dear re-checks",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.01,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T04:29:09.095Z",
+   "seconds": 16149.095432978627,
+   "cost": 0.10936370740476353,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "too dear: never",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 100.0,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "never",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "two clocks",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"6912000.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0, \"fast\": {\"share\": 0.3, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T04:10:18.606Z",
+   "seconds": 15018.605982397303,
+   "cost": 0.01157711128374447,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "source below 1",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"604800.0s\", \"transforms\": [], \"fid_at_stamp\": 0.95, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.0, \"source_fidelity\": 0.95}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T03:30:59.083Z",
+   "seconds": 12659.082576931312,
+   "cost": 0.0636833647905159,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "temperature with its echo",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"8712.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.13, \"source_fidelity\": 1.0, \"echo\": {\"period\": \"24h\", \"strength\": 0.31, \"width\": \"3.75h\", \"fade\": \"345h\"}}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T00:27:33.265Z",
+   "seconds": 1653.264538293901,
+   "cost": 0.10387973362532948,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "a moving ship, shape 3",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"180.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.03, \"source_fidelity\": 1.0, \"shape\": 3.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.0001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T00:01:41.772Z",
+   "seconds": 101.7719894134881,
+   "cost": 0.11422036717650745,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "shape with two clocks",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"480.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.02, \"source_fidelity\": 1.0, \"fast\": {\"share\": 0.6, \"half_life\": \"3m\"}, \"shape\": 2.5}, \"content\": {\"reading\": 42}}",
+   "price": 0.0001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T00:01:49.179Z",
+   "seconds": 109.17903135323104,
+   "cost": 0.1125620797227266,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "one day half-life, 5%",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.05,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T03:59:47.841Z",
+   "seconds": 14387.841349840426,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "two clocks, 5%",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"6912000.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0, \"fast\": {\"share\": 0.3, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.05,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-02T15:36:42.943Z",
+   "seconds": 142602.94331361173,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "two clocks, 20%",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"6912000.0s\", \"transforms\": [], \"fid_at_stamp\": 0.99, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 0.99, \"fast\": {\"share\": 0.3, \"half_life\": \"3d\"}}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.2,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-11T02:01:46.521Z",
+   "seconds": 871306.5213439886,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "baseline already under the target: never",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.9, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.2,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "never",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "a moving ship, shape 3, 5%",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.4\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"180.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.03, \"source_fidelity\": 1.0, \"shape\": 3.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.05,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T00:02:02.642Z",
+   "seconds": 122.64246894390956,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "price: floor caps the interval",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.01,
+   "staleness": null,
+   "floor": 0.99,
+   "exact": true,
+   "recheck_at": "2026-01-01T00:23:12.739Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "price: a later floor does not cap",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.01,
+   "staleness": null,
+   "floor": 0.2,
+   "exact": false,
+   "recheck_at": "2026-01-01T04:29:09.095Z",
+   "seconds": 16149.095432978627,
+   "cost": 0.10936370740476353,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "price: never is still capped by a floor",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 100.0,
+   "staleness": null,
+   "floor": 0.5,
+   "exact": true,
+   "recheck_at": "2026-01-02T04:04:41.520Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "price: the one-second lower bound",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 1e-11,
+   "staleness": null,
+   "floor": null,
+   "exact": true,
+   "recheck_at": "2026-01-01T00:00:01.000Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "no decay: never",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"infinite\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 0.9}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "never",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "no decay: a floor cannot make it finite",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"infinite\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 0.9}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": 0.5,
+   "exact": false,
+   "recheck_at": "never",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "already below the floor: recheck at measurement",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"604800.0s\", \"transforms\": [], \"fid_at_stamp\": 0.25, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.0, \"source_fidelity\": 0.25}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": 0.5,
+   "exact": true,
+   "recheck_at": "2026-01-01T00:00:00.000Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "exactly at the floor: recheck at measurement",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"604800.0s\", \"transforms\": [], \"fid_at_stamp\": 0.5, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.0, \"source_fidelity\": 0.5}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": 0.5,
+   "exact": true,
+   "recheck_at": "2026-01-01T00:00:00.000Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "staleness 1: never",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 1.0,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "never",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "source class and transforms feed the floor cap",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.2\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"1d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.1, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.873, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "price": 100.0,
+   "staleness": null,
+   "floor": 0.5,
+   "exact": true,
+   "recheck_at": "2026-01-01T19:17:50.227Z",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "unknown source: unknown",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"unknown\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"1d\", \"transforms\": [], \"fid_at_stamp\": null, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "recheck_at": "unknown",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "null half-life: unknown",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.2\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": null, \"transforms\": [], \"fid_at_stamp\": 0.97, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "recheck_at": "unknown",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "not understood: unknown",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.1\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"1d\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.001,
+   "staleness": null,
+   "floor": null,
+   "recheck_at": "unknown",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "integrity does not affect the schedule",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.01,
+   "staleness": null,
+   "floor": null,
+   "exact": false,
+   "recheck_at": "2026-01-01T04:29:09.095Z",
+   "seconds": 16149.095432978627,
+   "cost": 0.10936370740476353,
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed price: 0.0",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": 0.0,
+   "staleness": null,
+   "floor": null,
+   "error": "price must be finite and positive",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed price: -0.001",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": -0.001,
+   "staleness": null,
+   "floor": null,
+   "error": "price must be finite and positive",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed price: inf",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": "inf",
+   "staleness": null,
+   "floor": null,
+   "error": "price must be finite and positive",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed price: nan",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": "nan",
+   "staleness": null,
+   "floor": null,
+   "error": "price must be finite and positive",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed staleness: -0.1",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": -0.1,
+   "floor": null,
+   "error": "staleness target must be in [0, 1]",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed staleness: 1.1",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 1.1,
+   "floor": null,
+   "error": "staleness target must be in [0, 1]",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "malformed staleness: nan",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 1.0, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 1.0}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": "nan",
+   "floor": null,
+   "error": "staleness target must be in [0, 1]",
+   "sections": [
+    "recheck"
+   ]
+  },
+  {
+   "name": "staleness below a fresh fact's staleness",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"0.3\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"86400.0s\", \"transforms\": [], \"fid_at_stamp\": 0.9, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\", \"baseline\": 0.1, \"source_fidelity\": 0.9}, \"content\": {\"reading\": 42}}",
+   "price": null,
+   "staleness": 0.05,
+   "floor": null,
+   "error": "target is below 1 - f",
+   "sections": [
+    "recheck"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",

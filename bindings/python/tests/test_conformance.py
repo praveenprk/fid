@@ -239,6 +239,70 @@ class Conformance(unittest.TestCase):
                 finally:
                     os.unlink(f.name)
 
+    def test_recheck_at(self):
+        def argument(value):
+            return float(value) if isinstance(value, str) else value
+
+        for c in V["recheck_at"]:
+            with self.subTest(c["name"]):
+                kwargs = {"floor": c["floor"]}
+                if c["price"] is not None:
+                    kwargs["price"] = argument(c["price"])
+                if c["staleness"] is not None:
+                    kwargs["staleness"] = argument(c["staleness"])
+                if "error" in c:
+                    with self.assertRaises(ValueError):
+                        fid.recheck_at(c["artifact_json"], **kwargs)
+                    continue
+
+                want = c["recheck_at"]
+                if want == "unknown":
+                    with self.assertRaises(fid.IndeterminateError):
+                        fid.recheck_at(c["artifact_json"], **kwargs)
+                    continue
+                got = fid.recheck_at(c["artifact_json"], **kwargs)
+                if want == "never":
+                    self.assertIsNone(got)
+                    continue
+                self.assertIsNotNone(got)
+                if c["exact"]:
+                    self.assertEqual(got, when(want))
+                    continue
+
+                stamped = json.loads(c["artifact_json"])
+                measured = when(stamped["fid"]["measured_at"])
+                seconds = (got - measured).total_seconds()
+                expected = c["seconds"]
+                if c["price"] is None:
+                    # Allow the written timestamp's half-millisecond rounding.
+                    self.assertAlmostEqual(
+                        seconds, expected, delta=0.0005 + 1e-6 * expected
+                    )
+                    continue
+
+                env = stamped["fid"]
+                f = env.get("source_fidelity")
+                if f is None:
+                    f = fid.source_fidelity(env["source_class"])
+                for transform in env["transforms"]:
+                    f *= 1 - min(max(transform["noise"], 0.0), 1.0)
+                curve = dict(
+                    baseline=env.get("baseline", 0.0),
+                    echo=env.get("echo"),
+                    fast=env.get("fast"),
+                    shape=env.get("shape"),
+                )
+
+                def cost(t):
+                    return (
+                        fid.mean_staleness(f, env["half_life"], t, **curve)
+                        + c["price"] * 86400 / t
+                    )
+
+                best = c["cost"]
+                self.assertAlmostEqual(cost(expected), best, delta=1e-7)
+                self.assertLessEqual(cost(seconds), best + 1e-7)
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):
