@@ -15,7 +15,7 @@ neither tested nor listed as a gap.
 | at-measurement | Fidelity at measurement | envelope (2), fidelity (16) | — | covered |
 | temporal | Temporal factor | echo (9), echo_errors (5), fast (11), fast_errors (5), fidelity (16), shape_errors (4) | — | partial: #16: no vector combines an echo with a shape or a fast share |
 | fidelity | Fidelity at an age | echo (9), fast (11), fidelity (16) | — | covered |
-| time-to-floor | Time to floor | echo_time_to_floor (4), envelope (1), fast_time_to_floor (8), time_to_floor (8) | — | covered |
+| time-to-floor | Time to floor | echo_time_to_floor (4), envelope (1), fast_time_to_floor (8), time_to_floor (8) | `test_echo_search_ends_10000_periods_after_measurement` | covered |
 | staleness | Staleness and re-check intervals | schedule (8), staleness_target (5) | `schedule_prints_recheck_time_and_exit_code` | covered |
 | tolerances | Numerical tolerances | echo (9), echo_time_to_floor (4), fast (11), fast_time_to_floor (8), fidelity (16), schedule (8), staleness_target (5), time_to_floor (8) | — | covered |
 | structure | Structure | envelope (32), writer_errors (2) | `stamp_rejects_malformed_envelope`, `test_content_beyond_ijson_is_refused` | partial: #16: no vector rejects a third top-level member |
