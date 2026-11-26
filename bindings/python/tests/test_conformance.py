@@ -368,6 +368,13 @@ class Conformance(unittest.TestCase):
                     self.assertAlmostEqual(got_fidelity, want_fidelity, delta=TOL)
                 self.assertEqual(got, want)
 
+    def test_timestamp_rounding(self):
+        for c in V["timestamp_rounding"]:
+            with self.subTest(c["name"]):
+                self.assertEqual(
+                    fid.expires_at(c["stamped"], c["floor"]), when(c["expires_at"])
+                )
+
     def test_envelopes(self):
         for c in V["envelope"]:
             with self.subTest(c["name"]):
