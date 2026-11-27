@@ -12,17 +12,19 @@ fact goes stale. We measured it.
 
 Using four public datasets where the truth is known later — Wikidata
 CEO tenures, a year of airport weather reports, all 7.08 million US
-domestic flights in 2024, and 2.9 million position checks on 6,592
+domestic flights in 2024, and 2.9 million position checks on 6,146
 cargo ships and tankers — we fitted an exponential decay model per
 fact type and scored it on held-out entities. Five findings:
 
-1. **Declared lifetimes were wrong by 6× to 80×**, and one scored worse
-   than ignoring age entirely.
+1. **Declared lifetimes were wrong by 6× to 80×**, and in 8 of 10
+   held-out comparisons a declared lifetime scored worse than ignoring
+   age entirely.
 2. **Facts decay toward a baseline, not toward zero.** Adding a
    baseline improves the fit wherever stale facts are right by chance,
    and the fit recovers a baseline of zero where they are not.
 3. **The half-life depends on the state of the thing observed**, by a
-   factor of about 680 for the same ships on the same days.
+   factor of about 680 for the same ships on the same days (a fitted
+   half-life against a measured one; about 990 with both fitted).
 4. **Successive processing steps are not independent.** After a late
    flight leg the next is on time 33.8% of the time; after an on-time
    leg, 85.9%.
@@ -89,8 +91,9 @@ represent that.
 The baseline also scores better on held-out data wherever it is
 non-zero (flight category: 0.155 vs 0.166; all vessels: 0.217 vs
 0.268). Where nothing is right by chance, as with a former CEO, the fit
-finds `b = 0` and both models agree. A baseline costs nothing when it
-is not needed.
+finds `b = 0` and both models agree. A baseline costs almost nothing
+when it is not needed: across every committed result it scores worse
+held out only for two drug-label states, each by less than 0.001.
 
 A consequence: when the baseline sits above a decision threshold, the
 fact never falls below it. "Expire after N days" is then the wrong
@@ -105,7 +108,8 @@ Same fact type, same ships, same days:
 | Underway (≥ 1 knot) | 3.0 minutes | 1.5% |
 | Moored or at anchor | 1.4 days (fitted) | 79% |
 
-The split held on each of six days across 2023. For a moving object
+The six days are pooled; no per-day result is committed. For a moving
+object
 the half-life is close to physics, tolerance divided by speed: 1 km at
 12 knots is about 2.7 minutes. A single half-life per fact type, the
 usual design of expiry policies, is a blend of states that describes
