@@ -183,7 +183,12 @@ python3 openfda_labels.py  # checks whether openFDA keeps label versions (it doe
 python3 dailymed_warnings.py  # ~2,300 label versions from DailyMed, ~1 MB each, read then deleted
 cargo build --release && python3 decisions.py  # the decision benchmark: runs fid on the data above (~1 min after downloads)
 python3 -m unittest test_pypi_latest test_eia_demand test_openfda_labels test_dailymed_warnings test_decisions  # no network
+python3 robustness.py  # bootstrap ranges (200 resamples over entities) into results/robustness/; needs the downloads above, compares against the committed results
 ```
+
+The optional bootstrap ranges resample entities within each train/test half
+with a fixed seed. Cite them only where the robustness run matches the
+committed results.
 
 ### AI transform noise
 
