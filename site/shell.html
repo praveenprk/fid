@@ -287,6 +287,10 @@
         color: var(--bad);
         background: var(--bad-bg);
       }
+      .lv-state.unknown {
+        color: var(--fg-muted);
+        border: 1px dashed currentColor;
+      }
       .lv-meter {
         position: relative;
         height: 6px;
@@ -515,16 +519,38 @@
           return {
             id,
             halfLife: Number(f.half_life_baseline_s),
-            baseline: Math.min(Number(f.baseline), SOURCE),
+            baseline: Number(f.baseline),
           };
         };
 
-        const fidelity = (p, age) =>
-          p.baseline + (SOURCE - p.baseline) * Math.pow(0.5, Math.max(0, age) / p.halfLife);
-        const untilFloor = (p, age) => {
-          if (FLOOR <= p.baseline) return Infinity;
-          return p.halfLife * Math.log2((SOURCE - p.baseline) / (FLOOR - p.baseline)) - age;
+        // fid-formula:begin
+        // The draft's fidelity at measurement, fidelity at an age and time to
+        // floor, for a curve with no shape, fast share or echo (the only kind
+        // this board shows). A null half-life means no decay. CI runs this
+        // block against conformance/vectors.json (site/formula.test.mjs).
+        const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
+        const atMeasurement = (source, noise) =>
+          noise.reduce((f, n) => f * (1 - clamp(n, 0, 1)), source);
+        const fidelity = (f, halfLife, baseline, age) => {
+          if (halfLife == null) return f;
+          const b = clamp(baseline, 0, Math.max(f, 0));
+          return b + (f - b) * Math.pow(0.5, Math.max(0, age) / halfLife);
         };
+        const timeToFloor = (f, halfLife, baseline, floor) => {
+          if (f < floor) return 0;
+          const b = clamp(baseline, 0, Math.max(f, 0));
+          if (halfLife == null || floor <= b) return Infinity;
+          return halfLife * Math.log2((f - b) / (floor - b));
+        };
+        // fid-formula:end
+
+        // A METAR goes from the instrument to the board with no transform.
+        const F0 = atMeasurement(SOURCE, []);
+
+        // A station's feed is UNKNOWN once a refresh fails, or when no refresh
+        // has succeeded for longer than two intervals (a sleeping tab).
+        const STALE_FEED_MS = 2 * REFETCH_MS;
+        const feed = {}; // code -> { reached: ms of last success, failed: bool }
         const clock = (s) => {
           s = Math.max(0, Math.round(s));
           const h = Math.floor(s / 3600),
@@ -575,6 +601,7 @@
           cards[s[0]] = buildCard(s);
         });
 
+        const hhmm = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         const setLabeled = (node, label, value) => {
           node.replaceChildren(document.createTextNode(label), el("span", null, value));
         };
@@ -583,8 +610,26 @@
           const now = Date.now() / 1000;
           for (const [code] of STATIONS) {
             const c = cards[code],
-              o = obs[code];
-            if (!o) continue;
+              o = obs[code],
+              fd = feed[code];
+            if (!fd) continue; // the first fetch has not settled
+            if (fd.failed || !o || Date.now() - fd.reached > STALE_FEED_MS) {
+              // UNKNOWN: a newer report may exist, so no number is shown as live.
+              c.cat.textContent = "—";
+              c.fidEl.textContent = "—";
+              c.bar.style.width = "0%";
+              c.meter.setAttribute("aria-label", "fidelity unknown: the feed did not answer");
+              c.state.textContent = "UNKNOWN";
+              c.state.className = "lv-state unknown";
+              setLabeled(
+                c.age,
+                "Feed last reached ",
+                fd.reached ? hhmm(new Date(fd.reached)) : "never",
+              );
+              setLabeled(c.until, "Score ", "withheld until it answers");
+              c.raw.textContent = "";
+              continue;
+            }
             const age = now - o.t;
             const p = params(o.cat);
             c.cat.textContent = o.cat || "—";
@@ -593,14 +638,14 @@
               c.fidEl.textContent = "—";
               continue;
             }
-            const f = fidelity(p, age);
+            const f = fidelity(F0, p.halfLife, p.baseline, age);
             c.fidEl.textContent = f.toFixed(3);
             c.bar.style.width = `${f * 100}%`;
             c.meter.setAttribute("aria-label", `fidelity ${f.toFixed(2)} against floor ${FLOOR}`);
             const signal = f >= FLOOR;
             c.state.textContent = signal ? "SIGNAL" : "NOISE";
             c.state.className = `lv-state ${signal ? "signal" : "noise"}`;
-            const left = untilFloor(p, age);
+            const left = timeToFloor(F0, p.halfLife, p.baseline, FLOOR) - age;
             if (!Number.isFinite(left))
               setLabeled(c.until, "Below floor ", "never (baseline above it)");
             else if (left > 0) setLabeled(c.until, "Below floor in ", clock(left));
@@ -611,20 +656,27 @@
         const load = async () => {
           const results = await Promise.allSettled(
             STATIONS.map(async ([code, network]) => {
-              const r = await fetch(
-                `https://mesonet.agron.iastate.edu/json/current.py?station=${code}&network=${network}`,
-                { cache: "no-cache" },
-              );
-              if (!r.ok) throw new Error(`HTTP ${r.status}`);
-              const j = await r.json();
-              const ob = j.last_ob;
-              if (!ob || !ob.utc_valid) throw new Error("no report");
-              obs[code] = { t: Date.parse(ob.utc_valid) / 1000, cat: category(ob) };
-              cards[code].raw.textContent = ob.raw || "";
+              try {
+                const r = await fetch(
+                  `https://mesonet.agron.iastate.edu/json/current.py?station=${code}&network=${network}`,
+                  { cache: "no-cache" },
+                );
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const j = await r.json();
+                const ob = j.last_ob;
+                const t = ob && Date.parse(ob.utc_valid) / 1000;
+                if (!Number.isFinite(t)) throw new Error("no report");
+                obs[code] = { t, cat: category(ob) };
+                cards[code].raw.textContent = ob.raw || "";
+                feed[code] = { reached: Date.now(), failed: false };
+              } catch (e) {
+                feed[code] = { reached: feed[code] ? feed[code].reached : null, failed: true };
+                throw e;
+              }
             }),
           );
           const failed = results.filter((r) => r.status === "rejected").length;
-          const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          const at = hhmm(new Date());
           status.textContent =
             failed === STATIONS.length
               ? "Could not reach the Iowa Environmental Mesonet. Retrying every 5 minutes."

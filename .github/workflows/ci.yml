@@ -44,8 +44,11 @@ jobs:
       # Exact versions in package.json; every transitive package pinned by
       # package-lock.json (integrity hashes). npm ci fails if they disagree.
       - run: npm ci
-      - run: npx --no-install prettier --check site/*.html eslint.config.mjs .prettierrc.json package.json
+      - run: npx --no-install prettier --check site/*.html site/*.mjs eslint.config.mjs .prettierrc.json package.json
       - run: npx --no-install eslint site/
+      # The live board's formula against fid's conformance vectors, so the
+      # site cannot drift from the library (live-site plan rule 3, #60).
+      - run: node site/formula.test.mjs
 
   rust:
     runs-on: ubuntu-latest
