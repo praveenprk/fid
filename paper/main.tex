@@ -1,0 +1,43 @@
+% fid paper: skeleton. Only Sections 4–6 (method, results, re-check
+% scheduling) are drafted; the others are placeholders so the draft compiles
+% and its cross-references resolve. See paper/README.md.
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\title{How fast facts go stale: measuring the fidelity of stored data against public ground truth}
+\author{Praveen Kumar\\Independent\\\url{https://github.com/praveenprk/fid}}
+\date{Draft}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+\emph{Not drafted.}
+
+\section{Related work}\label{sec:related}
+\emph{Not drafted.}
+
+\section{The fidelity model}\label{sec:model}
+\emph{Not drafted. Defines Equations~\eqref{eq:decay} and~\eqref{eq:echo} as
+fid computes them (spec/draft-kumar-fid-00.md).}
+
+\input{sections/04-method}
+\input{sections/05-results}
+\input{sections/06-scheduling}
+
+\section{The fid primitive}\label{sec:primitive}
+\emph{Not drafted.}
+
+\section{Limitations and threats to validity}\label{sec:limitations}
+\emph{Not drafted. Must include: no bootstrap intervals on Sections 4--5
+numbers; time splits only for the echo tests; thresholds are choices; the
+Wikidata sample; moored half-lives extrapolated from 12-hour tracks; no
+organizational dataset.}
+
+\section{Conclusion}\label{sec:conclusion}
+\emph{Not drafted.}
+
+\end{document}
