@@ -123,3 +123,26 @@ Recommend: A, because 0.11 brings fid nothing it needs today, holding it
            comes along.
 Raised by: chore/Q-006-hold-sha2-msrv (A is applied there), after #42 failed `msrv`
 Status   : ANSWERED (governor, standing rule 2026-11-25): A, hold sha2 at 0.10, rust-version stays 1.85 → .github/dependabot.yml ignores sha2 >= 0.11
+
+### Q-007
+Scenario : docs/FINDINGS.md and calibration/README.md say the ship study
+           covered "6,592 cargo ships and tankers" and the PyPI study "977
+           most downloaded packages". The committed results say 6,146
+           vessels (calibration/results/ships_ais.md) and 915 packages
+           (calibration/results/pypi_latest.md). No committed file contains
+           6,592 or 977. They may come from a run whose results were never
+           committed (for example a download count before filtering), or
+           they may be errors. The paper (#88, #89) cites only committed
+           results.
+Options  : A — Use the committed numbers (6,146 and 915) everywhere, unless
+               and until the run that produced 6,592 and 977 is committed
+               with its results; then that run's numbers replace them.
+           B — Keep 6,592 and 977 in the docs, and explain the gap to the
+               committed results in a note.
+           C — Re-run both studies now and commit whatever they give.
+Recommend: A, because a published number has to trace to a committed
+           result, and A is undone by committing the other run. B keeps a
+           number nobody can check; C costs about 2.4 GB of downloads and
+           changes results the paper is written against.
+Raised by: docs/findings-corrections (A is applied there), while tracing the paper's numbers (#89)
+Status   : ANSWERED (governor, standing rule 2026-11-25): A, use the committed numbers → docs/FINDINGS.md, calibration/README.md

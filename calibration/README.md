@@ -21,11 +21,11 @@ ignores age entirely.
 | Airport temperature (±2 °F) | `weather_forecast: 6h` | **2.9 hours**, then cycles daily: an echo every 24h (strength 0.31) beats every monotonic model on held-out data | METAR, 10 US airports, all of 2024, every lag to 14 days |
 | Airport flight category (VFR/IFR…) | `weather_forecast: 6h` | **2.9 hours**, decaying to 73%, not 0 | same |
 | Airport is IFR or worse | `weather_forecast: 6h` | **5.1 hours** | same, 5,906 adverse reports |
-| Ship position (±1 km), underway | `shipping_status: 4h` | **3.0 minutes** | NOAA AIS, 6,592 cargo ships and tankers, 6 days across 2023, 2.9M observations |
+| Ship position (±1 km), underway | `shipping_status: 4h` | **3.0 minutes** | NOAA AIS, 6,146 cargo ships and tankers, 6 days across 2023, 2.9M observations |
 | Ship position (±1 km), moored or at anchor | `shipping_status: 4h` | **1.4 days** (fitted; 79% still within 1 km after 12 h) | same |
 | Flight schedule is true (source fidelity) | — | **77.9%** on time; 69.5–84.2% by airline, 68.1–85.8% by month | BTS, 7,079,061 US flights, all of 2024 |
 | Noise per flight leg (transform noise) | — | **0.045** per leg on average | same |
-| The latest version of package X is Y, just released | — | **29 days** (5% still latest after a year) | PyPI, 977 most downloaded packages, monthly snapshots 2015–2024, 1.0M observations |
+| The latest version of package X is Y, just released | — | **29 days** (5% still latest after a year) | PyPI, 915 of the most downloaded packages, monthly snapshots 2015–2024, 1.0M observations |
 | The latest version of package X is Y, 30 days to 1 year old | — | **80 days** | same |
 | The latest version of package X is Y, no release for a year | — | **230 days**, decaying to 24% | same |
 | Hourly electricity demand in region R is D (±5%) | — | **1.9 hours**, then comes back daily: 62% still right at 24h against 19% at 12h; a small weekly echo (42% at 168h, 40% at 144h). The echo beats monotonic decay on held-out Brier but fails the shape and reliability checks, so it is not in the registry | EIA, 14 US balancing authorities, all of 2024, every lag to 14 days, 40.6M pairs |
@@ -51,14 +51,16 @@ usual weather. fid's formula sends every stale fact to 0. The model
     fidelity = b + (s0 − b) × 0.5^(age / half-life)
 
 where `b` is the chance a stale fact is right anyway, fits better or
-the same on every dataset: flight-category shape error drops from 0.184
+the same on every dataset but one (ships underway at 10 km, largest gap
+0.278 against 0.273): flight-category shape error drops from 0.184
 to 0.031, all-ship 1 km from 0.314 to 0.067. Where `b` really is 0 —
 a former CEO is never the CEO by chance — the fit finds `b = 0` and the
 two models agree.
 
 **3. Half-life depends on the thing's state, not only its type.** Same
 fact type, same ships, same days: 3 minutes underway, 1.4 days moored,
-about 680× apart, and the same across six days spread through the year.
+about 680× apart (a fitted half-life against a measured one; about
+990× with both fitted), over six days spread through the year, pooled.
 For a moving object the half-life is roughly physics — distance
 tolerance ÷ speed (1 km at 12 knots ≈ 2.7 minutes). One half-life per
 information type, as `half-lives.yaml` assumes, is not enough. Software

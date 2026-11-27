@@ -12,8 +12,9 @@ follows its outline.
 | `sections/05-results.tex` | §5 Results: declared lifetimes, baseline, state, conditioned steps, echoes |
 | `sections/06-scheduling.tex` | §6 Re-check scheduling: the pre-registered benchmark, and why fid lost |
 
-Author line: Praveen Kumar, independent, with the project's public page
-as the contact. No personal email address goes in this directory.
+Author line: Praveen Kumar, independent, with fid's public contact
+address (justpraveenhere@protonmail.com, docs/QUESTIONS.md Q-003,
+CODE_OF_CONDUCT.md). No personal address goes in this directory.
 
 ## Rules for the text
 
@@ -30,8 +31,10 @@ as the contact. No personal email address goes in this directory.
 
 ## Where the draft departs from docs/FINDINGS.md
 
-Found while tracing each number. Each needs a decision before the paper or
-FINDINGS is published again:
+Found while tracing each number. docs/FINDINGS.md and calibration/README.md
+are corrected to the committed results in the same chain: items 3–6
+directly, and items 1–2 by docs/QUESTIONS.md Q-007 (use the committed
+numbers unless the other run is committed).
 
 1. **Vessels: 6,146, not 6,592.** FINDINGS and calibration/README say
    "6,592 cargo ships and tankers"; `ships_ais.md` says 6,146 entities. No
@@ -49,6 +52,9 @@ FINDINGS is published again:
    the same ship data). The draft reports all ten.
 6. **"A baseline costs nothing when it is not needed."** It scores worse
    held out in two drug-label states, both by under 0.001. The draft says so.
+7. **"Fits better or the same on every dataset"** (calibration/README):
+   the baseline's largest gap is larger for ships underway at 10 km (0.278
+   against 0.273).
 
 ## Not yet possible from committed data
 
