@@ -459,9 +459,31 @@
           source (0.97). Scores fall every second until the next report lands, usually once an hour.
           The floor is 0.75, fid's example threshold for safety decisions.
         </p>
+        <p class="lv-note">
+          Source:
+          <a href="https://mesonet.agron.iastate.edu/"
+            >Iowa Environmental Mesonet, Iowa State University</a
+          >.
+        </p>
         <p class="lv-note" id="lv-status">Loading reports from the Iowa Environmental Mesonet…</p>
       </div>
       <div class="lv-grid" id="lv-grid"></div>
+    </section>
+
+    <section class="lv" id="space-weather" aria-live="off">
+      <div class="lv-head">
+        <h2 class="lv-title">
+          <span class="lv-dot" aria-hidden="true"></span>Space weather right now
+        </h2>
+        <p class="lv-note">Age only: fid has no calibrated half-life for these yet.</p>
+        <p class="lv-note">
+          Source:
+          <a href="https://www.swpc.noaa.gov/"
+            >NOAA Space Weather Prediction Center (public domain)</a
+          >.
+        </p>
+      </div>
+      <div class="lv-grid" id="sw-grid"></div>
     </section>
 
     <script>
@@ -482,14 +504,21 @@
         const SOURCE = 0.97; // fid source class: instrument
         const FLOOR = 0.75; // examples/floor.yaml: safety
         const REFETCH_MS = 5 * 60 * 1000;
+        const KP_REFETCH_MS = 15 * 60 * 1000;
+        const WIND_REFETCH_MS = 60 * 1000;
         const grid = document.getElementById("lv-grid");
+        const spaceGrid = document.getElementById("sw-grid");
         const status = document.getElementById("lv-status");
-        // Live board sits right under the page's header.
+        // Live boards sit right under the page's header.
         const head = document.getElementById("top");
-        if (head) head.after(document.getElementById("live"));
+        if (head)
+          head.after(document.getElementById("live"), document.getElementById("space-weather"));
 
         const obs = {};
         const cards = {};
+        const spaceObs = {};
+        const spaceCards = {};
+        const attempts = { metar: null, kp: null, wind: null };
 
         const category = (ob) => {
           const vis = Number(ob["visibility[mile]"]);
@@ -544,12 +573,56 @@
         };
         // fid-formula:end
 
+        // live-rules:begin
+        const latestKp = (rows) => {
+          if (!Array.isArray(rows)) return null;
+          let latest = null;
+          for (const row of rows) {
+            if (!row || !Number.isFinite(row.Kp)) continue;
+            const start = Date.parse(row.time_tag + "Z") / 1000;
+            if (Number.isFinite(start)) latest = { start, kp: row.Kp };
+          }
+          return latest;
+        };
+        const latestWind = (rows) => {
+          if (!Array.isArray(rows)) return null;
+          for (const row of rows) {
+            if (!row || row.active !== true || !Number.isFinite(row.proton_speed)) continue;
+            const t = Date.parse(row.time_tag + "Z") / 1000;
+            if (Number.isFinite(t)) return { t, speed: row.proton_speed, source: row.source };
+          }
+          return null;
+        };
+        const kpAge = (start, now) => Math.max(0, now - start - 3 * 60 * 60);
+        const feedUnknown = (fd, nowMs, refreshMs) => {
+          if (fd === undefined) return false;
+          if (fd.failed || fd.reached === null) return true;
+          return nowMs - fd.reached > 2 * refreshMs;
+        };
+        // live-rules:end
+
+        const SPACE_FEEDS = [
+          {
+            key: "kp",
+            title: "Planetary Kp",
+            url: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+            refreshMs: KP_REFETCH_MS,
+            select: latestKp,
+          },
+          {
+            key: "wind",
+            title: "Solar wind speed",
+            url: "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json",
+            refreshMs: WIND_REFETCH_MS,
+            select: latestWind,
+          },
+        ];
+
         // A METAR goes from the instrument to the board with no transform.
         const F0 = atMeasurement(SOURCE, []);
 
-        // A station's feed is UNKNOWN once a refresh fails, or when no refresh
-        // has succeeded for longer than two intervals (a sleeping tab).
-        const STALE_FEED_MS = 2 * REFETCH_MS;
+        // A feed is UNKNOWN once a refresh fails, or when no refresh has
+        // succeeded for longer than two intervals (including a hidden tab).
         const feed = {}; // code -> { reached: ms of last success, failed: bool }
         const clock = (s) => {
           s = Math.max(0, Math.round(s));
@@ -605,6 +678,67 @@
         const setLabeled = (node, label, value) => {
           node.replaceChildren(document.createTextNode(label), el("span", null, value));
         };
+        const utcHhmm = (seconds) => {
+          const d = new Date(seconds * 1000);
+          return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+        };
+
+        const buildSpaceCard = ({ key, title }) => {
+          const card = el("article", "lv-card");
+          const r1 = el("div", "lv-row");
+          r1.append(el("span", "lv-code", title), el("span", "lv-cat", "not calibrated"));
+          const r2 = el("div", "lv-row");
+          const value = el("span", "lv-fid", "—");
+          const state = el("span", "lv-state", "");
+          state.hidden = true;
+          r2.append(value, state);
+          const meta = el("div", "lv-meta");
+          const age = el("div", null, "Waiting for the first fetch…");
+          const detail = el("div");
+          meta.append(age, detail);
+          card.append(r1, r2, meta);
+          spaceGrid.appendChild(card);
+          spaceCards[key] = { value, state, age, detail };
+        };
+        SPACE_FEEDS.forEach(buildSpaceCard);
+
+        const tickSpace = (now, nowMs) => {
+          for (const f of SPACE_FEEDS) {
+            const c = spaceCards[f.key],
+              o = spaceObs[f.key],
+              fd = feed[f.key];
+            if (!fd) continue; // the first fetch has not settled
+            if (feedUnknown(fd, nowMs, f.refreshMs) || !o) {
+              c.value.textContent = "—";
+              c.state.textContent = "UNKNOWN";
+              c.state.className = "lv-state unknown";
+              c.state.hidden = false;
+              setLabeled(
+                c.age,
+                "Feed last reached ",
+                fd.reached ? hhmm(new Date(fd.reached)) : "never",
+              );
+              c.detail.replaceChildren();
+              continue;
+            }
+            c.state.hidden = true;
+            c.state.textContent = "";
+            c.state.className = "lv-state";
+            if (f.key === "kp") {
+              c.value.textContent = o.kp.toFixed(2);
+              setLabeled(c.age, "Report age ", clock(kpAge(o.start, now)));
+              setLabeled(
+                c.detail,
+                "Interval ",
+                `${utcHhmm(o.start)}–${utcHhmm(o.start + 3 * 60 * 60)} UTC`,
+              );
+            } else {
+              c.value.textContent = `${Math.round(o.speed)} km/s`;
+              setLabeled(c.age, "Report age ", clock(now - o.t));
+              setLabeled(c.detail, "Spacecraft ", o.source);
+            }
+          }
+        };
 
         const tick = () => {
           const now = Date.now() / 1000;
@@ -613,7 +747,7 @@
               o = obs[code],
               fd = feed[code];
             if (!fd) continue; // the first fetch has not settled
-            if (fd.failed || !o || Date.now() - fd.reached > STALE_FEED_MS) {
+            if (feedUnknown(fd, Date.now(), REFETCH_MS) || !o) {
               // UNKNOWN: a newer report may exist, so no number is shown as live.
               c.cat.textContent = "—";
               c.fidEl.textContent = "—";
@@ -651,9 +785,12 @@
             else if (left > 0) setLabeled(c.until, "Below floor in ", clock(left));
             else setLabeled(c.until, "Below floor for ", clock(-left));
           }
+          tickSpace(now, Date.now());
         };
 
         const load = async () => {
+          if (document.visibilityState !== "visible") return;
+          attempts.metar = Date.now();
           const results = await Promise.allSettled(
             STATIONS.map(async ([code, network]) => {
               try {
@@ -684,9 +821,40 @@
           tick();
         };
 
-        load();
+        const loadSpace = async (f) => {
+          if (document.visibilityState !== "visible") return;
+          attempts[f.key] = Date.now();
+          try {
+            const r = await fetch(f.url, { cache: "no-cache" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const o = f.select(await r.json());
+            if (!o) throw new Error("no report");
+            spaceObs[f.key] = o;
+            feed[f.key] = { reached: Date.now(), failed: false };
+          } catch {
+            feed[f.key] = {
+              reached: feed[f.key] ? feed[f.key].reached : null,
+              failed: true,
+            };
+          }
+          tick();
+        };
+
+        const due = (attempted, interval) =>
+          attempted === null || Date.now() - attempted >= interval;
+        const loadDue = () => {
+          if (document.visibilityState !== "visible") return;
+          if (due(attempts.metar, REFETCH_MS)) load();
+          for (const f of SPACE_FEEDS) {
+            if (due(attempts[f.key], f.refreshMs)) loadSpace(f);
+          }
+        };
+
+        loadDue();
         setInterval(load, REFETCH_MS);
+        for (const f of SPACE_FEEDS) setInterval(() => loadSpace(f), f.refreshMs);
         setInterval(tick, 1000);
+        document.addEventListener("visibilitychange", loadDue);
         dash.onData(tick);
       })();
 
