@@ -1,0 +1,312 @@
+% Section 5: Results.
+% Every number carries a `% src:` comment naming the committed file it comes
+% from (paths relative to the repository root). "md" values are as printed
+% there; where a ratio is derived, the comment gives the values it divides.
+
+\section{Results}\label{sec:results}
+
+\subsection{Declared lifetimes are wrong, and a wrong one is worse than none}\label{sec:results-declared}
+
+Table~\ref{tab:declared} compares the lifetime fid's example registry
+declares for each information type with the time until half the facts were
+wrong.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Declared lifetimes against measured half-lives.}
+\label{tab:declared}
+\begin{tabular}{llll}
+\toprule
+Fact & Declared & Measured half-life & Ratio \\
+\midrule
+Company CEO & 1 year & 5.8 years (empirical) & $5.8\times$ too short \\
+Ship position, underway & 4 hours & 3.0 minutes (empirical) & $80\times$ too long \\
+Ship position, moored or at anchor & 4 hours & 1.4 days (fitted, no baseline) & $8.4\times$ too short \\
+Airport IFR or worse & 6 hours & 5.1 hours (empirical) & $1.2\times$ too long \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/wikidata_ceo.json [0] empirical_half_life_s = 5.788 y; guess.half_life_s = 1 y
+% src: calibration/results/ships_ais.json [1] (1 km, underway) empirical_half_life_s = 179.2 s (2.99 min); guess 4 h; 14400 / 179.2 = 80.4
+% src: calibration/results/ships_ais.json [2] (1 km, moored) fitted.half_life_s = 1.403 d; 1.403 d / 4 h = 8.42
+%      (moored never falls to 0.5 in the 12 h observed, so only a fitted value exists; it is an extrapolation)
+% src: calibration/results/weather_metar.json [2] (adverse) empirical_half_life_s = 5.14 h; guess 6 h
+
+The declared value was written for a different purpose in the last row
+(weather \emph{forecasts}, not observations), so its closeness is not
+evidence that declaring lifetimes works.
+% src: docs/FINDINGS.md "Finding 1"
+
+Held out, a declared lifetime is usually worse than ignoring age.
+Table~\ref{tab:declared-brier} gives every comparison in the committed
+results: the declared lifetime scores worse than the constant in 8 of 10.
+These are not independent: six rows are the same ship data at two
+tolerances and three groupings. By fact, the declared lifetime loses to the
+constant for CEOs, flight category and ship positions, and beats it for
+temperature and IFR-or-worse.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Held-out Brier score of the declared lifetime, the constant base
+rate, and the fitted model with a baseline (lower is better).}
+\label{tab:declared-brier}
+\begin{tabular}{lrrr}
+\toprule
+Fact & Declared & Constant & Fitted, baseline \\
+\midrule
+Company CEO & 0.3745 & 0.2507 & 0.2008 \\
+Airport temperature & 0.2184 & 0.2263 & 0.1809 \\
+Airport flight category & 0.4408 & 0.1603 & 0.1554 \\
+Airport IFR or worse & 0.2143 & 0.2498 & 0.1990 \\
+Ship, 1 km, all & 0.2803 & 0.2256 & 0.2168 \\
+Ship, 1 km, underway & 0.4956 & 0.0919 & 0.0299 \\
+Ship, 1 km, moored & 0.1707 & 0.0578 & 0.0532 \\
+Ship, 10 km, all & 0.1954 & 0.1750 & 0.1529 \\
+Ship, 10 km, underway & 0.2437 & 0.2416 & 0.0897 \\
+Ship, 10 km, moored & 0.1708 & 0.0384 & 0.0353 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/wikidata_ceo.md; weather_metar.md (three sections); ships_ais.md (six sections), Brier tables
+% Declared worse than constant: CEO, flight category, and all six ship rows (8); better: temperature, IFR (2).
+% NOTE: docs/FINDINGS.md says "one scored worse than ignoring age entirely"; the committed results show 8 of 10.
+
+The fitted model with a baseline beats the constant in all ten. For the
+CEO fact, the decay-to-zero fit and the fit with a baseline coincide
+($b = 0$), with Brier $0.2008$ against $0.2507$ for the constant and
+$0.3745$ for the declared year.
+% src: calibration/results/wikidata_ceo.md
+
+\subsection{Facts decay toward a baseline, not toward zero}\label{sec:results-baseline}
+
+A week-old report that an airport is VFR is still right most of the time,
+because clear weather is the usual state. Decay to zero cannot represent
+this; Equation~\eqref{eq:decay} with $b > 0$ can. Table~\ref{tab:baseline}
+gives, for every fact, the shape error without and with a baseline, the
+fitted baseline, and the held-out Brier of both fits.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Decay to zero against decay to a baseline. Shape error: largest
+gap from the empirical curve, all data. Brier: held out.}
+\label{tab:baseline}
+\begin{tabular}{lrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Shape error} & & \multicolumn{2}{c}{Brier} \\
+\cmidrule(lr){2-3}\cmidrule(lr){5-6}
+Fact & to 0 & to $b$ & $b$ & to 0 & to $b$ \\
+\midrule
+Airport flight category & 0.184 & 0.031 & 0.73 & 0.1664 & 0.1554 \\
+Airport IFR or worse & 0.178 & 0.078 & 0.20 & 0.2152 & 0.1990 \\
+Airport temperature & 0.415 & 0.183 & 0.25 & 0.2145 & 0.1809 \\
+Ship, 1 km, all & 0.314 & 0.067 & 0.62 & 0.2681 & 0.2168 \\
+Flight legs & 0.068 & 0.021 & 0.62 & 0.1683 & 0.1682 \\
+PyPI latest version, all & 0.102 & 0.056 & 0.15 & 0.1381 & 0.1343 \\
+Drug label warnings, all & 0.043 & 0.003 & 0.23 & 0.1515 & 0.1511 \\
+Grid demand & 0.621 & 0.292 & 0.33 & 0.3037 & 0.2169 \\
+Company CEO & 0.035 & 0.035 & 0.00 & 0.2008 & 0.2008 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/weather_metar.md, ships_ais.md "AIS 1 km, all vessels", flights_bts.md "Flight legs",
+%      pypi_latest.md "all snapshots", dailymed_warnings.md "all snapshots", eia_demand.md, wikidata_ceo.md
+
+Three things follow. First, a baseline costs almost nothing where it is not
+needed: where nothing is right by chance, as with a former CEO, the fit
+finds $b = 0$ and the two models agree. Across every fact and state in the
+committed results, the baseline scores worse held out in only two, both
+drug-label states: labels unchanged for over five years ($0.0868$ against
+$0.0863$, 36 labels) and labels whose warnings changed in the year before
+($0.15272$ against $0.15267$). Second, it matters most where stale facts are often right by
+chance: flight category and ship positions. Third, it does not rescue every
+fact. Temperature and grid demand still fit poorly (shape error $0.183$
+and $0.292$), because both come back daily (Section~\ref{sec:results-echo}).
+% src: same rows as Table tab:baseline; "poor fit" threshold 0.10 from calibration/fidcal.py
+% src: calibration/results/dailymed_warnings.json brier_test, "unchanged for over 5 years": 0.08633 vs 0.08684;
+%      "changed in the year before": 0.15267 vs 0.15272 (equal at 4 decimals in the .md)
+%      (checked brier_test in every list-shaped calibration/results/*.json; these are the only two with baseline worse)
+
+When the baseline lies above a decision threshold, the fact never falls
+below it, and ``expire after $N$ days'' is the wrong rule: the fact stays
+usable at a known, reduced confidence.
+% src: docs/FINDINGS.md "Finding 2" (consequence); spec/draft-kumar-fid-00.md "Time to floor" ("If h is infinite, or F <= b', it is never")
+
+\subsection{The half-life depends on the state of the thing observed}\label{sec:results-state}
+
+For the same ships on the same days, position facts recorded while a vessel
+was underway were half wrong after 3.0 minutes; those recorded while it was
+moored or at anchor, after an extrapolated 1.4 days. After 12 hours, 1.5\%
+of underway positions were still within 1\,km, against 79\% of moored ones.
+% src: calibration/results/ships_ais.json [1] empirical_half_life_s = 179.2 s; [2] fitted.half_life_s = 1.403 d
+% src: calibration/results/ships_ais.md lag 12h rows: underway 0.015 (n = 52,854), moored 0.791 (n = 119,843)
+
+The ratio is about $680$ when the moored fit is compared with the underway
+empirical half-life, and about $990$ when both are fitted (the underway fit
+is 2.0 minutes). Either way, a single half-life per fact type, the usual
+design of expiry policies, is a blend of states that describes neither. For
+a moving object the half-life is close to physics, the tolerance divided by
+the speed: 1\,km at 12 knots is about 2.7 minutes.
+% src: ships_ais.json: 1.4035 d / 179.2 s = 676.8; 1.4035 d / 122.1 s (fitted.half_life_s of [1]) = 993.2
+% src: 1 km / (12 kn = 6.173 m/s) = 162 s = 2.7 min (arithmetic)
+% NOTE: docs/FINDINGS.md and calibration/README.md say "about 680x" (fitted / empirical) and "held on each of six days";
+%       no per-day result is committed, so this draft does not claim the per-day result.
+
+Software shows the same pattern, with a state known when the fact is
+stored: how long ago the package's latest release came out
+(Table~\ref{tab:pypi}).
+
+\begin{table}[t]
+\centering
+\small
+\caption{``The latest version of package $X$ is $Y$'' by the age of $Y$ when
+recorded (PyPI). Fits with a baseline, all data.}
+\label{tab:pypi}
+\begin{tabular}{lrrrrr}
+\toprule
+State when recorded & Entities & Half-life & $b$ & Still latest at 1 year & Brier, held out \\
+\midrule
+released in the 30 days before & 914 & 29 d & 0.07 & 4.8\% & 0.1151 \\
+30 days to 1 year old & 886 & 80 d & 0.10 & 15.6\% & 0.1184 \\
+no new release for over a year & 496 & 230 d & 0.24 & 50.0\% & 0.1208 \\
+all & 915 & 63 d & 0.15 & 17.9\% & 0.1343 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/pypi_latest.md (four sections); "still latest at 1 year" from pypi_latest.json curve at lag 365d
+% Ratio quiet / just released = 230 / 29 = 7.9
+
+Drug label warnings do not show it. Labels whose warnings changed in the
+year before and labels unchanged for one to five years have the same
+empirical half-life, 2.9 years. Labels unchanged for over five years look
+steadier (68\% unchanged after five more years, against 38\% overall), but
+there are 36 of them.
+% src: calibration/results/dailymed_warnings.md (empirical half-lives 2.9y, 2.9y; entities 36)
+% src: calibration/results/dailymed_warnings.json curve at 5.0y: over-5-years 0.678, all 0.380
+
+\subsection{Successive processing steps are not independent}\label{sec:results-steps}
+
+We treat each leg of an aircraft's day as a processing step applied to the
+day's published schedule. Across the fleet the on-time rate falls with each
+leg flown, from 85.5\% for the first leg to 65.9\% for the seventh, and a
+model that multiplies a fixed per-leg loss fits the average: $0.045$ per
+leg. It describes no individual aircraft (Table~\ref{tab:legs}).
+% src: calibration/results/flights_bts.md "Flight legs" lag table (0 legs 0.855, 6 legs 0.659); "Fitted per-leg noise (fid model): 0.045"
+
+\begin{table}[t]
+\centering
+\small
+\caption{On-time rate of a leg given the previous leg (BTS, 2024).}
+\label{tab:legs}
+\begin{tabular}{lrr}
+\toprule
+Previous leg & Next leg on time & Leg pairs \\
+\midrule
+on time & 85.9\% & 4{,}285{,}796 \\
+late & 33.8\% & 1{,}032{,}385 \\
+either & 75.8\% & 5{,}318{,}181 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/flights_bts.md "Flight legs: independence of transform noise"
+% "either" n = 4,285,796 + 1,032,385 = 5,318,181
+
+Multiplying per-step loss assumes independence. Where the upstream outcome
+is known, the loss should be conditioned on it: after a late leg the step
+loses $1 - 0.338/0.758 = 0.55$ of fidelity, not $0.045$.
+% src: calibration/results/flights_bts.md ("Conditional noise after a late leg: 1 − 0.338 / 0.758 = 0.55")
+
+The same data shows that a source's reliability is not one number per
+class. The published schedule is right (on time within 15 minutes) for
+77.9\% of 7{,}079{,}061 flights, but 69.5\% to 84.2\% by airline, 68.1\%
+(July) to 85.8\% (October) by month, and 89.6\% for 5\,am departures
+against 68.1\% for 8\,pm.
+% src: calibration/results/flights_bts.md "Flight schedules: source fidelity" (F9 0.695, YX 0.842; 2024-07 0.681, 2024-10 0.858; 05:00 0.896, 20:00 0.681)
+
+\subsection{Some facts come back}\label{sec:results-echo}
+
+A temperature reading (within $\pm 2\,^\circ$F) is right 19.4\% of the time
+at 12 hours old and 43.3\% at 24 hours, because the daily cycle returns it.
+No monotonic model can express that. Table~\ref{tab:echo} scores the echo
+model of Equation~\eqref{eq:echo} against monotonic models with every hourly
+lag to 14 days (29.0 million temperature observations).
+% src: calibration/results/weather_periodic.json facts.temperature.curve lag_hours 12 → 0.194, 24 → 0.433
+% src: weather_periodic.json facts.temperature.splits.station train_observations + test_observations = 28,999,745
+
+\begin{table}[t]
+\centering
+\small
+\caption{Temperature within $\pm 2\,^\circ$F: held-out Brier in two splits,
+and the largest gap from the curve (all data).}
+\label{tab:echo}
+\begin{tabular}{lrrr}
+\toprule
+Model & Brier, station split & Brier, time split & Largest gap \\
+\midrule
+constant & 0.1631 & 0.1746 & 0.776 \\
+decay to 0 & 0.2007 & 0.2148 & 0.470 \\
+decay to baseline & 0.1599 & 0.1710 & 0.213 \\
+echo, $P = 24$\,h & \textbf{0.1572} & \textbf{0.1683} & \textbf{0.070} \\
+echo, 24\,h and 168\,h & 0.1572 & 0.1683 & 0.070 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/weather_periodic.md "METAR temperature"
+
+The echo passes the rule fixed before the run on all three counts. Fitted
+on all data, $b = 0.13$, $h = 2.4$\,h, $r = 0.31$, $h_r = 345$\,h and
+$w = 3.75$\,h. Scanning the period on the training half alone picks 24\,h,
+then 23\,h and 25\,h.
+% src: calibration/results/weather_periodic.md (rule lines; "Echo fitted on all data: ... b = 0.128, h = 2.42h, r = 0.311, h_r = 345.0h, w = 3.75h"; period scan)
+
+The Brier gain is small because most observations sit at stale lags, where
+every model is near the base rate. The shape is where the echo matters: at
+24 hours decay-to-baseline predicts 0.22, the echo 0.39, and the data says
+0.43. The model is not right yet. It under-predicts the first echo and
+over-predicts the later ones (0.37 against 0.32 at 72 hours), so the first
+return is stronger than a single strength fading with $h_r$ allows.
+% src: weather_periodic.json facts.temperature.curve: lag 24 → decay_to_baseline 0.220, echo_24h 0.391, still_correct 0.433;
+%      lag 72 → echo_24h 0.369, still_correct 0.320
+
+Echo strength varies by station, from $r = 0.17$ at Denver to $0.58$ at Los
+Angeles; like the half-life, it belongs to a state.
+% src: calibration/results/weather_periodic.md "Temperature echo by station" (DEN 0.173, LAX 0.581)
+
+There is no weekly cycle in weather. Adding a 168-hour echo changes no
+held-out Brier at four decimals, and its fitted strength for temperature
+is 0.
+% src: calibration/results/weather_periodic.md (rows "echo 24h" vs "echo 24h and 168h"; "Weekly term fitted on all data: r7 = 0.0000")
+
+The other two weather facts show the rule's limits. Flight category passes,
+but the gain is negligible (station-split Brier $0.19896$ to $0.19887$),
+because decay to a $0.71$ baseline already fits it (largest gap $0.045$).
+IFR-or-worse fails: the echo improves its Brier but its reliability on the
+station split is worse.
+% src: weather_periodic.json facts.flight_category.splits.station.brier_test decay_to_baseline 0.198957, echo_24h 0.198869
+% src: weather_periodic.md "METAR flight category" (largest gap 0.045; echo b = 0.705) and "METAR adverse conditions" (rule passed: no)
+% NOTE: 0.71 is the echo fit's b (0.705); the decay-to-baseline fit in weather_metar.md has b = 0.73 at study lags.
+
+Electricity demand, a fact people drive, echoes too, but not in this
+shape. Within $\pm 5\%$, a reading is right 18.9\% of the time at 12 hours,
+62.2\% at 24 hours, and 41.7\% at 168 hours against 39.6\% at 144 and 38.3\%
+at 192: a weekly echo of two to three points. The echo beats
+decay-to-baseline held out (Brier 0.17923 against 0.18430 split by region,
+0.16030 against 0.16604 by time), but fails the rule: its largest gap is
+0.118, above 0.10, and its reliability is worse in the time split (0.0248
+against 0.0219). The first daily return (0.62) is much stronger than the
+later ones (about 0.40), which one fading echo cannot express.
+% src: calibration/results/eia_demand.json [0].curve lag 12h 0.189, 24h 0.622, 144h 0.396, 168h 0.417, 192h 0.383
+% src: calibration/results/eia_demand.md echo test table, rule lines, reliability table
+
+\subsection{Summary of the measurements}
+
+Across seven public sources, the half-life of a stored fact ranged from
+minutes (a moving ship) to years (a CEO, a drug label's warnings).
+Declared lifetimes were off by up to $80\times$ and usually scored worse
+than ignoring age. A baseline, a per-state half-life, conditioned step
+noise and, for some facts, a periodic echo each improved held-out
+prediction where their effect is present, and cost little or nothing where
+it is absent.
+% src: sections above

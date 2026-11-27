@@ -1,0 +1,135 @@
+% Section 6: Using the model — re-check scheduling, and where fid loses.
+% Source: the first decision benchmark, calibration/results/decisions.md and
+% decisions.json (fid's floor policy), whose rule was fixed before the run.
+% Every number carries a `% src:` comment.
+
+\section{Using the model: re-check scheduling}\label{sec:scheduling}
+
+Calibrated probabilities are only useful if acting on them is better than
+the alternative. The obvious use is deciding when to re-check a fact. We
+tested that use against fixed schedules, with a rule fixed before the run.
+The rule failed.
+
+\subsection{Setup}
+
+A store holds one fact per entity. At each re-check it reads the truth;
+between re-checks it serves the stored value. Each policy has two costs:
+re-checks per fact per day, and \emph{staleness}, the fraction of time the
+served value is wrong (the chance that a decision made at a random moment
+acts on a wrong fact). Six kinds of fact are replayed on the histories of
+Section~\ref{sec:method}: ship positions, airport temperature, airport
+flight category, grid demand, the latest version of a package, and drug
+label warnings.
+% src: calibration/results/decisions.md (title and section headings); docs/ROADMAP.md "Decision benchmark, 20 October"
+
+fid is run, not re-implemented: \texttt{fid calibrate} fits each kind on the
+training half of the entities, and \texttt{fid stamp} and \texttt{fid ttl}
+set each fact's re-check interval. The fid policy re-checks a fact when its
+fidelity falls below a floor. It is compared with the best fixed interval
+for each kind, and, across all six kinds, with a TTL tuned per kind on the
+training half for each re-check budget. Everything is scored on the
+held-out entities. A ratio is fid's re-checks divided by the other
+policy's, for the same held-out staleness; its 95\% range is over 200
+resamples of held-out entities. Below 1, fid needs fewer re-checks.
+% src: docs/ROADMAP.md "Decision benchmark, 20 October"; calibration/results/decisions.md (opening paragraph; "All kinds together")
+
+\subsection{The rule and the result}
+
+The rule, fixed before the run, asked three things: that fid need fewer
+re-checks than the best fixed interval for the two kinds with a state
+(ships, packages) at 5\%, 10\% and 20\% staleness; that, across all six
+kinds, fid need fewer re-checks than the tuned TTL at the same targets; and
+that fid's floor be an honest knob, its predicted staleness within $0.02$
+of what happened. Table~\ref{tab:rule} gives the result.
+% src: calibration/results/decisions.md "The rule"
+
+\begin{table}[t]
+\centering
+\small
+\caption{fid's re-checks divided by the alternative's, for the same held-out
+staleness (95\% range over 200 resamples). Above 1, fid needs more.}
+\label{tab:rule}
+\begin{tabular}{lllll}
+\toprule
+ & 2\% & 5\% & 10\% & 20\% \\
+\midrule
+Ships, against best fixed interval & 1.04 (0.92--1.14) & 1.20 (1.10--1.31) & 1.42 (1.31--1.54) & 1.01 (0.63--1.58) \\
+Packages, against best fixed interval & 353 (259--500) & 1.34 (1.27--1.42) & 1.07 (1.03--1.12) & 1.09 (1.06--1.11) \\
+All six kinds, against tuned TTL & 1.59 (1.51--1.68) & 3.83 (3.42--4.42) & 9.56 (8.21--11.46) & 11.94 (10.01--13.89) \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src: calibration/results/decisions.md "ship_position", "package_latest_version" (fid ÷ fixed), "All kinds together" (fid ÷ tuned)
+% 2% is outside the rule's targets (5%, 10%, 20%) and shown for completeness.
+
+\begin{itemize}
+  \item \textbf{Ships:} fid worse at 5\% and 10\%, a tie at 20\%.
+  \item \textbf{Packages:} fid worse at 5\%, 10\% and 20\%.
+  \item \textbf{All kinds against the tuned TTL:} fid worse at every target,
+    by $3.8\times$ to $11.9\times$.
+  \item \textbf{Honest knob:} yes for four kinds (ships 0.019, temperature
+    0.005, grid demand 0.012, drug labels 0.016, the mean
+    $|\text{predicted} - \text{actual}|$ over floors 0.5--0.95); no for
+    flight category (0.045) and packages (0.032).
+\end{itemize}
+% src: calibration/results/decisions.md "The rule" and each kind's "Mean |predicted − actual| for floors 0.5–0.95"
+
+For the four kinds without a state, fid and the best fixed interval are
+indistinguishable: every ratio is between 0.98 and 1.06, and every range
+includes 1.
+% src: calibration/results/decisions.md "airport_temperature", "airport_flight_category", "grid_demand", "drug_label_warnings" (fid ÷ fixed)
+% CHECK before submission: the airport_flight_category 20% target is reached only at "every 1.0y" (range 0.01–1.00).
+
+\subsection{Why}
+
+Three causes are visible in the committed tables. They are diagnoses
+after the fact, not tested hypotheses.
+% src: calibration/results/decisions.md ("Diagnostics, added after the first run (not part of the rule)")
+
+\begin{enumerate}
+  \item \textbf{A floor guards each decision; it does not spend a budget.}
+    One floor applied to every kind re-checks fast-changing kinds as often
+    as slow ones need. A TTL tuned per kind spends re-checks where they
+    buy the most, which is why the all-kinds ratio grows with the target.
+  \item \textbf{State helped the fit but not the schedule.} Without its
+    state, fid matched the best fixed interval for ships at 2\%, 5\% and
+    10\% (1.00, 1.00, 0.98) and beat it at 20\% (0.75, range 0.64--0.90).
+    With states it did worse. Errors gather where the state changes between
+    checks, such as a moored ship leaving.
+  \item \textbf{A single exponential misreads a fast first drop.} For
+    packages, \texttt{fid calibrate} fitted the just-released state with
+    $s_0 = 0.945$, reading the fast first drop as a source wrong when fresh.
+    A high floor then cannot be met at any interval, which forces constant
+    re-checks: the $353\times$ at 2\%.
+\end{enumerate}
+% src: (1) calibration/results/decisions.md "All kinds together"; calibration/README.md "7."
+% src: (2) calibration/results/decisions.md "ship_position" ("fid, no state", "no state ÷ fixed": 1.00, 1.00, 0.98 (0.98–0.99), 0.75 (0.64–0.90)); calibration/README.md "7." (moored ship leaving)
+% src: (3) calibration/results/decisions.md "package_latest_version" (just_released s0 0.945); calibration/README.md "7."
+
+Two post-hoc diagnostics qualify the result without overturning it. Judged
+by the worst-served state rather than the average, fid needs fewer
+re-checks than a fixed interval for ships at 2\% (0.80, range 0.72--0.89)
+and the same at 5\% and 10\% (0.99, 0.87--1.12; 1.10, 0.98--1.23), but
+more at 20\% (1.23, 1.05--1.37). Kept
+at or below each target in every kind and state, each kind at its own
+cheapest setting, fid ties the fixed intervals at 5\% (0.99, 0.88--1.11)
+and needs 1.09 to 1.40 times as many at the other targets.
+% src: calibration/results/decisions.md "ship_position" diagnostics ("fid, worst state ÷ fixed": 0.80 (0.72–0.89), 0.99 (0.87–1.12), 1.10 (0.98–1.23), 1.23 (1.05–1.37))
+% src: calibration/results/decisions.md "All kinds together", diagnostic table ("fid floor per kind ÷ fixed": 1.40, 0.99, 1.09, 1.22)
+
+\subsection{What this means}
+
+Calibrated staleness probabilities did not, by themselves, beat a tuned
+fixed TTL on re-check cost. The paper's claim therefore rests on the
+calibration itself (Section~\ref{sec:results}): how likely a stored fact is
+to be wrong now. In this benchmark, the staleness fid predicted at a floor
+was within 0.02 of what happened for four of the six kinds. Spending a re-check budget well is a
+different problem, and a floor is not the answer to it.
+% src: calibration/results/decisions.md "The rule" (honest knob yes for 4 of 6)
+
+A second policy, which gives each fact an interval from its own curve and
+one price per re-check (\texttt{fid schedule}), has been run only on the
+development data used to build it. Its confirmation run on unseen data is
+not committed, so this paper reports nothing from it.
+% src: calibration/decisions.py docstring (v2: dev and confirm sets; the rule set before the confirm run);
+%      calibration/results/decisions_dev.md (dev set only); no decisions_confirm.* in calibration/results/
