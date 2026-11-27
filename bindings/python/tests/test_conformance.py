@@ -290,6 +290,24 @@ class Conformance(unittest.TestCase):
                 finally:
                     os.unlink(f.name)
 
+    def test_field_errors(self):
+        now = when(V["envelope"][0]["now"])
+        for c in V["field_errors"]:
+            with self.subTest(field=c["field"], case=c["case"]):
+                if c["expected"] == "error":
+                    with self.assertRaises(ValueError):
+                        fid.check(c["artifact_json"], 0.5, now=now)
+                else:
+                    got = fid.check(c["artifact_json"], 0.5, now=now)
+                    if c["expected"] == "not-understood":
+                        self.assertIsNotNone(got.not_understood)
+                    else:
+                        self.assertEqual(got.status, fid.Status.UNKNOWN)
+                        self.assertFalse(got.integrity_ok)
+                self.assertIsNone(
+                    fid.check(c["control_json"], 0.5, now=now).not_understood
+                )
+
     def test_recheck_at(self):
         def argument(value):
             return float(value) if isinstance(value, str) else value

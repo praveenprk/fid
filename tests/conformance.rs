@@ -624,6 +624,59 @@ fn number_errors() {
 }
 
 #[test]
+fn field_errors() {
+    let v = vectors();
+    for c in cases(&v, "field_errors") {
+        let field = c["field"].as_str().unwrap();
+        let case = c["case"].as_str().unwrap();
+        let text = c["artifact_json"].as_str().unwrap();
+        let got = fid::envelope::read(text);
+        match c["expected"].as_str().unwrap() {
+            "error" => match got {
+                Err(_) => {}
+                Ok(fid::envelope::Read::Understood(stamped)) => {
+                    assert!(
+                        assess(&stamped, 0.5, time("2026-01-01T00:00:00Z")).is_err(),
+                        "{} {}: invalid value must be rejected",
+                        field,
+                        case
+                    );
+                }
+                Ok(fid::envelope::Read::NotUnderstood(why)) => {
+                    panic!("{} {}: expected an error, got {}", field, case, why)
+                }
+            },
+            "not-understood" => assert!(
+                matches!(got, Ok(fid::envelope::Read::NotUnderstood(_))),
+                "{} {}: version must not be understood",
+                field,
+                case
+            ),
+            "unknown" => {
+                let stamped = match got {
+                    Ok(fid::envelope::Read::Understood(stamped)) => stamped,
+                    _ => panic!("{} {}: envelope must read", field, case),
+                };
+                let result = assess(&stamped, 0.5, time("2026-01-01T00:00:00Z")).unwrap();
+                assert_eq!(result.assessment.status, FidStatus::Unknown);
+                assert!(!result.integrity_ok, "{} {}: bad integrity", field, case);
+            }
+            expected => panic!("unknown expectation {}", expected),
+        }
+        let control = c["control_json"].as_str().unwrap();
+        assert!(
+            matches!(
+                fid::envelope::read(control),
+                Ok(fid::envelope::Read::Understood(_))
+            ),
+            "{} {}: control must read",
+            field,
+            case
+        );
+    }
+}
+
+#[test]
 fn derived_stamps() {
     let v = vectors();
     let tol = v["tolerance"].as_f64().unwrap();
