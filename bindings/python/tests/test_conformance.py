@@ -119,6 +119,41 @@ class Conformance(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     fid.fidelity(0.9, 3600, 3600, echo=c["echo"])
 
+    def test_bounded_scoring(self):
+        def run(c):
+            if c["operation"] == "fidelity":
+                with self.subTest(c["name"]):
+                    got = _fid.fidelity(
+                        c["source"],
+                        c["age_seconds"],
+                        c["half_life_seconds"],
+                        c["noise"],
+                        c["baseline"],
+                        json.dumps(c["echo"]),
+                    )
+                    self.assertAlmostEqual(got, c["fidelity"], delta=TOL)
+                return
+            for shape in (None, 1.0):
+                with self.subTest(c["name"], shape=shape):
+                    got = fid.time_to_floor(
+                        c["fidelity"],
+                        c["half_life_seconds"],
+                        c["floor"],
+                        baseline=c["baseline"],
+                        echo=c["echo"],
+                        shape=shape,
+                    )
+                    if c["seconds"] is None:
+                        self.assertIsNone(got)
+                    else:
+                        self.assertAlmostEqual(
+                            got.total_seconds(), c["seconds"], delta=1e-5
+                        )
+
+        for c in V["bounded_scoring"]:
+            run(c)
+            run(c["control"])
+
     def test_fast(self):
         for c in V["fast"]:
             with self.subTest(c["name"]):
