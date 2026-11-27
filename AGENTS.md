@@ -8,12 +8,68 @@ bind humans.
 fid follows eng-principles, mapped onto fid's own spec system
 (docs/DECISIONS.md DECISION-001).
 
-## Roles
+## Roles (eng-principles ENG-STD-005 §2.3, §2.6; ENG-DEC-012, ENG-DEC-015)
 
-- PK (GitHub: praveenprk) is the governor and the only one who merges into
-  `main`. PK accepts decisions and confirms violation severities.
+- PK (GitHub: praveenprk) is the governor. PK accepts decisions,
+  confirms violation severities, and answers the questions in
+  docs/QUESTIONS.md.
+- **Merging into `main`:** any authorised contributor, human or automated,
+  may merge a pull request into `main` once every required check passes,
+  it has had an automated or human review, and no question is OPEN. A
+  security-related change (ENG-STD-005 §2.5) is merged only by PK, and so
+  is a pull request that records an answer under the governor's standing
+  rule on questions (DECISION-010).
+- **Releasing:** only PK promotes `main` → `stable` and tags a release,
+  each on its release record (Releases, below). An automated contributor
+  never promotes or tags; allowing it would need its own decision and
+  signing identity.
 - Contributors propose decisions (Status PROPOSED), file violations with
-  evidence, and open pull requests. They do not merge into `main` or decide.
+  evidence, and open pull requests into `main`.
+
+## Branches (DECISION-008, eng-principles ENG-DEC-012)
+
+| Branch | Holds | Who merges into it | How |
+|--------|-------|--------------------|-----|
+| `type/ANCHOR-short-description` | One piece of work | Its author | Commits |
+| `main` (default) | Integrated work | A contributor, checks green, no OPEN question; PK for security-related changes and for answers under DECISION-010 | Squash or rebase |
+| `stable` | What is released | PK | Merge commit, from `main` |
+
+- Every pull request targets `main`, from a work branch. Nothing is
+  committed to `main` or `stable` directly.
+- A judgment you need from PK goes in docs/QUESTIONS.md as a `Q-NNN`
+  entry, added by the pull request that needs it: a real-world scenario,
+  the options and what each changes, your recommendation. PK answers on
+  that pull request; record the answer in the entry. The pull request
+  cannot merge into `main` while any entry is OPEN. An answer that
+  decides something becomes a DECISION entry. Under the governor's
+  standing rule (DECISION-010), a contributor records the Recommend
+  option of a question it raises as the answer; only PK merges a pull
+  request that does so.
+- Security-related changes (eng-principles ENG-STD-005 §2.5: vulnerability
+  reports or fixes, SECURITY.md, secrets or workflow permissions, branch
+  rules or required checks, integrity-checking code) carry the label
+  `security`. Only PK merges them.
+
+## Releases (eng-principles ENG-STD-005 §2.6, §5.1)
+
+1. In a pull request into `main`: set the version in Cargo.toml,
+   bindings/python/Cargo.toml and bindings/python/pyproject.toml, and move
+   the Unreleased section of CHANGELOG.md under the new version.
+2. Write the release record (docs/templates/release-record.md): the
+   commit to be released; every required check's result at that commit;
+   the open violations in docs/VIOLATIONS.md; and who authorises the
+   release. Any contributor may draft it. It goes in the description of
+   the promotion pull request.
+3. PK promotes `main` → `stable` through a pull request from `main`,
+   merged with a merge commit, approving it on that record.
+4. PK tags the merge commit on `stable` with a signed, annotated tag:
+   `git tag -s vX.Y.Z -F <message file>`, signed with PK's SSH signing
+   key (git `gpg.format ssh`; the key is registered on GitHub as a
+   signing key, Q-002). The message is the release record, then the
+   DECISION and V-ENG anchors the release closes.
+5. The `release` workflow publishes to crates.io and PyPI; it refuses a
+   tag that is unsigned or not on `stable`. Then create the GitHub
+   release page from the CHANGELOG section, with the release record.
 
 ## Before work
 
@@ -52,7 +108,12 @@ fid follows eng-principles, mapped onto fid's own spec system
 |------|-----------|
 | Title and commit format, anchors resolve, no co-author or attribution lines | `commit-check` workflow: eng-principles' shared check, with fid's scripts/hooks/types and anchors (DECISION-006) |
 | Rust formatted and clippy-clean; Python formatted and linted (ruff.toml) | `lint` job in the `ci` workflow: rustfmt, clippy, ruff, all pinned |
+| Nothing is published from an unsigned release tag, or one off `stable` | `check` job of the `release` workflow: the tag must be annotated, verified by GitHub, and on `stable` |
+| Rust formatted and clippy-clean; Python formatted and linted (ruff.toml); shell checked (shellcheck, shfmt); the site's pages and inline scripts formatted and linted (Prettier, ESLint) | `lint` job in the `ci` workflow, all pinned |
 | Behaviour changes cite the draft | `spec-ref` workflow (spec/spec_ref.py) |
 | Every requirement tested or a listed gap; vectors match | `rust` workflow (spec/traceability.py, conformance/generate.py) |
-| `main` changes only through a pull request with the checks green; no force-push or deletion | GitHub ruleset `main-branch-integrity` |
+| `main` changes only through a pull request with the checks green; linear history; no force-push or deletion | GitHub ruleset `main-branch-integrity` |
+| `stable` changes only through a pull request from `main` with the checks green, by merge commit | GitHub ruleset `stable-integrity` |
+| No pull request into `main` while a question is OPEN | `commit-check / questions`, required on `main` (eng-principles ENG-DEC-010, ENG-DEC-012) |
+| Only PK merges into `stable` and merges security-related changes | The agent's local guard refuses those merges; review by PK |
 | Everything else | Review by PK |

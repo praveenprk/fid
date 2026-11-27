@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, stable]
   pull_request:
 
 permissions:
@@ -14,11 +14,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
+          toolchain: 1.99.0
           components: rustfmt, clippy
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: cargo fmt --check
@@ -30,12 +31,29 @@ jobs:
       - run: pip install ruff==0.17.5
       - run: ruff check .
       - run: ruff format --check .
+      # Shell: shellcheck and shfmt, as eng-principles pins them
+      # (ENG-DEC-015; V-ENG-004-02).
+      - run: pip install shellcheck-py==0.10.0.1 shfmt-py==3.12.0.2
+      - run: shellcheck spec/build.sh
+      - run: shfmt -d -i 4 -ci -sr spec/build.sh
+      # JavaScript: the inline <script> blocks of site/*.html. Prettier formats
+      # the pages (.prettierrc.json); ESLint lints the scripts (eslint.config.mjs).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      # Exact versions in package.json; every transitive package pinned by
+      # package-lock.json (integrity hashes). npm ci fails if they disagree.
+      - run: npm ci
+      - run: npx --no-install prettier --check site/*.html eslint.config.mjs .prettierrc.json package.json
+      - run: npx --no-install eslint site/
 
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
       - name: Conformance vectors match the spec
         run: python3 conformance/generate.py && git diff --exit-code conformance/
       - name: Every requirement in the draft is tested or a listed gap
@@ -45,9 +63,11 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Build and test the Python package
@@ -62,14 +82,66 @@ jobs:
         working-directory: calibration
         run: ../bindings/python/.venv/bin/python -m unittest discover -p 'test_*.py' -v
 
+  # The minimum supported Rust version (rust-version in Cargo.toml) builds and
+  # passes the tests with the committed lockfile (V-ENG-008-01, Q-004).
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: "1.85"
+      - name: rust-version in Cargo.toml is the toolchain tested here
+        run: grep -qx 'rust-version = "1.85"' Cargo.toml
+      - run: cargo test --locked
+      - run: cargo check --locked
+        working-directory: bindings/python
+
+  # The oldest Python the package supports (requires-python, and the abi3-py39
+  # wheels on PyPI) builds and passes the package's tests (V-ENG-008-01).
+  # Python 3.9 is end-of-life and has no build for ubuntu-latest (26.04), so
+  # this job runs on 24.04 until Q-005 is answered.
+  python-min:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.9"
+      - name: requires-python's minimum is the version tested here
+        run: grep -qx 'requires-python = ">=3.9"' bindings/python/pyproject.toml
+      - name: Build and test the Python package
+        working-directory: bindings/python
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install "maturin>=1.5,<2"
+          maturin develop --release
+          python -m unittest discover -s tests -v
+
+  # Known vulnerabilities in locked Rust dependencies (RustSec advisory DB).
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-audit
+      - run: cargo audit
+      - run: cargo audit
+        working-directory: bindings/python
+
   spec:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           ruby-version: "3.3"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Install kramdown-rfc and xml2rfc
@@ -80,7 +152,7 @@ jobs:
         run: python3 -m unittest discover -s spec -p 'test_*.py' -v
       - name: Build the draft (fails on any error or kramdown-rfc warning)
         run: spec/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: draft-kumar-fid
           path: |

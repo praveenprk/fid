@@ -50,6 +50,7 @@ use serde::Deserialize;
 
 use crate::compute::{curve, Echo, Fast};
 
+/// One information type's entry in a half-life registry.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum HalfLifeEntry {
@@ -59,10 +60,13 @@ pub enum HalfLifeEntry {
     Spec(HalfLifeSpec),
 }
 
+/// An entry written out in full.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HalfLifeSpec {
+    /// Half-life, e.g. "3y" or "infinite"; required unless `states` gives one per state.
     pub half_life: Option<String>,
+    /// Fraction correct the fact decays toward; absent means 0.
     pub baseline: Option<f64>,
     /// Measured fraction correct when fresh; replaces the source class constant
     pub source_fidelity: Option<f64>,
@@ -72,6 +76,7 @@ pub struct HalfLifeSpec {
     pub fast: Option<Fast>,
     /// Shape of the clocks: 0.5^((t/h)^shape)
     pub shape: Option<f64>,
+    /// Per-state entries; a state's entry is used whole.
     #[serde(default)]
     pub states: BTreeMap<String, HalfLifeEntry>,
 }
@@ -91,24 +96,33 @@ impl HalfLifeEntry {
 /// A resolved decay specification, ready for the envelope.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecaySpec {
+    /// Half-life, as written in the envelope.
     pub half_life: String,
+    /// Fraction correct the fact decays toward, if any.
     pub baseline: Option<f64>,
+    /// Measured fraction correct when fresh, if any.
     pub source_fidelity: Option<f64>,
+    /// Periodic return, if any.
     pub echo: Option<Echo>,
+    /// Share on a faster clock, if any.
     pub fast: Option<Fast>,
+    /// Shape of the clocks, if not 1.
     pub shape: Option<f64>,
 }
 
+/// A half-life registry: information type to decay entry.
 #[derive(Debug, Clone)]
 pub struct HalfLives(BTreeMap<String, HalfLifeEntry>);
 
 impl HalfLives {
+    /// Parse a registry from YAML text.
     pub fn from_yaml(text: &str) -> Result<Self, String> {
         serde_yaml::from_str(text)
             .map(Self)
             .map_err(|e| format!("invalid half-life registry: {}", e))
     }
 
+    /// Read and parse a registry file.
     pub fn load(path: &str) -> Result<Self, String> {
         let text =
             std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?;
@@ -183,6 +197,7 @@ impl HalfLives {
     }
 }
 
+/// One transform's entry in a noise model.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum NoiseEntry {
@@ -192,24 +207,30 @@ pub enum NoiseEntry {
     Spec(NoiseSpec),
 }
 
+/// A noise entry written out in full.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NoiseSpec {
+    /// Noise when no condition matches.
     pub noise: Option<f64>,
+    /// Noise per named condition.
     #[serde(default)]
     pub conditions: BTreeMap<String, f64>,
 }
 
+/// A noise model: transform to the noise it adds.
 #[derive(Debug, Clone)]
 pub struct NoiseModel(BTreeMap<String, NoiseEntry>);
 
 impl NoiseModel {
+    /// Parse a noise model from YAML text.
     pub fn from_yaml(text: &str) -> Result<Self, String> {
         serde_yaml::from_str(text)
             .map(Self)
             .map_err(|e| format!("invalid noise model: {}", e))
     }
 
+    /// Read and parse a noise model file.
     pub fn load(path: &str) -> Result<Self, String> {
         let text =
             std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {}", path, e))?;

@@ -42,11 +42,15 @@ const MAX_RATIO: f64 = 0.5;
 /// Decay to a baseline on two clocks with a shape.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FastModel {
+    /// Fraction correct when fresh.
     pub s0: f64,
+    /// Fraction correct the curve decays toward.
     pub baseline: f64,
+    /// Half-life of the main (slow) clock, in seconds.
     pub half_life: f64,
     /// Share on the fast clock (0: one clock)
     pub share: f64,
+    /// Half-life of the fast clock, in seconds.
     pub fast_half_life: f64,
     /// Shape of both clocks (1: exponential)
     pub shape: f64,
@@ -64,12 +68,15 @@ pub enum Form {
 }
 
 impl Form {
+    /// Every form, in the order they are tried.
     pub const ALL: [Form; 3] = [Form::Shape, Form::TwoClocks, Form::Both];
 
+    /// Whether the form fits a shape.
     pub fn has_shape(self) -> bool {
         self != Form::TwoClocks
     }
 
+    /// Whether the form fits a fast clock.
     pub fn has_two_clocks(self) -> bool {
         self != Form::Shape
     }
@@ -83,6 +90,7 @@ impl Form {
         }
     }
 
+    /// The form's name, as written in messages.
     pub fn name(self) -> &'static str {
         match self {
             Form::Shape => "a shape",
@@ -93,6 +101,7 @@ impl Form {
 }
 
 impl FastModel {
+    /// Decay factor at `age` seconds: 1 when fresh, toward 0 as it ages.
     pub fn decay(&self, age: f64) -> f64 {
         let a = age.max(0.0);
         let clock = |h: f64| {
@@ -108,6 +117,7 @@ impl FastModel {
         (1.0 - self.share) * clock(self.half_life) + self.share * clock(self.fast_half_life)
     }
 
+    /// Expected fraction correct at `age` seconds.
     pub fn predict(&self, age: f64) -> f64 {
         self.baseline + (self.s0 - self.baseline) * self.decay(age)
     }
@@ -143,9 +153,11 @@ pub struct FastFit {
     pub model: FastModel,
     /// Held-out Brier, both fitted on the train half
     pub brier_fast: f64,
+    /// Held-out Brier score of one exponential clock.
     pub brier_plain: f64,
     /// Largest gap from the fine-binned curve, all data
     pub gap_fast: f64,
+    /// Largest gap of one exponential clock from the fine-binned curve, all data.
     pub gap_plain: f64,
     /// The chosen form: lowest BIC of those that passed, else the best on held-out Brier
     pub form: Form,
@@ -155,6 +167,7 @@ pub struct FastFit {
     pub too_uncertain: Option<String>,
     /// Checks in bins young enough to measure s0
     pub fresh_checks: usize,
+    /// s0, when `fresh_checks` is enough to call it measured.
     pub source_fidelity: Option<f64>,
     /// The other forms that passed, best BIC first
     pub fallbacks: Vec<FastFit>,
@@ -361,7 +374,7 @@ pub fn fit_form(bins: &[Bin], start: &Model, form: Form) -> FastModel {
     for x0 in starts {
         let (x, _) = nelder_mead(&loss, &x0, 0.5, 400);
         let (x, v) = nelder_mead(&loss, &x, 0.1, 400);
-        if best.as_ref().map_or(true, |(_, bv)| v < *bv) {
+        if best.as_ref().is_none_or(|(_, bv)| v < *bv) {
             best = Some((x, v));
         }
     }

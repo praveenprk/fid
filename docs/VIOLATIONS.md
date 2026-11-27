@@ -19,10 +19,16 @@
 | ID | Standard | Severity | Status |
 |----|----------|---------------------|--------|
 | V-ENG-002-01 | ENG-STD-002 §1.1 | HIGH | RESOLVED (forward only) |
-| V-ENG-004-01 | ENG-STD-004 §6.1 | HIGH | OPEN |
+| V-ENG-004-01 | ENG-STD-004 §6.1 | HIGH | RESOLVED |
+| V-ENG-004-02 | ENG-STD-004 §6.1 (JavaScript, shell) | HIGH | RESOLVED |
 | V-ENG-005-01 | ENG-STD-005 §1.3, §2.2 | HIGH | RESOLVED (forward only) |
 | V-ENG-005-02 | ENG-STD-005 §1.4 | HIGH | RESOLVED (forward only) |
+| V-ENG-005-03 | ENG-STD-005 §2.6 | MEDIUM | RESOLVED |
 | V-ENG-006-01 | ENG-STD-006 §1 | HIGH | RESOLVED |
+| V-ENG-008-01 | ENG-STD-008 §2 (MUST checks) | HIGH (per item, ENG-DEC-013) | OPEN |
+| V-ENG-008-03 | ENG-STD-008 §2 (`docs`) | MEDIUM | RESOLVED |
+| V-ENG-008-02 | ENG-STD-008 §2 (`dependabot`) | HIGH (OpenSSF Scorecard) | RESOLVED |
+
 
 ---
 
@@ -75,3 +81,58 @@ Fix       : Create docs/DECISIONS.md (with DECISION-002..004 backfilled), this r
 When      : This change.
 Status    : RESOLVED — 2026-11-15, adoption change on branch chore/DECISION-001-adopt-eng-principles (takes effect on merge)
 Anchor    : DECISION-001
+
+### V-ENG-008-01
+SPEC says : ENG-STD-008 §2 (eng-principles ENG-DEC-011) — MUST checks `contributing`, `security`, `changelog`, `signed`, `msrv`, `py_min`. §3.3 — "A failing MUST is a gap. A project registers its gaps as violations".
+Code does : The first audit (eng-principles audit/audit.py, 2026-11-19, main 132746d) fails these six:
+            no CONTRIBUTING.md; no SECURITY.md, so no private way to report a vulnerability; no CHANGELOG.md;
+            tag v0.2.0 annotated but not signed (`gh api repos/praveenprk/fid/git/tags/<sha>` → verification.verified false);
+            rust-version 1.80 in Cargo.toml, but no workflow builds with 1.80;
+            requires-python >=3.9 (and abi3-py39 wheels on PyPI), but CI runs only 3.12.
+Severity  : Per item, by eng-principles ENG-DEC-013 (governor, 2026-11-22; replaces the MEDIUM ruling of 2026-11-21):
+            contributing HIGH (OpenSSF Best Practices MUST); security HIGH (security floor); changelog HIGH (Best Practices MUST, release_notes);
+            signed HIGH (OpenSSF Scorecard Signed-Releases); msrv MEDIUM and py_min MEDIUM (ours, no behaviour change). The entry is HIGH, its highest item.
+Impact    : An outside contributor finds no contribution or disclosure route. Users cannot verify a release came from the maintainer. The minimum Rust and Python versions are claimed without evidence.
+Fix       : contributing, security, changelog: this change (with private vulnerability reporting turned on, 2026-11-19).
+            msrv, py_min: CI jobs `msrv` and `python-min` build and test on the declared minimums. 1.80 does not build
+            with the locked dependencies (clap 4.6 and indexmap 2.14 need 1.85), so rust-version becomes 1.85 (Q-004).
+            signed: the next release tag is signed (AGENTS.md, Releases; Q-002). v0.2.0 is not re-tagged.
+            signed, enforced (#30): the `check` job of .github/workflows/release.yml, which every publishing job needs,
+            fails unless the tag is annotated and GitHub verifies its signature, so an unsigned tag publishes nothing.
+When      : contributing, security, changelog: this change. msrv, py_min: 2026-11-19. signed: next release.
+Status    : OPEN
+Anchor    : ENG-DEC-011
+
+### V-ENG-008-03
+SPEC says : ENG-STD-008 §2 — check `docs`: "Public API documented (missing_docs)" (SHOULD; Rust API Guidelines C-CRATE-DOC; severity MEDIUM, ours).
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `docs` for fid: "public API docs not enforced". At main a460eab, src/lib.rs has no crate doc and no `missing_docs` lint; `RUSTFLAGS="-W missing_docs" cargo check --lib` reports 99 undocumented public items (the crate, and fields, methods, constants and types in calibrate, check, compute, drift, echo, envelope, fast, registry and stamp).
+Severity  : MEDIUM (ENG-DEC-013 c: our rule, no behaviour change). Proposed; PK confirms.
+Impact    : A user of the fidmeter crate reads the source, not the docs, to learn a field's unit or meaning (e.g. whether a half-life is in seconds, or what a missing baseline means).
+Fix       : src/lib.rs gains a crate doc and `#![warn(missing_docs)]`; the 98 items gain doc comments. The `lint` job runs clippy with `-D warnings`, so a new undocumented public item fails CI.
+
+### V-ENG-008-02
+SPEC says : ENG-STD-008 §2 — check `dependabot`: "Automated dependency updates" (SHOULD; severity HIGH by OpenSSF Scorecard Dependency-Update-Tool, ENG-DEC-013). ENG-DEC-015: a failing HIGH check is fixed or registered as a violation.
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `dependabot` for fid: "no automated dependency updates". At main a460eab there is no .github/dependabot.yml and no renovate config (`git ls-tree -r --name-only a460eab | grep -iE 'dependabot|renovate'` prints nothing).
+Severity  : HIGH (OpenSSF Scorecard: Dependency-Update-Tool, High; ENG-DEC-013 a). Proposed; PK confirms.
+Impact    : A fixed version of a Rust crate, the maturin build backend or a pinned action reaches fid only if someone notices it by hand. `cargo audit` (CI job `supply-chain`) reports known advisories but proposes no update.
+Fix       : .github/dependabot.yml proposes weekly updates for cargo (/ and /bindings/python), pip (/bindings/python, the build requirements in pyproject.toml), npm (/, the CI lint tools of #34) and github-actions. Updates arrive as pull requests into `main`; PK merges them (security-related).
+
+### V-ENG-004-02
+SPEC says : ENG-STD-004 §6.1 — "Each project MUST pin one formatter and one linter per language and run them in CI." ENG-DEC-015 (Q-003): code is any executable text, inline `<script>` included; the audit's `fmt_lint` check asks for a formatter and a linter for each language found.
+Code does : The eng-principles audit (report 2026-11-22T23:29Z, issue #30) fails `fmt_lint` for fid: JavaScript is detected in the inline `<script>` blocks of site/page.html and site/shell.html, and no JavaScript formatter or linter runs in CI. spec/build.sh (POSIX sh) is not checked either: at main a460eab, `grep -nE 'prettier|eslint|biome|shellcheck|shfmt' .github/workflows/*.yml` prints nothing. Rust and Python are covered (V-ENG-004-01).
+Severity  : HIGH (OpenSSF Best Practices MUST: warnings; ENG-DEC-013 b). Proposed; PK confirms.
+Impact    : A broken or careless change to the site's scripts or the draft's build script is caught only by eye. Running the tools found one shellcheck warning in spec/build.sh (SC2100, an unquoted assignment shellcheck reads as arithmetic).
+Fix       : The `lint` job in .github/workflows/ci.yml runs, pinned: shellcheck 0.10.0 and shfmt 3.12.0 on spec/build.sh (as eng-principles pins them); Prettier 3.10.1 on site/*.html (.prettierrc.json) and ESLint 10.15.0 with eslint-plugin-html 8.2.1 on their inline scripts (eslint.config.mjs, ESLint's recommended rules). The npm tools and every transitive dependency are pinned by package.json and package-lock.json and installed with `npm ci`. The pages are reformatted once by Prettier; the scripts' syntax trees are unchanged. spec/build.sh quotes the assignment.
+When      : This change.
+Status    : RESOLVED — on merge of this change (#30).
+Anchor    : ENG-DEC-015
+
+### V-ENG-005-03
+SPEC says : ENG-STD-005 §2.6 (ENG-DEC-015, Q-005, Q-007) — "A release (a promotion to `stable` and its tag) MUST NOT happen without a release record stating: the commit released; every required check's result at that commit; the open violations; and who authorised the release." "A project's AGENTS.md MUST record which roles, human or automated, may merge into `main` and which may release." §2.3 restates who may merge into `main` in role-neutral words.
+Code does : At main 6b8c6ad, AGENTS.md Releases has no release record step; its tag message lists only the release name and anchors. AGENTS.md Roles says only "an automated contributor may merge its own pull request", not the role-neutral rule, and does not say that an automated contributor never releases. CONTRIBUTING.md does not say who merges. No release has happened since ENG-DEC-015 (v0.2.0 predates it), so no release lacks a record yet.
+Severity  : MEDIUM (ENG-DEC-013 c: our rule, no behaviour change, no release affected yet). Proposed; PK confirms.
+Impact    : The next release could be promoted and tagged with no record of what was checked, which violations were open, or who signed it off.
+Fix       : AGENTS.md Roles states who may merge into `main` and who may release, in ENG-DEC-015's words. Releases gains the release record (docs/templates/release-record.md): drafted in the promotion pull request, approved there by PK, and used as the signed tag's message and on the release page. Promotion goes through a pull request from `main` (§2.4). CONTRIBUTING.md says who merges.
+When      : This change.
+Status    : RESOLVED — on merge of this change.
+Anchor    : ENG-DEC-015

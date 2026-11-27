@@ -4,7 +4,15 @@ name: Commit check
 # eng-principles ENG-STD-005 §1 (format, anchors that resolve, no co-author
 # or tool attribution). The check is eng-principles' shared workflow,
 # pinned to a commit (ENG-DEC-009, DECISION-006). fid's policy is
-# scripts/hooks/types and scripts/hooks/anchors.
+# scripts/hooks/types and scripts/hooks/anchors. Its `questions` job fails a
+# pull request into main while docs/QUESTIONS.md has an OPEN entry
+# (ENG-DEC-010, DECISION-007).
+# Since eng-principles f13eb83 (ENG-DEC-021), a Dependabot pull request
+# passes with Dependabot's own title, and its GitHub-signed version-bump
+# commits need no anchor; the author is taken from the event, not the PR text.
+# Since eng-principles f8743aa (#43), a pull request into another branch, such
+# as main → stable, does not re-check commits already on main; its title and
+# description are still checked.
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -16,6 +24,6 @@ permissions:
 
 jobs:
   commit-check:
-    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@74e7e7681063b9922f96f79149bfb7eb104cd108
+    uses: praveenprk/eng-principles/.github/workflows/commit-check.yml@f8743aa8e937e2a562678fdeb3a7d49529863fa7
     with:
       config: scripts/hooks

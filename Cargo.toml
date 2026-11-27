@@ -1,8 +1,8 @@
 [package]
 name = "fidmeter"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.85"
 description = "Information fidelity measurement: how much a stored fact can still be trusted, calibrated against real data"
 license = "Apache-2.0"
 repository = "https://github.com/praveenprk/fid"
