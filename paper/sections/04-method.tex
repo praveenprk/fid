@@ -1,0 +1,200 @@
+% Section 4: Method.
+% Every number below carries a `% src:` comment naming the committed file it
+% comes from. Paths are relative to the repository root. No number here
+% comes from a run that is not committed.
+
+\section{Method}\label{sec:method}
+
+\subsection{Observations}
+
+Every experiment reduces to one kind of observation: a fact recorded about
+an \emph{entity} at some moment, and a later check of whether it still
+matched reality an interval later. We call the interval the \emph{lag} and
+record each observation as a triple
+\[
+  (\text{entity},\ \text{lag},\ \text{still correct?}).
+\]
+An entity is whatever was observed: a company, an airport, an aircraft, a
+vessel, a software package, a drug label or an electricity balancing
+authority. ``Still correct'' is defined per fact, with an explicit
+tolerance where the value is numeric (Table~\ref{tab:datasets}).
+% src: calibration/fidcal.py (module docstring: "an (entity, lag_seconds, still_correct) triple")
+
+The survival curve $S(\ell)$ is the fraction of observations at lag $\ell$
+that are still correct. The \emph{empirical half-life} is the first lag at
+which $S$ falls to $0.5$, linearly interpolated between the lags measured;
+it is undefined when $S$ stays above $0.5$ over the observed range.
+% src: calibration/fidcal.py survival_curve(), empirical_half_life()
+
+\subsection{Datasets}
+
+Table~\ref{tab:datasets} lists the seven sources. All are public, all are
+read with the Python standard library, and each script writes its results
+to \texttt{calibration/results/}.
+% src: calibration/README.md "Running"
+
+\begin{table}[t]
+\centering
+\small
+\caption{Facts, ground truth and sample sizes. ``Entities'' and
+``observations'' are as reported in each result file.}
+\label{tab:datasets}
+\begin{tabular}{p{2.6cm}p{3.6cm}p{3.2cm}rr}
+\toprule
+Source & Fact & Still correct means & Entities & Observations \\
+\midrule
+Wikidata, snapshots 2004--2016, lags quarterly to 10 years
+  & the CEO of company $X$ is $Y$
+  & $Y$ has no end date and no successor has started
+  & 283 & 91{,}799 \\
+METAR, 10 US airports, 2024
+  & the temperature at airport $A$ is $T$
+  & within $\pm 2\,^\circ$F
+  & 10 & 1{,}575{,}505 \\
+  & airport $A$'s flight category is $C$
+  & same category (VFR/MVFR/IFR/LIFR)
+  & 10 & 1{,}575{,}714 \\
+  & airport $A$ is IFR or worse
+  & still IFR or LIFR
+  & 10 & 105{,}909 \\
+NOAA AIS, six days of 2023, cargo ships and tankers
+  & vessel $V$ is at position $P$
+  & next report within 1\,km (also 10\,km)
+  & 6{,}146 & 2{,}945{,}357 \\
+BTS on-time data, all US domestic flights of 2024
+  & the aircraft's $k$-th leg of the day arrives on schedule
+  & within 15\,min, not cancelled or diverted; lag = legs flown before it
+  & 6{,}112 & 7{,}046{,}561 \\
+PyPI, monthly snapshots Jan 2015 -- Oct 2024
+  & the latest version of package $X$ is $Y$
+  & $Y$ is still the highest final, unyanked release
+  & 915 & 1{,}016{,}717 \\
+DailyMed label versions, 2008 onward, lags to 5 years
+  & the warnings of drug label $X$ say $Z$
+  & warnings text unchanged, word for word
+  & 173 & 113{,}410 \\
+EIA hourly demand, 14 balancing authorities, 2024
+  & hourly demand in region $R$ is $D$
+  & demand at the later hour within $\pm 5\%$ of $D$
+  & 14 & 2{,}433{,}786 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% src (rows, in order):
+%   calibration/results/wikidata_ceo.md; calibration/wikidata_ceo.py SNAPSHOT_YEARS, LAGS
+%   calibration/results/weather_metar.md (three sections); calibration/weather_metar.py STATIONS, YEAR
+%   calibration/results/ships_ais.md "AIS 1 km, all vessels" and "AIS 10 km, all vessels"; calibration/ships_ais.py DAYS
+%   calibration/results/flights_bts.md "Flight legs"
+%   calibration/results/pypi_latest.md "all snapshots"; calibration/pypi_latest.py SNAPSHOTS
+%   calibration/results/dailymed_warnings.md "all snapshots"; calibration/dailymed_warnings.py SNAPSHOTS, LAG_DAYS
+%   calibration/results/eia_demand.md "EIA hourly demand"; calibration/eia_demand.py YEAR
+% NOTE: docs/FINDINGS.md and calibration/README.md say "6,592 cargo ships and
+% tankers"; the committed result says 6,146 entities. This draft uses 6,146.
+% NOTE: calibration/README.md says "977 most downloaded packages" for PyPI;
+% the committed result says 915 entities. This draft uses 915.
+
+The AIS sample is the 15th of every other month in 2023, each observed for
+12 hours. Vessels are split by what they were doing when observed:
+underway (speed $\geq 1$ knot) or moored or at anchor.
+% src: calibration/ships_ais.py module docstring and DAYS; calibration/README.md "Caveats"
+For drug labels, openFDA serves only each label's current version: of 50
+revised labels looked up by their identifier, none returned a past version.
+Version history therefore comes from DailyMed.
+% src: calibration/results/openfda_labels.md
+The DailyMed sample is 400 prescription labels, of which 375 had warnings
+text; 173 had a DailyMed version early enough to be followed for five
+years.
+% src: calibration/results/dailymed_warnings.md (last line); calibration/README.md "Caveats"
+
+\subsection{The model}
+
+Per fact type, we fit
+\begin{equation}\label{eq:decay}
+  S(\ell) = b + (s_0 - b)\, 2^{-\ell/h},
+\end{equation}
+where $s_0$ is the fraction correct at lag~0, $h$ the half-life, and $b$ the
+\emph{baseline}: the fraction still correct once the fact is fully stale.
+With $b = 0$ this is plain exponential decay to zero. Where a fact is
+periodic we also fit an \emph{echo} model, which adds back the fresh fact's
+agreement at every multiple $nP$ of a period $P$, with strength $r$, width
+$w$, and a fade with half-life $h_r$ over periods:
+\begin{equation}\label{eq:echo}
+  S(t) = b + (s_0 - b)\Big[\, 2^{-t/h} + \sum_{n \geq 1} r\, 2^{-nP/h_r}\, 2^{-|t - nP|/w} \Big].
+\end{equation}
+% src: calibration/fidcal.py exp_model(); docs/FINDINGS.md "Model and method", "Finding 5"
+Section~\ref{sec:model} defines both as fid computes them; the study's echo
+model and fid's agree to $10^{-12}$.
+% src: docs/FINDINGS.md "What changed in fid" row 5
+
+\subsection{Fitting}
+
+$s_0$ is fixed at the curve's value at lag~0. The half-life is found by
+weighted least squares on the survival curve, each lag weighted by its
+number of observations, with a refined logarithmic grid search (four
+rounds of 201 points). With a baseline, $b$ is searched over
+$\{0, 0.01, \ldots, 0.99\} \times s_0$, refitting $h$ for each value. If no
+decay fits better than every finite half-life, $h = \infty$. The method is
+deliberately simple and dependency-free; it is not a maximum-likelihood
+fit.
+% src: calibration/fidcal.py fit_exponential(), _fit_half_life()
+
+The \emph{shape error} is the largest absolute gap between the empirical
+curve and the fitted model over all measured lags. We call a fit poor when
+it exceeds $0.10$.
+% src: calibration/fidcal.py shape_error(), summary_markdown() ("poor fit" if > 0.10)
+
+The parameters reported as ``fitted'' in Section~\ref{sec:results} are fitted on all
+the data, to describe the curve. Every held-out score uses a separate fit on
+the training half only.
+% src: calibration/fidcal.py analyze(): s0/h/b from train_curve for Brier; s0_all/h_all for the reported fit
+
+\subsection{Held-out scoring}
+
+Entities are split 50/50 by the first byte of the SHA-256 of their
+identifier, so no entity is in both halves. Models are fitted on one half
+and scored on the other with the Brier score, the mean squared error of
+the predicted probability (lower is better). Each model is compared with
+two references:
+\begin{itemize}
+  \item a \textbf{constant}: the training half's overall fraction correct,
+    whatever the age;
+  \item the \textbf{declared lifetime}: the hand-picked half-life for that
+    information type in fid's example registry
+    (\texttt{examples/half-lives.yaml}), used as a declared lifetime would be,
+    with $s_0 = 1$ and no baseline.
+\end{itemize}
+We also report reliability: predictions are bucketed into tenths, and the
+mean prediction in each bucket is compared with the observed rate.
+% src: calibration/fidcal.py split_train(), brier(), reliability(), analyze() ("The guess as fid would use it: source fidelity 1")
+
+The echo test (Section~\ref{sec:results-echo}) uses every hourly lag from
+0 to 14 days and two splits: by station (6 airports train, 4 test) and by
+time (January--June train, July--December test).
+% src: calibration/results/weather_periodic.md (opening paragraph)
+
+\subsection{Rules fixed before the run}
+
+Two experiments were scored against a pass rule written before they were
+run.
+\begin{itemize}
+  \item \textbf{Echo.} The echo model is adopted for a fact only if it
+    beats decay-to-baseline on held-out Brier in both splits, its
+    reliability is no worse in both splits, and its largest gap from the
+    curve is under $0.10$.
+    % src: calibration/results/weather_periodic.md (rule lines); docs/FINDINGS.md "Finding 5" ("with the pass rule fixed before the run")
+  \item \textbf{Re-check scheduling} (Section~\ref{sec:scheduling}). Its
+    rule is stated with its results.
+    % src: calibration/results/decisions.md "The rule"; docs/ROADMAP.md "Decision benchmark, 20 October" ("The rule set before running failed")
+\end{itemize}
+The rules were recorded in the project's own repository before the runs,
+not in an external registry.
+% src: docs/ROADMAP.md; git history of calibration/decisions.py and calibration/weather_periodic.py
+
+\subsection{What we do not have}
+
+The plan for this paper calls for bootstrap 95\% intervals over entities
+for every headline number, and a time-based split for every dataset. The
+committed results have intervals only for the re-check benchmark, and a
+time split only for the echo tests. Both are listed as limitations in
+Section~\ref{sec:limitations} until they are run.
+% src: paper plan "Gaps to close first"; calibration/results/decisions.md (only file with 95% ranges); calibration/results/weather_periodic.md, eia_demand.md (only time splits)
