@@ -22,4 +22,10 @@ export default [
     },
     rules: { ...js.configs.recommended.rules },
   },
+  {
+    // The site's formula test (site/formula.test.mjs), run by node in CI.
+    files: ["site/**/*.mjs"],
+    languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: globals.node },
+    rules: { ...js.configs.recommended.rules },
+  },
 ];
