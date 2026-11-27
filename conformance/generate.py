@@ -1444,6 +1444,79 @@ def number_error_cases():
     return out
 
 
+def field_error_cases():
+    """Missing, out-of-range and mistyped required envelope members (draft, Fields).
+
+    Every case has the same complete envelope as its control. Malformed input
+    is an error; an unsupported version is not understood, and a bad integrity
+    value makes the assessment UNKNOWN, as the draft requires.
+    """
+    base = envelope(
+        {"reading": 42},
+        "instrument",
+        "7d",
+        transforms=[("clean", 0.05)],
+        version="1.0",
+    )
+    control = json.dumps(base, ensure_ascii=False)
+    invalid_unicode = "__invalid_unicode__"
+    out_of_range = {
+        "fid_version": "1.1",
+        "source_class": "not-a-source-class",
+        "source_id": invalid_unicode,
+        "measured_at": "2026-02-30T00:00:00Z",
+        "half_life": "0d",
+        "transforms": [{"step": "clean", "noise": 0.05, "at": "2026-02-30T00:00:00Z"}],
+        "fid_at_stamp": MARK,
+        "derived_from": invalid_unicode,
+        "integrity": "sha256:00",
+    }
+    wrong_type = {
+        "fid_version": 1,
+        "source_class": 1,
+        "source_id": 1,
+        "measured_at": 1,
+        "half_life": 1,
+        "transforms": {},
+        "fid_at_stamp": "0.9215",
+        "derived_from": 1,
+        "integrity": 1,
+    }
+    out = []
+    for field in out_of_range:
+        for kind in ("missing", "out-of-range", "wrong-type"):
+            artifact = copy.deepcopy(base)
+            if kind == "missing":
+                del artifact["fid"][field]
+            else:
+                artifact["fid"][field] = copy.deepcopy(
+                    out_of_range[field] if kind == "out-of-range" else wrong_type[field]
+                )
+            text = json.dumps(artifact, ensure_ascii=False)
+            if kind == "out-of-range" and field in ("source_id", "derived_from"):
+                # I-JSON strings cannot contain an unpaired surrogate. Keep its
+                # escape in the JSON text so the vector file itself is valid UTF-8.
+                text = text.replace(json.dumps(invalid_unicode), '"\\ud800"')
+            if kind == "out-of-range" and field == "fid_at_stamp":
+                assert text.count(repr(MARK)) == 1
+                text = text.replace(repr(MARK), "1e999")
+            expected = "error"
+            if kind == "out-of-range" and field == "fid_version":
+                expected = "not-understood"
+            elif kind == "out-of-range" and field == "integrity":
+                expected = "unknown"
+            out.append(
+                {
+                    "field": field,
+                    "case": kind,
+                    "artifact_json": text,
+                    "control_json": control,
+                    "expected": expected,
+                }
+            )
+    return out
+
+
 DERIVED_OVERRIDES = (
     "half_life",
     "baseline",
@@ -2326,6 +2399,7 @@ GROUP_SECTIONS = {
     "writer_errors": ["structure", "stamping"],
     "reader_errors": ["structure"],
     "number_errors": ["numbers"],
+    "field_errors": ["envelope-fields"],
     "recheck_at": ["recheck"],
     "derived_stamps": ["stamping"],
     "timestamp_rounding": ["timestamps"],
@@ -2521,6 +2595,7 @@ def main():
         "writer_errors": writer_error_cases(),
         "reader_errors": reader_error_cases(),
         "number_errors": number_error_cases(),
+        "field_errors": field_error_cases(),
         "recheck_at": recheck_at_cases(),
         "derived_stamps": derived_stamp_cases(),
         "timestamp_rounding": timestamp_rounding_cases(),

@@ -1,10 +1,4 @@
 {
- "envelope-fields": [
-  {
-   "issue": 16,
-   "what": "no vectors for missing fields, out-of-range or mistyped values"
-  }
- ],
  "conformance": [
   {
    "exempt": "enforced by spec/traceability.py in CI",

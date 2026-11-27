@@ -2785,6 +2785,278 @@
    ]
   }
  ],
+ "field_errors": [
+  {
+   "field": "fid_version",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "fid_version",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.1\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "not-understood",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "fid_version",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": 1, \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_class",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_class",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"not-a-source-class\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_class",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": 1, \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_id",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_id",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"\\ud800\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "source_id",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": 1, \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "measured_at",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "measured_at",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-02-30T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "measured_at",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": 1, \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "half_life",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "half_life",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"0d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "half_life",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": 1, \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "transforms",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "transforms",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-02-30T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "transforms",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": {}, \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "fid_at_stamp",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "fid_at_stamp",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 1e999, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "fid_at_stamp",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": \"0.9215\", \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "derived_from",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "derived_from",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": \"\\ud800\", \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "derived_from",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": 1, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "integrity",
+   "case": "missing",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "integrity",
+   "case": "out-of-range",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:00\"}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "unknown",
+   "sections": [
+    "envelope-fields"
+   ]
+  },
+  {
+   "field": "integrity",
+   "case": "wrong-type",
+   "artifact_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": 1}, \"content\": {\"reading\": 42}}",
+   "control_json": "{\"fid\": {\"fid_version\": \"1.0\", \"source_class\": \"instrument\", \"source_id\": \"conformance\", \"measured_at\": \"2026-01-01T00:00:00Z\", \"half_life\": \"7d\", \"transforms\": [{\"step\": \"clean\", \"noise\": 0.05, \"at\": \"2026-01-01T00:00:00Z\"}], \"fid_at_stamp\": 0.9215, \"derived_from\": null, \"integrity\": \"sha256:50c096e3a0fa90f2ee8e5e8ecdd06d0556d34c87bb40896d4440b5afb74b26dd\"}, \"content\": {\"reading\": 42}}",
+   "expected": "error",
+   "sections": [
+    "envelope-fields"
+   ]
+  }
+ ],
  "recheck_at": [
   {
    "name": "one day half-life, cheap re-checks",
