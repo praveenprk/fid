@@ -15,10 +15,6 @@
   {
    "exempt": "a rule for consumers of envelopes, not testable in fid",
    "what": "authenticity by other means; no monotonic decay assumed with an echo"
-  },
-  {
-   "issue": 16,
-   "what": "no test that scoring work is bounded on the longest-period, narrowest-width curve"
   }
  ],
  "privacy": [

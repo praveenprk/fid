@@ -150,6 +150,11 @@ closed form; any search is fine that finds the first crossing within
 1e-6 s. Fidelity rises again near each return, so `check` can be SIGNAL
 after `expires_at`.
 
+The `bounded_scoring` vectors put an echo return exactly 30 widths away
+and just outside that window, each against its in-bounds control. They
+also put the first time below the floor within, at, and beyond 10,000
+periods from measurement; both echo search paths run those cases.
+
 ## Fast share and shape
 
 Some facts go stale on two clocks (`fid_version` 0.4 envelopes and

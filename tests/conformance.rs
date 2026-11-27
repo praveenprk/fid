@@ -221,6 +221,63 @@ fn echoes() {
     }
 }
 
+fn bounded_scoring_case(c: &Value) {
+    let name = c["name"].as_str().unwrap();
+    match c["operation"].as_str().unwrap() {
+        "fidelity" => {
+            let noise: Vec<f64> = c["noise"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|n| n.as_f64().unwrap())
+                .collect();
+            let temporal = temporal_factor(
+                c["age_seconds"].as_f64().unwrap(),
+                c["half_life_seconds"].as_f64(),
+                Some(&echo(c)),
+            );
+            let got = apply_decay(
+                c["source"].as_f64().unwrap() * transform_factor(&noise),
+                temporal,
+                c["baseline"].as_f64().unwrap(),
+            );
+            close(got, c["fidelity"].as_f64().unwrap(), 1e-9, name);
+        }
+        "time_to_floor" => {
+            let e = echo(c);
+            let f = c["fidelity"].as_f64().unwrap();
+            let h = c["half_life_seconds"].as_f64().unwrap();
+            let b = c["baseline"].as_f64().unwrap();
+            let floor = c["floor"].as_f64().unwrap();
+            let direct = time_to_floor_echo(f, h, b, floor, &e);
+            let general = Curve {
+                half_life: Some(h),
+                fast: None,
+                echo: Some(e),
+                shape: Some(1.0),
+            }
+            .time_to_floor(f, b, floor);
+            for got in [direct, general] {
+                match (got, c["seconds"].as_f64()) {
+                    (TimeToFloor::After(s), Some(want)) => close(s, want, 1e-6, name),
+                    (TimeToFloor::Never, None) => {}
+                    (got, want) => panic!("{}: got {:?}, want {:?}", name, got, want),
+                }
+            }
+        }
+        operation => panic!("unknown bounded-scoring operation {}", operation),
+    }
+}
+
+#[test]
+fn bounded_scoring() {
+    let v = vectors();
+    for c in cases(&v, "bounded_scoring") {
+        bounded_scoring_case(c);
+        bounded_scoring_case(&c["control"]);
+    }
+}
+
 /// The case's curve: half-life, fast share and echo (each may be null).
 fn case_curve(c: &Value) -> Curve {
     let fast: Option<Fast> = serde_json::from_value(c["fast"].clone()).unwrap();

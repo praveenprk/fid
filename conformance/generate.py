@@ -2229,6 +2229,81 @@ def temporal_cases():
     return out
 
 
+def bounded_scoring_cases():
+    """Echo sums and searches stop at the draft's bounds (draft, Security).
+
+    Every out-of-bounds case has an in-bounds control. The time-to-floor
+    controls cross midway between very narrow echo returns, so the first
+    crossing is the plain curve's half-life. At and beyond 10,000 periods,
+    fidelity has not fallen below the floor inside the search interval.
+    """
+    window = {"period": "100s", "strength": 100.0, "width": "1s", "fade": "infinite"}
+
+    def score(name, age):
+        return {
+            "name": name,
+            "operation": "fidelity",
+            "source": 1.0,
+            "age_seconds": age,
+            "half_life_seconds": 0.001,
+            "noise": [],
+            "baseline": 0.0,
+            "echo": window,
+            "fidelity": echo_fidelity(1.0, age, 0.001, [], 0.0, window),
+        }
+
+    narrow = {
+        "period": "0.1s",
+        "strength": 0.1,
+        "width": "0.000001s",
+        "fade": "infinite",
+    }
+    end = 10_000 * parse_duration(narrow["period"])
+
+    def time_to_floor_case(name, half_life):
+        return {
+            "name": name,
+            "operation": "time_to_floor",
+            "fidelity": 1.0,
+            "half_life_seconds": half_life,
+            "baseline": 0.0,
+            "floor": 0.5,
+            "echo": narrow,
+            "seconds": half_life if half_life < end else None,
+        }
+
+    out = []
+    for name, control_name, outside, control in (
+        (
+            "age just beyond 30 widths after a return",
+            "age exactly 30 widths after a return",
+            130.001,
+            130.0,
+        ),
+        (
+            "age just beyond 30 widths before a return",
+            "age exactly 30 widths before a return",
+            69.999,
+            70.0,
+        ),
+    ):
+        case = score(f"echo sum: {name}", outside)
+        case["control"] = score(f"echo sum: {control_name}", control)
+        out.append(case)
+
+    control = time_to_floor_case(
+        "time to floor finds a crossing within 10,000 periods", end - 0.45
+    )
+    for name, half_life in (
+        ("time to floor stops with the crossing at 10,000 periods", end),
+        ("time to floor stops before a crossing beyond 10,000 periods", end + 0.55),
+    ):
+        case = time_to_floor_case(name, half_life)
+        case["control"] = copy.deepcopy(control)
+        out.append(case)
+    return out
+
+
 # The draft sections (spec/draft-kumar-fid-00.md anchors) each group of vectors tests
 GROUP_SECTIONS = {
     "parse_duration": ["durations"],
@@ -2254,6 +2329,7 @@ GROUP_SECTIONS = {
     "recheck_at": ["recheck"],
     "derived_stamps": ["stamping"],
     "timestamp_rounding": ["timestamps"],
+    "bounded_scoring": ["security"],
     "envelope": ["structure", "envelope-fields", "timestamps", "check", "expiry"],
     "ledger_csv": ["ledger"],
     "registry": ["half-life-registry"],
@@ -2448,6 +2524,7 @@ def main():
         "recheck_at": recheck_at_cases(),
         "derived_stamps": derived_stamp_cases(),
         "timestamp_rounding": timestamp_rounding_cases(),
+        "bounded_scoring": bounded_scoring_cases(),
         "envelope": envelope_cases(),
         "ledger_csv": ledger_cases(),
         "registry": registry_cases(),

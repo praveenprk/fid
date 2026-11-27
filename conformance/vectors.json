@@ -4180,6 +4180,144 @@
    ]
   }
  ],
+ "bounded_scoring": [
+  {
+   "name": "echo sum: age just beyond 30 widths after a return",
+   "operation": "fidelity",
+   "source": 1.0,
+   "age_seconds": 130.001,
+   "half_life_seconds": 0.001,
+   "noise": [],
+   "baseline": 0.0,
+   "echo": {
+    "period": "100s",
+    "strength": 100.0,
+    "width": "1s",
+    "fade": "infinite"
+   },
+   "fidelity": 0.0,
+   "control": {
+    "name": "echo sum: age exactly 30 widths after a return",
+    "operation": "fidelity",
+    "source": 1.0,
+    "age_seconds": 130.0,
+    "half_life_seconds": 0.001,
+    "noise": [],
+    "baseline": 0.0,
+    "echo": {
+     "period": "100s",
+     "strength": 100.0,
+     "width": "1s",
+     "fade": "infinite"
+    },
+    "fidelity": 9.313225746154785e-08
+   },
+   "sections": [
+    "security"
+   ]
+  },
+  {
+   "name": "echo sum: age just beyond 30 widths before a return",
+   "operation": "fidelity",
+   "source": 1.0,
+   "age_seconds": 69.999,
+   "half_life_seconds": 0.001,
+   "noise": [],
+   "baseline": 0.0,
+   "echo": {
+    "period": "100s",
+    "strength": 100.0,
+    "width": "1s",
+    "fade": "infinite"
+   },
+   "fidelity": 0.0,
+   "control": {
+    "name": "echo sum: age exactly 30 widths before a return",
+    "operation": "fidelity",
+    "source": 1.0,
+    "age_seconds": 70.0,
+    "half_life_seconds": 0.001,
+    "noise": [],
+    "baseline": 0.0,
+    "echo": {
+     "period": "100s",
+     "strength": 100.0,
+     "width": "1s",
+     "fade": "infinite"
+    },
+    "fidelity": 9.313225746154785e-08
+   },
+   "sections": [
+    "security"
+   ]
+  },
+  {
+   "name": "time to floor stops with the crossing at 10,000 periods",
+   "operation": "time_to_floor",
+   "fidelity": 1.0,
+   "half_life_seconds": 1000.0,
+   "baseline": 0.0,
+   "floor": 0.5,
+   "echo": {
+    "period": "0.1s",
+    "strength": 0.1,
+    "width": "0.000001s",
+    "fade": "infinite"
+   },
+   "seconds": null,
+   "control": {
+    "name": "time to floor finds a crossing within 10,000 periods",
+    "operation": "time_to_floor",
+    "fidelity": 1.0,
+    "half_life_seconds": 999.55,
+    "baseline": 0.0,
+    "floor": 0.5,
+    "echo": {
+     "period": "0.1s",
+     "strength": 0.1,
+     "width": "0.000001s",
+     "fade": "infinite"
+    },
+    "seconds": 999.55
+   },
+   "sections": [
+    "security"
+   ]
+  },
+  {
+   "name": "time to floor stops before a crossing beyond 10,000 periods",
+   "operation": "time_to_floor",
+   "fidelity": 1.0,
+   "half_life_seconds": 1000.55,
+   "baseline": 0.0,
+   "floor": 0.5,
+   "echo": {
+    "period": "0.1s",
+    "strength": 0.1,
+    "width": "0.000001s",
+    "fade": "infinite"
+   },
+   "seconds": null,
+   "control": {
+    "name": "time to floor finds a crossing within 10,000 periods",
+    "operation": "time_to_floor",
+    "fidelity": 1.0,
+    "half_life_seconds": 999.55,
+    "baseline": 0.0,
+    "floor": 0.5,
+    "echo": {
+     "period": "0.1s",
+     "strength": 0.1,
+     "width": "0.000001s",
+     "fade": "infinite"
+    },
+    "seconds": 999.55
+   },
+   "sections": [
+    "security"
+   ]
+  }
+ ],
  "envelope": [
   {
    "name": "instrument, fresh",
