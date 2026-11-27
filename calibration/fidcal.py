@@ -24,6 +24,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import sys
 import time
 import urllib.error
@@ -119,14 +120,19 @@ class Tally:
         self.counts = {}
         self.entities = set()
         self._split = {}
+        self.by_entity = {}
 
     def add(self, entity, lag, correct):
         train = self._split.get(entity)
         if train is None:
             train = self._split[entity] = split_train(entity)
             self.entities.add(entity)
+            self.by_entity[entity] = {}
         key = (train, lag, bool(correct))
         self.counts[key] = self.counts.get(key, 0) + 1
+        entity_key = (lag, bool(correct))
+        entity_counts = self.by_entity[entity]
+        entity_counts[entity_key] = entity_counts.get(entity_key, 0) + 1
 
     def extend(self, observations):
         for entity, lag, correct in observations:
@@ -246,6 +252,92 @@ def brier(predict, tally, half=False):
     return total / n_all if n_all else float("nan")
 
 
+def bootstrap(tally, lags, guess=None, resamples=200, seed=0):
+    """Bootstrap 95% ranges by resampling entities within each half."""
+    train = sorted(
+        (entity for entity in tally.entities if split_train(entity)), key=str
+    )
+    test = sorted(
+        (entity for entity in tally.entities if not split_train(entity)), key=str
+    )
+    rng = random.Random(seed)
+    names = [
+        "empirical_half_life_s",
+        "half_life_s",
+        "half_life_with_baseline_s",
+        "baseline",
+        "brier_fitted",
+        "brier_fitted_with_baseline",
+        "brier_constant",
+    ]
+    if guess is not None:
+        names += ["brier_guessed"]
+    names += ["diff_baseline_minus_constant"]
+    if guess is not None:
+        names += ["diff_guessed_minus_constant"]
+    samples = {name: [] for name in names}
+
+    for _ in range(resamples):
+        resampled = Tally()
+        for half, entities in ((True, train), (False, test)):
+            for _ in range(len(entities)):
+                entity = rng.choice(entities)
+                for (lag, correct), n in tally.by_entity[entity].items():
+                    key = (half, lag, correct)
+                    resampled.counts[key] = resampled.counts.get(key, 0) + n
+
+        curve = survival_curve(resampled, lags)
+        train_curve = survival_curve(resampled, lags, half=True)
+        s0, h, _ = fit_exponential(train_curve)
+        s0b, hb, b = fit_exponential(train_curve, with_baseline=True)
+        _s0_all, h_all, _ = fit_exponential(curve)
+        _s0b_all, hb_all, b_all = fit_exponential(curve, with_baseline=True)
+        train_n = sum(n for _, _, n in resampled.items(True))
+        base_rate = sum(n for _, c, n in resampled.items(True) if c) / train_n
+
+        def fitted(lag):
+            return exp_model(lag, s0, h)
+
+        def fitted_baseline(lag):
+            return exp_model(lag, s0b, hb, b)
+
+        fitted_score = brier(fitted, resampled)
+        baseline_score = brier(fitted_baseline, resampled)
+        constant_score = brier(lambda _lag: base_rate, resampled)
+        values = {
+            "empirical_half_life_s": empirical_half_life(curve),
+            "half_life_s": h_all,
+            "half_life_with_baseline_s": hb_all,
+            "baseline": b_all,
+            "brier_fitted": fitted_score,
+            "brier_fitted_with_baseline": baseline_score,
+            "brier_constant": constant_score,
+            "diff_baseline_minus_constant": baseline_score - constant_score,
+        }
+        if guess is not None:
+            guessed_score = brier(lambda lag: exp_model(lag, 1.0, guess), resampled)
+            values["brier_guessed"] = guessed_score
+            values["diff_guessed_minus_constant"] = guessed_score - constant_score
+        for name, value in values.items():
+            samples[name].append(value)
+
+    ranges = {}
+    for name, values in samples.items():
+        ordered = sorted(
+            values, key=lambda value: (value is None, value if value is not None else 0)
+        )
+        lo = ordered[round(0.025 * (resamples - 1))]
+        hi = ordered[round(0.975 * (resamples - 1))]
+        ranges[name] = [lo, hi]
+    return {
+        "resamples": resamples,
+        "seed": seed,
+        "train_entities": len(train),
+        "test_entities": len(test),
+        "ranges": ranges,
+    }
+
+
 def reliability(predict, tally, half=False, bins=10):
     """Bucket predictions; compare mean prediction with actual rate."""
     buckets = [[0.0, 0, 0] for _ in range(bins)]
@@ -312,7 +404,7 @@ def analyze(
             lambda lag: exp_model(lag, 1.0, guess), tally
         )
 
-    return {
+    result = {
         "experiment": name,
         "fact": fact,
         "truth": truth,
@@ -340,26 +432,57 @@ def analyze(
         "reliability_test": reliability(fitted, tally),
         "reliability_test_with_baseline": reliability(fitted_baseline, tally),
     }
+    try:
+        resamples = int(os.environ.get("FID_CAL_RESAMPLES", "0"))
+    except ValueError:
+        resamples = 0
+    if resamples > 0:
+        result["intervals"] = bootstrap(
+            tally,
+            lags,
+            guess,
+            resamples=resamples,
+            seed=int(os.environ.get("FID_CAL_SEED", "0")),
+        )
+    return result
 
 
 def summary_markdown(result):
     r = result
+    intervals = r.get("intervals")
+    ranges = intervals["ranges"] if intervals else {}
+
+    def duration_range(name):
+        lo, hi = ranges[name]
+        return f" (95%: {fmt_duration(lo)}–{fmt_duration(hi)})"
+
+    def baseline_range():
+        lo, hi = ranges["baseline"]
+        return f" (95%: {lo:.2f}–{hi:.2f})"
+
     lines = [
         f"### {r['experiment']}: {r['fact']}",
         "",
         f"- Still correct means: {r['truth']}",
         f"- {r['entities']:,} entities, {r['observations']:,} observations",
         f"- Empirical half-life: **{r['empirical_half_life'] or '—'}**"
+        + (duration_range("empirical_half_life_s") if intervals else "")
         + (
             ""
             if r["empirical_half_life_s"]
             else " (never fell to 50% in the observed range)"
         ),
-        f"- Fitted fid model (decay to 0): s0 = {r['fitted']['s0']:.3f}, half-life = **{r['fitted']['half_life']}**, "
+        f"- Fitted fid model (decay to 0): s0 = {r['fitted']['s0']:.3f}, half-life = **{r['fitted']['half_life']}**"
+        + (duration_range("half_life_s") if intervals else "")
+        + ", "
         f"shape error {r['shape_error']:.3f}"
         + (" — poor fit" if r["shape_error"] > 0.10 else ""),
-        f"- Fitted with baseline (decay to b): b = {r['fitted_with_baseline']['baseline']:.2f}, "
-        f"half-life = **{r['fitted_with_baseline']['half_life']}**, "
+        f"- Fitted with baseline (decay to b): b = {r['fitted_with_baseline']['baseline']:.2f}"
+        + (baseline_range() if intervals else "")
+        + ", "
+        f"half-life = **{r['fitted_with_baseline']['half_life']}**"
+        + (duration_range("half_life_with_baseline_s") if intervals else "")
+        + ", "
         f"shape error {r['shape_error_with_baseline']:.3f}"
         + (" — poor fit" if r["shape_error_with_baseline"] > 0.10 else ""),
     ]
@@ -367,13 +490,49 @@ def summary_markdown(result):
         lines.append(
             f"- Hand-picked guess ({r['guess']['label']}): {r['guess']['half_life']}"
         )
-    lines += [
-        "",
-        "| Predictor (held-out half) | Brier score (lower is better) |",
-        "|---|---|",
-    ]
+    if intervals:
+        lines += [
+            "",
+            "| Predictor (held-out half) | Brier score (lower is better) | 95% range |",
+            "|---|---|---|",
+        ]
+    else:
+        lines += [
+            "",
+            "| Predictor (held-out half) | Brier score (lower is better) |",
+            "|---|---|",
+        ]
+    interval_names = {
+        "fitted_half_life": "brier_fitted",
+        "fitted_half_life_with_baseline": "brier_fitted_with_baseline",
+        "constant_base_rate": "brier_constant",
+        "guessed_half_life": "brier_guessed",
+    }
     for k, v in sorted(r["brier_test"].items(), key=lambda kv: kv[1]):
-        lines.append(f"| {k.replace('_', ' ')} | {v:.4f} |")
+        if intervals:
+            lo, hi = ranges[interval_names[k]]
+            lines.append(f"| {k.replace('_', ' ')} | {v:.4f} | {lo:.4f}–{hi:.4f} |")
+        else:
+            lines.append(f"| {k.replace('_', ' ')} | {v:.4f} |")
+    if intervals:
+        lines.append("")
+        for key, label in (
+            (
+                "diff_baseline_minus_constant",
+                "fitted_with_baseline − constant_base_rate",
+            ),
+            ("diff_guessed_minus_constant", "guessed_half_life − constant_base_rate"),
+        ):
+            if key in ranges:
+                lo, hi = ranges[key]
+                lines.append(
+                    f"- Paired Brier difference, {label} (95% range): {lo:.4f}–{hi:.4f}"
+                )
+        if intervals["test_entities"] < 20:
+            lines.append(
+                f"Few held-out entities (n = {intervals['test_entities']}): "
+                "the ranges understate the uncertainty."
+            )
     lines += ["", "| Lag | Still correct | n |", "|---|---|---|"]
     for c in r["curve"]:
         lines.append(f"| {c['lag']} | {c['still_correct']:.3f} | {c['n']:,} |")
@@ -416,7 +575,7 @@ def write_results(results, slug, extra_markdown=""):
     `extra_markdown` is appended to the summaries, for analyses beyond them.
     """
     here = os.path.dirname(os.path.abspath(__file__))
-    out_dir = os.path.join(here, "results")
+    out_dir = os.environ.get("FID_CAL_RESULTS_DIR", os.path.join(here, "results"))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{slug}.json"), "w") as f:
         json.dump(_finite(results), f, indent=2)
