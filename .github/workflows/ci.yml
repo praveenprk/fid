@@ -50,6 +50,7 @@ jobs:
       # site cannot drift from the library (live-site plan rule 3, #60),
       # and the live cards' rules.
       - run: node --test "site/*.test.mjs"
+      - run: python3 -m unittest discover -s site -p 'test_*.py'
 
   rust:
     runs-on: ubuntu-latest
