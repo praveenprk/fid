@@ -9,6 +9,7 @@ on:
       - ".github/workflows/site.yml"
   schedule:
     - cron: "17 6 * * 1" # weekly, Monday 06:17 UTC
+    - cron: "7 */2 * * *" # every 2 hours: element sets
   workflow_dispatch:
 
 permissions:
@@ -34,6 +35,7 @@ jobs:
       # today, airport weather over the last 365 days. If a public source is
       # down, the committed results are used instead.
       - name: Refresh CEO and weather results
+        if: github.event.schedule != '7 */2 * * *'
         continue-on-error: true
         working-directory: calibration
         env:
@@ -45,7 +47,17 @@ jobs:
       - name: Build site
         run: python3 site/build.py
 
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      # After build.py, which recreates site/_site. Only the 2-hourly run
+      # downloads from CelesTrak (one request per object per update cycle);
+      # every other build republishes the published tle.json unchanged.
+      - name: Fetch satellite element sets
+        env:
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+          FETCH: ${{ github.event.schedule == '7 */2 * * *' && '--fetch' || '' }}
+        run: python3 site/fetch_tle.py site/_site/data/tle.json "$BASE_URL" $FETCH
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
