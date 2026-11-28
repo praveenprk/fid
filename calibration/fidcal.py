@@ -124,6 +124,7 @@ class Tally:
         self.by_entity = {}
         self.time_cutoff = None
         self.by_time = {}
+        self.time_straddling = 0
 
     def add(self, entity, lag, correct, recorded_at=None):
         train = self._split.get(entity)
@@ -137,8 +138,16 @@ class Tally:
         entity_counts = self.by_entity[entity]
         entity_counts[entity_key] = entity_counts.get(entity_key, 0) + 1
         if recorded_at is not None and self.time_cutoff is not None:
-            time_key = (recorded_at < self.time_cutoff, lag, bool(correct))
-            self.by_time[time_key] = self.by_time.get(time_key, 0) + 1
+            if recorded_at + lag < self.time_cutoff:
+                side = "early"
+            elif recorded_at >= self.time_cutoff:
+                side = "late"
+            else:
+                side = None
+                self.time_straddling += 1
+            if side is not None:
+                time_key = (side, lag, bool(correct))
+                self.by_time[time_key] = self.by_time.get(time_key, 0) + 1
 
     def extend(self, observations):
         for observation in observations:
@@ -375,26 +384,37 @@ def reliability(predict, tally, half=False, bins=10):
 def _time_part(tally, early):
     """One side of the time split, in the shape survival_curve and brier read."""
     part = Tally()
-    for (is_early, lag, correct), n in tally.by_time.items():
-        if is_early == early:
+    side = "early" if early else "late"
+    for (observation_side, lag, correct), n in tally.by_time.items():
+        if observation_side == side:
             key = (False, lag, correct)
             part.counts[key] = part.counts.get(key, 0) + n
     return part
 
 
-def _analyze_time_split(tally, lags, guess, time_cutoff):
+def _analyze_time_split(tally, lags, guess, time_cutoff, fmt):
     early = _time_part(tally, early=True)
     late = _time_part(tally, early=False)
+    early_n = early.total()
+    late_n = late.total()
+    cutoff = (
+        datetime.fromtimestamp(time_cutoff, timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    if not early_n:
+        return {"cutoff": cutoff, "skipped": "no early observations"}
+    if not late_n:
+        return {"cutoff": cutoff, "skipped": "no late observations"}
     early_curve = survival_curve(early, lags, half=False)
     s0, h, _ = fit_exponential(early_curve)
-    _s0b, hb, b = fit_exponential(early_curve, with_baseline=True)
-    early_n = sum(n for _, _, n in early.items(False))
+    s0b, hb, b = fit_exponential(early_curve, with_baseline=True)
     early_correct = sum(n for _, correct, n in early.items(False) if correct)
-    base_rate = early_correct / early_n if early_n else float("nan")
+    base_rate = early_correct / early_n
     scores = {
         "fitted_half_life": brier(lambda lag: exp_model(lag, s0, h), late),
         "fitted_half_life_with_baseline": brier(
-            lambda lag: exp_model(lag, s0, hb, b), late
+            lambda lag: exp_model(lag, s0b, hb, b), late
         ),
         "constant_base_rate": brier(lambda _lag: base_rate, late),
     }
@@ -403,16 +423,20 @@ def _analyze_time_split(tally, lags, guess, time_cutoff):
             lambda lag: exp_model(lag, 1.0, guess), late
         )
     return {
-        "cutoff": datetime.fromtimestamp(time_cutoff, timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "cutoff": cutoff,
         "early_observations": early_n,
-        "late_observations": late.total(),
+        "late_observations": late_n,
+        "straddling_observations": tally.time_straddling,
+        "early_lags_s": sorted({lag for lag, _, _ in early.items(False)}),
+        "late_lags_s": sorted({lag for lag, _, _ in late.items(False)}),
         "fitted_early": {
             "s0": s0,
+            "s0_with_baseline": s0b,
             "half_life_s": h,
+            "half_life": fmt(h),
             "baseline": b,
             "half_life_with_baseline_s": hb,
+            "half_life_with_baseline": fmt(hb),
         },
         "brier_late": scores,
     }
@@ -496,7 +520,7 @@ def analyze(
         "reliability_test_with_baseline": reliability(fitted_baseline, tally),
     }
     if time_split:
-        result["time_split"] = _analyze_time_split(tally, lags, guess, time_cutoff)
+        result["time_split"] = _analyze_time_split(tally, lags, guess, time_cutoff, fmt)
     try:
         resamples = int(os.environ.get("FID_CAL_RESAMPLES", "0"))
     except ValueError:
@@ -604,22 +628,33 @@ def summary_markdown(result):
             )
     if "time_split" in r:
         split = r["time_split"]
-        early = split["fitted_early"]
         lines += [
             "",
-            f"#### Time split (fitted on facts recorded before {split['cutoff']}, scored on later ones)",
+            f"#### Time split (fitted on facts recorded and re-checked before {split['cutoff']}, scored on facts recorded after it)",
             "",
-            f"- {split['early_observations']:,} early observations, {split['late_observations']:,} late observations",
-            f"- Half-life fitted on early facts: **{fmt_duration(early['half_life_s'])}**; "
-            f"with baseline: b = {early['baseline']:.2f}, half-life = **{fmt_duration(early['half_life_with_baseline_s'])}**",
-            "",
-            "| Predictor (later facts) | Brier score (lower is better) |",
-            "|---|---|",
         ]
-        for key in predictor_order:
-            lines.append(
-                f"| {key.replace('_', ' ')} | {split['brier_late'][key]:.4f} |"
-            )
+        if "skipped" in split:
+            lines.append(f"- {split['skipped']}")
+        else:
+            early = split["fitted_early"]
+            lag_labels = {c["lag_s"]: c["lag"] for c in r["curve"]}
+            early_max_lag = max(split["early_lags_s"])
+            late_max_lag = max(split["late_lags_s"])
+            lines += [
+                f"- {split['early_observations']:,} early observations, {split['late_observations']:,} late observations",
+                f"- Half-life fitted on early facts: **{early['half_life']}**; "
+                f"with baseline: b = {early['baseline']:.2f}, half-life = **{early['half_life_with_baseline']}**",
+                f"- Early side covers lags up to {lag_labels[early_max_lag]}; "
+                f"late side up to {lag_labels[late_max_lag]}; "
+                f"{split['straddling_observations']:,} observations straddle the cutoff and are not used",
+                "",
+                "| Predictor (later facts) | Brier score (lower is better) |",
+                "|---|---|",
+            ]
+            for key in predictor_order:
+                lines.append(
+                    f"| {key.replace('_', ' ')} | {split['brier_late'][key]:.4f} |"
+                )
     lines += ["", "| Lag | Still correct | n |", "|---|---|---|"]
     for c in r["curve"]:
         lines.append(f"| {c['lag']} | {c['still_correct']:.3f} | {c['n']:,} |")

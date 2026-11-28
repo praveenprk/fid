@@ -35,10 +35,10 @@ def observations(entity_count=40, identical=False):
     return rows
 
 
-def decay_observations(half_life, recorded_at, n=1000):
+def decay_observations(half_life, recorded_at, n=1000, baseline=0.0):
     rows = []
     for lag in LAGS:
-        correct_n = round(n * 2 ** (-lag / half_life))
+        correct_n = round(n * (baseline + (1 - baseline) * 2 ** (-lag / half_life)))
         for i in range(n):
             entity = f"{recorded_at}-{lag}-{i}"
             rows.append((entity, lag, i < correct_n, recorded_at))
@@ -152,9 +152,10 @@ class TallyAndAnalysis(unittest.TestCase):
 
     def test_time_split_recovers_early_half_life_and_scores_drift(self):
         half_life = 2 * fidcal.HOUR
+        late_recorded_at = 10 * fidcal.HOUR
         early = decay_observations(half_life, 0)
-        drift = early + decay_observations(2 * half_life, 2000)
-        no_drift = early + decay_observations(half_life, 2000)
+        drift = early + decay_observations(2 * half_life, late_recorded_at)
+        no_drift = early + decay_observations(half_life, late_recorded_at)
         with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
             drift_result = fidcal.analyze(
                 "Synthetic",
@@ -162,16 +163,16 @@ class TallyAndAnalysis(unittest.TestCase):
                 drift,
                 LAGS,
                 guess=half_life,
-                time_cutoff=1000,
+                time_cutoff=late_recorded_at,
             )
             no_drift_result = fidcal.analyze(
-                "Synthetic", "fact", no_drift, LAGS, time_cutoff=1000
+                "Synthetic", "fact", no_drift, LAGS, time_cutoff=late_recorded_at
             )
         split = drift_result["time_split"]
         self.assertAlmostEqual(
             split["fitted_early"]["half_life_s"], half_life, delta=0.05 * half_life
         )
-        self.assertEqual(split["cutoff"], "1970-01-01T00:16:40Z")
+        self.assertEqual(split["cutoff"], "1970-01-01T10:00:00Z")
         self.assertGreater(
             split["brier_late"]["fitted_half_life"],
             no_drift_result["time_split"]["brier_late"]["fitted_half_life"],
@@ -180,26 +181,102 @@ class TallyAndAnalysis(unittest.TestCase):
 
     def test_time_split_counts_every_timed_observation(self):
         rows = observations()
-        timed = [(*row, 0 if i < 100 else 2000) for i, row in enumerate(rows)]
+        cutoff = 10 * fidcal.HOUR
+        timed = [(*row, 0 if i < 100 else cutoff) for i, row in enumerate(rows)]
         with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
-            result = fidcal.analyze("Synthetic", "fact", timed, LAGS, time_cutoff=1000)
+            result = fidcal.analyze(
+                "Synthetic", "fact", timed, LAGS, time_cutoff=cutoff
+            )
         split = result["time_split"]
         self.assertEqual(split["early_observations"], 100)
         self.assertEqual(split["late_observations"], 100)
+        self.assertEqual(split["straddling_observations"], 0)
         self.assertEqual(
             split["early_observations"] + split["late_observations"], len(timed)
         )
 
     def test_time_split_ignores_three_tuples(self):
         rows = observations()
-        timed = [(*row, 0 if i < 100 else 2000) for i, row in enumerate(rows)]
+        cutoff = 10 * fidcal.HOUR
+        timed = [(*row, 0 if i < 100 else cutoff) for i, row in enumerate(rows)]
         timed[0] = timed[0][:3]
         with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
-            result = fidcal.analyze("Synthetic", "fact", timed, LAGS, time_cutoff=1000)
+            result = fidcal.analyze(
+                "Synthetic", "fact", timed, LAGS, time_cutoff=cutoff
+            )
         split = result["time_split"]
         self.assertEqual(
             split["early_observations"] + split["late_observations"], len(timed) - 1
         )
+
+    def test_time_split_excludes_straddling_observations(self):
+        timed = [
+            ("entity-00", 0, True, 0),
+            ("entity-01", fidcal.HOUR, False, 0),
+            ("entity-02", 0, True, 1000),
+        ]
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            result = fidcal.analyze(
+                "Synthetic", "fact", observations() + timed, LAGS, time_cutoff=1000
+            )
+        split = result["time_split"]
+        self.assertEqual(split["early_observations"], 1)
+        self.assertEqual(split["late_observations"], 1)
+        self.assertEqual(split["straddling_observations"], 1)
+        self.assertEqual(split["early_lags_s"], [0])
+        self.assertEqual(split["late_lags_s"], [0])
+        self.assertEqual(
+            split["early_observations"]
+            + split["late_observations"]
+            + split["straddling_observations"],
+            len(timed),
+        )
+
+    def test_time_split_cutoff_boundaries(self):
+        tally = fidcal.Tally()
+        tally.time_cutoff = 1000
+        tally.add("entity-00", 1000, True, 0)
+        tally.add("entity-01", 0, True, 1000)
+        self.assertEqual(tally.by_time, {("late", 0, True): 1})
+        self.assertEqual(tally.time_straddling, 1)
+
+    def test_time_split_with_baseline_uses_its_own_s0(self):
+        cutoff = 10 * fidcal.HOUR
+        early = decay_observations(2 * fidcal.HOUR, 0, n=100, baseline=0.25)
+        late_rows = decay_observations(4 * fidcal.HOUR, cutoff, n=100, baseline=0.1)
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            result = fidcal.analyze(
+                "Synthetic", "fact", early + late_rows, LAGS, time_cutoff=cutoff
+            )
+        split = result["time_split"]
+        fitted = split["fitted_early"]
+        self.assertGreater(fitted["baseline"], 0)
+        late = fidcal.Tally().extend(
+            (entity, lag, correct) for entity, lag, correct, _recorded_at in late_rows
+        )
+        expected = fidcal.brier(
+            lambda lag: fidcal.exp_model(
+                lag,
+                fitted["s0_with_baseline"],
+                fitted["half_life_with_baseline_s"],
+                fitted["baseline"],
+            ),
+            late,
+            half=None,
+        )
+        self.assertAlmostEqual(
+            split["brier_late"]["fitted_half_life_with_baseline"], expected
+        )
+
+    def test_time_split_skips_when_every_observation_is_late(self):
+        timed = [(*row, 1000) for row in observations()]
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            result = fidcal.analyze("Synthetic", "fact", timed, LAGS, time_cutoff=1000)
+        self.assertEqual(
+            result["time_split"],
+            {"cutoff": "1970-01-01T00:16:40Z", "skipped": "no early observations"},
+        )
+        self.assertIn("- no early observations\n", fidcal.summary_markdown(result))
 
     def test_analyze_opt_in_contains_the_point_estimate(self):
         with mock.patch.dict(
@@ -331,15 +408,22 @@ class Output(unittest.TestCase):
     def test_summary_adds_the_time_split_only_when_present(self):
         result = small_result()
         self.assertNotIn("Time split (fitted", fidcal.summary_markdown(result))
+        result["curve"][1]["lag"] = "two study hours"
         result["time_split"] = {
             "cutoff": "2024-07-01T00:00:00Z",
             "early_observations": 40,
             "late_observations": 40,
+            "straddling_observations": 3,
+            "early_lags_s": [0, 7200],
+            "late_lags_s": [0, 7200],
             "fitted_early": {
                 "s0": 1.0,
+                "s0_with_baseline": 1.0,
                 "half_life_s": 3600.0,
+                "half_life": "one study hour",
                 "baseline": 0.2,
                 "half_life_with_baseline_s": 7200.0,
+                "half_life_with_baseline": "two study hours",
             },
             "brier_late": {
                 "fitted_half_life": 0.4,
@@ -350,11 +434,15 @@ class Output(unittest.TestCase):
         }
         markdown = fidcal.summary_markdown(result)
         self.assertIn(
-            "Time split (fitted on facts recorded before 2024-07-01T00:00:00Z, scored on later ones)",
+            "Time split (fitted on facts recorded and re-checked before 2024-07-01T00:00:00Z, scored on facts recorded after it)",
             markdown,
         )
-        self.assertIn("Half-life fitted on early facts: **1.0h**", markdown)
-        self.assertIn("b = 0.20, half-life = **2.0h**", markdown)
+        self.assertIn("Half-life fitted on early facts: **one study hour**", markdown)
+        self.assertIn("b = 0.20, half-life = **two study hours**", markdown)
+        self.assertIn(
+            "- Early side covers lags up to two study hours; late side up to two study hours; 3 observations straddle the cutoff and are not used",
+            markdown,
+        )
         rows = [
             "| fitted half life | 0.4000 |",
             "| fitted half life with baseline | 0.3000 |",
