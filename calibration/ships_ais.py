@@ -25,6 +25,7 @@ import math
 import os
 import zipfile
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
 import fidcal
 
@@ -42,6 +43,7 @@ LAGS = [m * 60 for m in LAG_MINUTES]
 OBS_START_MINUTES = range(0, 12 * 60, 30)
 MATCH_WINDOW = 5  # minutes either side of the target time
 UNDERWAY_KNOTS = 1.0
+TIME_CUTOFF = datetime(2023, 7, 1, tzinfo=timezone.utc).timestamp()
 
 
 def is_cargo_or_tanker(vessel_type):
@@ -101,28 +103,43 @@ def haversine_km(a, b):
     return 2 * 6371.0 * math.asin(math.sqrt(h))
 
 
-def report_near(track, minute):
-    """The report closest to `minute`, within MATCH_WINDOW, or None."""
+def report_near_at(track, minute):
+    """(report minute, report) closest to `minute`, within MATCH_WINDOW, or None."""
     for d in range(MATCH_WINDOW + 1):
         for m in (minute - d, minute + d):
             if m in track:
-                return track[m]
+                return m, track[m]
     return None
 
 
-def observations(tracks, threshold_km):
-    """(mmsi, lag, correct, underway) for every observation and lag."""
+def report_near(track, minute):
+    """The report closest to `minute`, within MATCH_WINDOW, or None."""
+    found = report_near_at(track, minute)
+    return found[1] if found else None
+
+
+def observations(tracks, threshold_km, day):
+    """(mmsi, lag, correct, underway, recorded_at) for every observation and lag."""
+    midnight = datetime.strptime(day, "%Y_%m_%d").replace(tzinfo=timezone.utc)
     for mmsi, track in tracks.items():
         for start in OBS_START_MINUTES:
-            first = report_near(track, start)
-            if first is None:
+            found = report_near_at(track, start)
+            if found is None:
                 continue
+            first_minute, first = found
+            recorded_at = (midnight + timedelta(minutes=first_minute)).timestamp()
             underway = first[2] >= UNDERWAY_KNOTS
             for lag_min, lag in zip(LAG_MINUTES, LAGS):
                 later = report_near(track, start + lag_min)
                 if later is None:
                     continue
-                yield (mmsi, lag, haversine_km(first, later) <= threshold_km, underway)
+                yield (
+                    mmsi,
+                    lag,
+                    haversine_km(first, later) <= threshold_km,
+                    underway,
+                    recorded_at,
+                )
 
 
 GROUPS = [("all vessels", None), ("underway", True), ("moored or at anchor", False)]
@@ -132,6 +149,8 @@ THRESHOLDS_KM = (1.0, 10.0)
 def main():
     cache = fidcal.default_cache_dir()
     tallies = {(t, g): fidcal.Tally() for t in THRESHOLDS_KM for g, _ in GROUPS}
+    for tally in tallies.values():
+        tally.time_cutoff = TIME_CUTOFF
     vessels = set()
     for day in DAYS:
         url = URL.format(year=day[:4], day=day)
@@ -141,10 +160,12 @@ def main():
         vessels.update(tracks)
         fidcal.log(f"{day}: {len(tracks):,} cargo ships and tankers")
         for threshold in THRESHOLDS_KM:
-            for mmsi, lag, correct, underway in observations(tracks, threshold):
+            for mmsi, lag, correct, underway, recorded_at in observations(
+                tracks, threshold, day
+            ):
                 for label, want in GROUPS:
                     if want is None or want == underway:
-                        tallies[(threshold, label)].add(mmsi, lag, correct)
+                        tallies[(threshold, label)].add(mmsi, lag, correct, recorded_at)
         del tracks
     fidcal.log(f"{len(vessels):,} distinct vessels over {len(DAYS)} days")
 
@@ -159,6 +180,7 @@ def main():
                     tallies[(threshold, label)],
                     LAGS,
                     truth=f"next report within {threshold:.0f} km",
+                    time_cutoff=TIME_CUTOFF,
                     **guess,
                 )
             )

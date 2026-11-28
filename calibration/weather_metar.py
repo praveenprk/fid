@@ -22,7 +22,7 @@ Usage: python3 weather_metar.py
 import csv
 import os
 import urllib.parse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import fidcal
 
@@ -42,6 +42,7 @@ def window():
 LAG_HOURS = [0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 18, 21, 24, 30, 36, 48, 60, 72]
 LAGS = [h * 3600 for h in LAG_HOURS]
 TEMP_TOLERANCE_F = 2.0
+TIME_CUTOFF = datetime(2024, 7, 1, tzinfo=timezone.utc).timestamp()
 
 
 def fetch(cache_dir, station):
@@ -118,17 +119,27 @@ def observations(all_series):
     temp, cat, adverse = [], [], []
     for station, series in all_series.items():
         for hour, (t0, c0) in series.items():
+            recorded_at = hour.replace(tzinfo=timezone.utc).timestamp()
             for lag_h, lag in zip(LAG_HOURS, LAGS):
                 later = series.get(hour + timedelta(hours=lag_h))
                 if later is None:
                     continue
                 t1, c1 = later
                 if t0 is not None and t1 is not None:
-                    temp.append((station, lag, abs(t1 - t0) <= TEMP_TOLERANCE_F))
+                    temp.append(
+                        (
+                            station,
+                            lag,
+                            abs(t1 - t0) <= TEMP_TOLERANCE_F,
+                            recorded_at,
+                        )
+                    )
                 if c0 is not None and c1 is not None:
-                    cat.append((station, lag, c1 == c0))
+                    cat.append((station, lag, c1 == c0, recorded_at))
                     if c0 in ("IFR", "LIFR"):
-                        adverse.append((station, lag, c1 in ("IFR", "LIFR")))
+                        adverse.append(
+                            (station, lag, c1 in ("IFR", "LIFR"), recorded_at)
+                        )
     return temp, cat, adverse
 
 
@@ -148,6 +159,7 @@ def main():
             temp,
             LAGS,
             truth=f"within ±{TEMP_TOLERANCE_F:.0f} °F",
+            time_cutoff=TIME_CUTOFF,
             **guess,
         ),
         fidcal.analyze(
@@ -156,6 +168,7 @@ def main():
             cat,
             LAGS,
             truth="same flight category",
+            time_cutoff=TIME_CUTOFF,
             **guess,
         ),
         fidcal.analyze(
@@ -164,6 +177,7 @@ def main():
             adverse,
             LAGS,
             truth="still IFR or LIFR",
+            time_cutoff=TIME_CUTOFF,
             **guess,
         ),
     ]

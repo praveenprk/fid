@@ -48,6 +48,7 @@ LAGS = [
     round(d * fidcal.DAY) for d in (0, 1, 3, 7, 14, 30, 61, 91, 182, 274, 365, 548, 730)
 ]
 JUST_RELEASED, DORMANT = 30 * fidcal.DAY, fidcal.YEAR
+TIME_CUTOFF = datetime(2020, 1, 1, tzinfo=timezone.utc).timestamp()
 
 # Final releases only: 1.2, 2.0.1, 1!2.0, 3.1.post1 (a post release replaces its base)
 FINAL = re.compile(r"^(?:(\d+)!)?(\d+(?:\.\d+)*)(?:[.-]?post(\d+))?$", re.I)
@@ -109,8 +110,8 @@ def state(age):
     return "dormant" if age > DORMANT else "quiet"
 
 
-def observations(packages):
-    """(package, lag, still latest) per snapshot and lag, split by the package's state at the snapshot."""
+def observations(packages, with_recorded_at=False):
+    """Per snapshot and lag, split by state; optionally include the snapshot time."""
     out = {"all": [], "just_released": [], "quiet": [], "dormant": []}
     for name, changes in packages.items():
         for snapshot in SNAPSHOTS:
@@ -122,6 +123,8 @@ def observations(packages):
             for lag in LAGS:
                 later = latest_at(changes, snapshot + timedelta(seconds=lag))
                 obs = (name, lag, later[0] == version)
+                if with_recorded_at:
+                    obs += (snapshot.timestamp(),)
                 out["all"].append(obs)
                 out[s].append(obs)
     return out
@@ -165,7 +168,7 @@ def main(argv=None):
     fidcal.log(
         f"{len(packages):,} packages with final releases ({skipped} could not be fetched)"
     )
-    obs = observations(packages)
+    obs = observations(packages, with_recorded_at=True)
     truth = "Y is still the highest final, unyanked release on PyPI"
     labels = {
         "all": "all snapshots",
@@ -180,6 +183,7 @@ def main(argv=None):
             obs[s],
             LAGS,
             truth=truth,
+            time_cutoff=TIME_CUTOFF,
         )
         for s in ("all", "just_released", "quiet", "dormant")
     ]

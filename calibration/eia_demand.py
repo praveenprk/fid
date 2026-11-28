@@ -34,7 +34,7 @@ import json
 import os
 import pickle
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import fidcal
 import weather_periodic as wp
@@ -86,6 +86,7 @@ STUDY_LAG_HOURS = [
 ]
 FACT = "hourly demand in region R is D"
 TRUTH = f"demand at the later hour within ±{TOLERANCE:.0%} of D"
+TIME_CUTOFF = datetime(2024, 7, 1, tzinfo=timezone.utc).timestamp()
 
 
 # ── data ─────────────────────────────────────────────────────────────────
@@ -144,6 +145,22 @@ def still_correct(d0, d1):
 
 
 # ── counting ─────────────────────────────────────────────────────────────
+
+
+def study_observations(all_series):
+    """The study's observations, including the UTC hour each fact was recorded."""
+    for region, series in all_series.items():
+        for hour, d0 in series.items():
+            recorded_at = hour.replace(tzinfo=timezone.utc).timestamp()
+            for lag in STUDY_LAG_HOURS:
+                d1 = series.get(hour + timedelta(hours=lag))
+                if d1 is not None:
+                    yield (
+                        region,
+                        lag * fidcal.HOUR,
+                        still_correct(d0, d1),
+                        recorded_at,
+                    )
 
 
 def count(all_series, lag_hours=LAG_HOURS):
@@ -429,9 +446,10 @@ def main():
     study = fidcal.analyze(
         "EIA hourly demand",
         FACT,
-        tally(counts, STUDY_LAG_HOURS),
+        study_observations(all_series),
         [h * fidcal.HOUR for h in STUDY_LAG_HOURS],
         truth=TRUTH,
+        time_cutoff=TIME_CUTOFF,
     )
     fidcal.log("echo test")
     echo_test = run(counts)

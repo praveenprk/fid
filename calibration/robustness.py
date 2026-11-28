@@ -42,7 +42,7 @@ def compare_results(committed, generated):
                 (key for key in right if key not in left), key=str
             )
             for key in keys:
-                if key == "intervals":
+                if key in ("intervals", "time_split"):
                     continue
                 child = f"{path}.{key}" if path else str(key)
                 if key not in left or key not in right:
@@ -106,8 +106,8 @@ def write_readme(rows, resamples, seed):
     lines = [
         "# Bootstrap 95% ranges over entities",
         "",
-        "| Experiment | Resamples | Seed | Matches committed | Results |",
-        "|---|---:|---:|---|---|",
+        "| Experiment | Resamples | Seed | time split | Matches committed | Results |",
+        "|---|---:|---:|---|---|---|",
     ]
     for row in rows:
         if row.get("not_run"):
@@ -120,7 +120,10 @@ def write_readme(rows, resamples, seed):
             link = f"[{row['slug']}.md]({row['slug']}.md)"
             n = str(resamples)
             row_seed = str(seed)
-        lines.append(f"| {row['slug']} | {n} | {row_seed} | {matches} | {link} |")
+        time_split = "yes" if row.get("time_split") else "no"
+        lines.append(
+            f"| {row['slug']} | {n} | {row_seed} | {time_split} | {matches} | {link} |"
+        )
     differences = [row for row in rows if row.get("differing_paths")]
     if differences:
         lines += ["", "## First differing paths", ""]
@@ -152,6 +155,7 @@ def main(argv=None):
     env = os.environ.copy()
     env["FID_CAL_RESAMPLES"] = str(args.resamples)
     env["FID_CAL_SEED"] = str(args.seed)
+    env["FID_CAL_TIME_SPLIT"] = "1"
     env["FID_CAL_RESULTS_DIR"] = out_dir
 
     rows = []
@@ -171,7 +175,10 @@ def main(argv=None):
         with open(committed_path) as f:
             committed = json.load(f)
         comparison = compare_results(committed, generated)
-        rows.append({"slug": slug, **comparison})
+        time_split = bool(generated) and all(
+            "time_split" in result for result in generated
+        )
+        rows.append({"slug": slug, "time_split": time_split, **comparison})
 
     manifest = input_manifest(fidcal.default_cache_dir())
     with open(os.path.join(out_dir, "inputs.json"), "w") as f:

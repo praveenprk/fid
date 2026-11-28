@@ -30,6 +30,7 @@ import math
 import os
 import zipfile
 from collections import defaultdict
+from datetime import datetime, timezone
 
 import fidcal
 
@@ -51,6 +52,7 @@ MONTH_NAMES = [
     "Dec",
 ]
 MAX_LEG = 8
+TIME_CUTOFF = datetime(2024, 7, 1, tzinfo=timezone.utc).timestamp()
 
 
 def fmt_legs(k):
@@ -86,6 +88,24 @@ def load(path):
     return flights
 
 
+def leg_observations(flights):
+    """Leg-chain observations, with the flight date and previous leg's outcome."""
+    days = defaultdict(list)
+    for flight in flights:
+        if flight["tail"]:
+            days[(flight["tail"], flight["date"])].append(flight)
+    for (tail, flight_date), day in days.items():
+        day.sort(key=lambda flight: flight["dep"])
+        recorded_at = (
+            datetime.strptime(flight_date, "%Y-%m-%d")
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+        )
+        for k, flight in enumerate(day[:MAX_LEG]):
+            previous = day[k - 1]["on_time"] if k > 0 else None
+            yield tail, k, flight["on_time"], recorded_at, previous
+
+
 class Rate:
     """On-time count and total."""
 
@@ -114,6 +134,7 @@ def main():
         defaultdict(Rate),
     )
     legs = fidcal.Tally()
+    legs.time_cutoff = TIME_CUTOFF
     after = {"on_time": Rate(), "late": Rate()}
 
     for month in MONTHS:
@@ -131,18 +152,10 @@ def main():
             by_month[f"{YEAR}-{month:02d}"].add(f["on_time"])
 
         # Legs of each aircraft's day, in scheduled order. Days never span months.
-        days = defaultdict(list)
-        for f in flights:
-            if f["tail"]:
-                days[(f["tail"], f["date"])].append(f)
-        for (tail, _date), day in days.items():
-            day.sort(key=lambda f: f["dep"])
-            for k, f in enumerate(day[:MAX_LEG]):
-                legs.add(tail, k, f["on_time"])
-                if k > 0:
-                    after["on_time" if day[k - 1]["on_time"] else "late"].add(
-                        f["on_time"]
-                    )
+        for tail, k, on_time, recorded_at, previous in leg_observations(flights):
+            legs.add(tail, k, on_time, recorded_at)
+            if previous is not None:
+                after["on_time" if previous else "late"].add(on_time)
 
     chain = fidcal.analyze(
         "Flight legs",
@@ -151,6 +164,7 @@ def main():
         list(range(MAX_LEG)),
         truth="arrived within 15 min, not cancelled or diverted; lag = legs flown before it",
         fmt=fmt_legs,
+        time_cutoff=TIME_CUTOFF,
     )
     h = chain["fitted"]["half_life_s"]
     per_leg_noise = 1 - 0.5 ** (1 / h) if h and not math.isinf(h) else 0.0
