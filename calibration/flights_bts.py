@@ -214,10 +214,7 @@ def main():
         "noise_given_late": 1 - p_after_late / p_any,
     }
 
-    here = os.path.dirname(os.path.abspath(__file__))
-    fidcal.write_results([chain], "flights_bts")
-    with open(os.path.join(here, "results", "flights_bts.md"), "a") as f:
-        f.write("\n" + extra)
+    fidcal.write_results([chain], "flights_bts", extra_markdown="\n" + extra)
 
 
 if __name__ == "__main__":
