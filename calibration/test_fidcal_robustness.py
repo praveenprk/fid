@@ -193,12 +193,16 @@ class Output(unittest.TestCase):
                 os.environ, {"FID_CAL_RESULTS_DIR": directory}, clear=True
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    fidcal.write_results([small_result()], slug)
+                    fidcal.write_results(
+                        [small_result()], slug, extra_markdown="\nEXTRA"
+                    )
             for extension in ("json", "md"):
                 path = os.path.join(directory, f"{slug}.{extension}")
                 self.assertTrue(os.path.isfile(path))
             with open(os.path.join(directory, f"{slug}.json")) as f:
                 self.assertEqual(json.load(f), [small_result()])
+            with open(os.path.join(directory, f"{slug}.md")) as f:
+                self.assertTrue(f.read().endswith("\nEXTRA"))
             self.assertFalse(any(os.path.exists(path) for path in default_files))
 
     def test_summary_is_legacy_without_intervals_and_annotated_with_them(self):
