@@ -29,6 +29,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 USER_AGENT = "fid-calibration/0.1 (https://github.com/praveenprk/fid)"
 
@@ -121,8 +122,10 @@ class Tally:
         self.entities = set()
         self._split = {}
         self.by_entity = {}
+        self.time_cutoff = None
+        self.by_time = {}
 
-    def add(self, entity, lag, correct):
+    def add(self, entity, lag, correct, recorded_at=None):
         train = self._split.get(entity)
         if train is None:
             train = self._split[entity] = split_train(entity)
@@ -133,10 +136,13 @@ class Tally:
         entity_key = (lag, bool(correct))
         entity_counts = self.by_entity[entity]
         entity_counts[entity_key] = entity_counts.get(entity_key, 0) + 1
+        if recorded_at is not None and self.time_cutoff is not None:
+            time_key = (recorded_at < self.time_cutoff, lag, bool(correct))
+            self.by_time[time_key] = self.by_time.get(time_key, 0) + 1
 
     def extend(self, observations):
-        for entity, lag, correct in observations:
-            self.add(entity, lag, correct)
+        for observation in observations:
+            self.add(*observation)
         return self
 
     def total(self):
@@ -149,12 +155,14 @@ class Tally:
                 yield lag, correct, n
 
 
-def as_tally(observations):
-    return (
-        observations
-        if isinstance(observations, Tally)
-        else Tally().extend(observations)
-    )
+def as_tally(observations, time_cutoff=None):
+    if isinstance(observations, Tally):
+        if time_cutoff is not None:
+            observations.time_cutoff = time_cutoff
+        return observations
+    tally = Tally()
+    tally.time_cutoff = time_cutoff
+    return tally.extend(observations)
 
 
 # ── survival curve ───────────────────────────────────────────────────────
@@ -364,8 +372,62 @@ def reliability(predict, tally, half=False, bins=10):
 # ── the full analysis ────────────────────────────────────────────────────
 
 
+def _time_part(tally, early):
+    """One side of the time split, in the shape survival_curve and brier read."""
+    part = Tally()
+    for (is_early, lag, correct), n in tally.by_time.items():
+        if is_early == early:
+            key = (False, lag, correct)
+            part.counts[key] = part.counts.get(key, 0) + n
+    return part
+
+
+def _analyze_time_split(tally, lags, guess, time_cutoff):
+    early = _time_part(tally, early=True)
+    late = _time_part(tally, early=False)
+    early_curve = survival_curve(early, lags, half=False)
+    s0, h, _ = fit_exponential(early_curve)
+    _s0b, hb, b = fit_exponential(early_curve, with_baseline=True)
+    early_n = sum(n for _, _, n in early.items(False))
+    early_correct = sum(n for _, correct, n in early.items(False) if correct)
+    base_rate = early_correct / early_n if early_n else float("nan")
+    scores = {
+        "fitted_half_life": brier(lambda lag: exp_model(lag, s0, h), late),
+        "fitted_half_life_with_baseline": brier(
+            lambda lag: exp_model(lag, s0, hb, b), late
+        ),
+        "constant_base_rate": brier(lambda _lag: base_rate, late),
+    }
+    if guess is not None:
+        scores["guessed_half_life"] = brier(
+            lambda lag: exp_model(lag, 1.0, guess), late
+        )
+    return {
+        "cutoff": datetime.fromtimestamp(time_cutoff, timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "early_observations": early_n,
+        "late_observations": late.total(),
+        "fitted_early": {
+            "s0": s0,
+            "half_life_s": h,
+            "baseline": b,
+            "half_life_with_baseline_s": hb,
+        },
+        "brier_late": scores,
+    }
+
+
 def analyze(
-    name, fact, observations, lags, guess=None, guess_label=None, truth=None, fmt=None
+    name,
+    fact,
+    observations,
+    lags,
+    guess=None,
+    guess_label=None,
+    truth=None,
+    fmt=None,
+    time_cutoff=None,
 ):
     """Run the whole analysis and return a JSON-serializable result.
 
@@ -376,7 +438,8 @@ def analyze(
     `truth` describes what "still correct" means for this fact.
     """
     fmt = fmt or fmt_duration
-    tally = as_tally(observations)
+    time_split = os.environ.get("FID_CAL_TIME_SPLIT") == "1" and time_cutoff is not None
+    tally = as_tally(observations, time_cutoff if time_split else None)
 
     curve = survival_curve(tally, lags)
     train_curve = survival_curve(tally, lags, half=True)
@@ -432,6 +495,8 @@ def analyze(
         "reliability_test": reliability(fitted, tally),
         "reliability_test_with_baseline": reliability(fitted_baseline, tally),
     }
+    if time_split:
+        result["time_split"] = _analyze_time_split(tally, lags, guess, time_cutoff)
     try:
         resamples = int(os.environ.get("FID_CAL_RESAMPLES", "0"))
     except ValueError:
@@ -508,7 +573,11 @@ def summary_markdown(result):
         "constant_base_rate": "brier_constant",
         "guessed_half_life": "brier_guessed",
     }
-    for k, v in sorted(r["brier_test"].items(), key=lambda kv: kv[1]):
+    predictor_order = [
+        key for key, _ in sorted(r["brier_test"].items(), key=lambda kv: kv[1])
+    ]
+    for k in predictor_order:
+        v = r["brier_test"][k]
         if intervals:
             lo, hi = ranges[interval_names[k]]
             lines.append(f"| {k.replace('_', ' ')} | {v:.4f} | {lo:.4f}–{hi:.4f} |")
@@ -532,6 +601,24 @@ def summary_markdown(result):
             lines.append(
                 f"Few held-out entities (n = {intervals['test_entities']}): "
                 "the ranges understate the uncertainty."
+            )
+    if "time_split" in r:
+        split = r["time_split"]
+        early = split["fitted_early"]
+        lines += [
+            "",
+            f"#### Time split (fitted on facts recorded before {split['cutoff']}, scored on later ones)",
+            "",
+            f"- {split['early_observations']:,} early observations, {split['late_observations']:,} late observations",
+            f"- Half-life fitted on early facts: **{fmt_duration(early['half_life_s'])}**; "
+            f"with baseline: b = {early['baseline']:.2f}, half-life = **{fmt_duration(early['half_life_with_baseline_s'])}**",
+            "",
+            "| Predictor (later facts) | Brier score (lower is better) |",
+            "|---|---|",
+        ]
+        for key in predictor_order:
+            lines.append(
+                f"| {key.replace('_', ' ')} | {split['brier_late'][key]:.4f} |"
             )
     lines += ["", "| Lag | Still correct | n |", "|---|---|---|"]
     for c in r["curve"]:

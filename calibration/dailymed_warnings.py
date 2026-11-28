@@ -35,7 +35,7 @@ import re
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import fidcal
 
@@ -60,6 +60,9 @@ SNAPSHOTS = [
 LAG_DAYS = [0, 30, 91, 182, 274, 365, 548, 730, 1095, 1461, 1826]
 LAGS = [d * fidcal.DAY for d in LAG_DAYS]
 RECENT, OLD = 365, 5 * 365
+TIME_CUTOFF = datetime.combine(
+    SNAPSHOTS[len(SNAPSHOTS) // 2], datetime.min.time(), tzinfo=timezone.utc
+).timestamp()
 
 
 # ── label text ───────────────────────────────────────────────────────────
@@ -172,8 +175,8 @@ def state(age_days):
     return "old" if age_days > OLD else "settled"
 
 
-def observations(labels):
-    """(label, lag, warnings unchanged) per snapshot and lag, also split by state at the snapshot."""
+def observations(labels, with_recorded_at=False):
+    """Per snapshot and lag, split by state; optionally include the snapshot time."""
     out = {"all": [], "recent": [], "settled": [], "old": []}
     for setid, changes in labels.items():
         for snapshot in SNAPSHOTS:
@@ -185,6 +188,11 @@ def observations(labels):
             for lag in LAG_DAYS:
                 later = text_at(changes, snapshot + timedelta(days=lag))
                 obs = (setid, lag * fidcal.DAY, later[0] == text)
+                if with_recorded_at:
+                    recorded_at = datetime.combine(
+                        snapshot, datetime.min.time(), tzinfo=timezone.utc
+                    ).timestamp()
+                    obs += (recorded_at,)
                 out["all"].append(obs)
                 out[s].append(obs)
     return out
@@ -227,7 +235,7 @@ def main(argv=None):
         f"{skipped} skipped"
     )
 
-    obs = observations(labels)
+    obs = observations(labels, with_recorded_at=True)
     names = {
         "all": "all snapshots",
         "recent": "warnings changed in the year before",
@@ -242,6 +250,7 @@ def main(argv=None):
             obs[s],
             LAGS,
             truth=truth,
+            time_cutoff=TIME_CUTOFF,
         )
         for s in ("all", "recent", "settled", "old")
         if obs[s]

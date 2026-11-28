@@ -1,4 +1,4 @@
-"""Offline tests for entity-bootstrap calibration ranges and their runner."""
+"""Offline tests for calibration robustness, time splits and observation times."""
 
 import contextlib
 import copy
@@ -8,10 +8,18 @@ import os
 import random
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
+import dailymed_warnings as dw
+import eia_demand as ed
 import fidcal
+import flights_bts as fb
+import pypi_latest as pl
 import robustness
+import ships_ais as sa
+import weather_metar as wm
+import wikidata_ceo as wc
 
 LAGS = [0, fidcal.HOUR, 2 * fidcal.HOUR, 4 * fidcal.HOUR, 8 * fidcal.HOUR]
 
@@ -24,6 +32,16 @@ def observations(entity_count=40, identical=False):
         for j, lag in enumerate(LAGS):
             correct = j < 3 if identical else j == 0 or strength >= j * 8
             rows.append((entity, lag, correct))
+    return rows
+
+
+def decay_observations(half_life, recorded_at, n=1000):
+    rows = []
+    for lag in LAGS:
+        correct_n = round(n * 2 ** (-lag / half_life))
+        for i in range(n):
+            entity = f"{recorded_at}-{lag}-{i}"
+            rows.append((entity, lag, i < correct_n, recorded_at))
     return rows
 
 
@@ -120,6 +138,68 @@ class TallyAndAnalysis(unittest.TestCase):
             )
         self.assertNotIn("intervals", first)
         self.assertEqual(first, second)
+
+    def test_time_split_is_unchanged_without_opt_in(self):
+        rows = observations()
+        timed = [(*row, 0 if i < 100 else 2000) for i, row in enumerate(rows)]
+        with mock.patch.dict(os.environ, {}, clear=True):
+            plain = fidcal.analyze("Synthetic", "fact", rows, LAGS)
+            timed_result = fidcal.analyze(
+                "Synthetic", "fact", timed, LAGS, time_cutoff=1000
+            )
+        self.assertEqual(timed_result, plain)
+        self.assertNotIn("time_split", timed_result)
+
+    def test_time_split_recovers_early_half_life_and_scores_drift(self):
+        half_life = 2 * fidcal.HOUR
+        early = decay_observations(half_life, 0)
+        drift = early + decay_observations(2 * half_life, 2000)
+        no_drift = early + decay_observations(half_life, 2000)
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            drift_result = fidcal.analyze(
+                "Synthetic",
+                "fact",
+                drift,
+                LAGS,
+                guess=half_life,
+                time_cutoff=1000,
+            )
+            no_drift_result = fidcal.analyze(
+                "Synthetic", "fact", no_drift, LAGS, time_cutoff=1000
+            )
+        split = drift_result["time_split"]
+        self.assertAlmostEqual(
+            split["fitted_early"]["half_life_s"], half_life, delta=0.05 * half_life
+        )
+        self.assertEqual(split["cutoff"], "1970-01-01T00:16:40Z")
+        self.assertGreater(
+            split["brier_late"]["fitted_half_life"],
+            no_drift_result["time_split"]["brier_late"]["fitted_half_life"],
+        )
+        self.assertIn("guessed_half_life", split["brier_late"])
+
+    def test_time_split_counts_every_timed_observation(self):
+        rows = observations()
+        timed = [(*row, 0 if i < 100 else 2000) for i, row in enumerate(rows)]
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            result = fidcal.analyze("Synthetic", "fact", timed, LAGS, time_cutoff=1000)
+        split = result["time_split"]
+        self.assertEqual(split["early_observations"], 100)
+        self.assertEqual(split["late_observations"], 100)
+        self.assertEqual(
+            split["early_observations"] + split["late_observations"], len(timed)
+        )
+
+    def test_time_split_ignores_three_tuples(self):
+        rows = observations()
+        timed = [(*row, 0 if i < 100 else 2000) for i, row in enumerate(rows)]
+        timed[0] = timed[0][:3]
+        with mock.patch.dict(os.environ, {"FID_CAL_TIME_SPLIT": "1"}, clear=True):
+            result = fidcal.analyze("Synthetic", "fact", timed, LAGS, time_cutoff=1000)
+        split = result["time_split"]
+        self.assertEqual(
+            split["early_observations"] + split["late_observations"], len(timed) - 1
+        )
 
     def test_analyze_opt_in_contains_the_point_estimate(self):
         with mock.patch.dict(
@@ -248,12 +328,142 @@ class Output(unittest.TestCase):
             markdown,
         )
 
+    def test_summary_adds_the_time_split_only_when_present(self):
+        result = small_result()
+        self.assertNotIn("Time split (fitted", fidcal.summary_markdown(result))
+        result["time_split"] = {
+            "cutoff": "2024-07-01T00:00:00Z",
+            "early_observations": 40,
+            "late_observations": 40,
+            "fitted_early": {
+                "s0": 1.0,
+                "half_life_s": 3600.0,
+                "baseline": 0.2,
+                "half_life_with_baseline_s": 7200.0,
+            },
+            "brier_late": {
+                "fitted_half_life": 0.4,
+                "fitted_half_life_with_baseline": 0.3,
+                "constant_base_rate": 0.2,
+                "guessed_half_life": 0.1,
+            },
+        }
+        markdown = fidcal.summary_markdown(result)
+        self.assertIn(
+            "Time split (fitted on facts recorded before 2024-07-01T00:00:00Z, scored on later ones)",
+            markdown,
+        )
+        self.assertIn("Half-life fitted on early facts: **1.0h**", markdown)
+        self.assertIn("b = 0.20, half-life = **2.0h**", markdown)
+        rows = [
+            "| fitted half life | 0.4000 |",
+            "| fitted half life with baseline | 0.3000 |",
+            "| constant base rate | 0.2000 |",
+            "| guessed half life | 0.1000 |",
+        ]
+        self.assertEqual(
+            [markdown.index(row) for row in rows],
+            sorted(markdown.index(row) for row in rows),
+        )
+
+
+class ObservationTimes(unittest.TestCase):
+    def test_wikidata_uses_the_snapshot_not_the_later_check(self):
+        spans = [
+            (
+                datetime(2000, 1, 1, tzinfo=timezone.utc),
+                datetime(2020, 1, 1, tzinfo=timezone.utc),
+            )
+        ]
+        rows = list(wc.observations({"company": spans}))
+        expected = datetime(2004, 1, 1, tzinfo=timezone.utc).timestamp()
+        self.assertGreater(rows[1][1], 0)
+        self.assertEqual(rows[0][3], expected)
+        self.assertEqual(rows[1][3], expected)
+
+    def test_metar_uses_the_report_hour_for_all_three_facts(self):
+        recorded = datetime(2024, 1, 1, 0)
+        later = recorded + timedelta(hours=1)
+        temp, cat, adverse = wm.observations(
+            {"JFK": {recorded: (50.0, "IFR"), later: (51.0, "LIFR")}}
+        )
+        expected = recorded.replace(tzinfo=timezone.utc).timestamp()
+        for rows in (temp, cat, adverse):
+            row = next(row for row in rows if row[1] == fidcal.HOUR)
+            self.assertEqual(row[3], expected)
+            self.assertNotEqual(row[3], later.replace(tzinfo=timezone.utc).timestamp())
+
+    def test_ais_uses_the_actual_report_not_the_later_check(self):
+        track = {1: (0.0, 0.0, 2.0), 6: (0.0, 0.0, 2.0)}
+        rows = list(sa.observations({"vessel": track}, 1.0, "2023_01_15"))
+        row = next(row for row in rows if row[1] == 5 * fidcal.MINUTE)
+        expected = datetime(2023, 1, 15, 0, 1, tzinfo=timezone.utc).timestamp()
+        checked = datetime(2023, 1, 15, 0, 6, tzinfo=timezone.utc).timestamp()
+        self.assertTrue(row[3])
+        self.assertEqual(row[4], expected)
+        self.assertNotEqual(row[4], checked)
+
+    def test_flight_legs_use_the_flight_date(self):
+        flights = [
+            {"tail": "N1", "date": "2024-06-30", "dep": 900, "on_time": False},
+            {"tail": "N1", "date": "2024-06-30", "dep": 800, "on_time": True},
+        ]
+        rows = list(fb.leg_observations(flights))
+        expected = datetime(2024, 6, 30, tzinfo=timezone.utc).timestamp()
+        self.assertEqual([row[1] for row in rows], [0, 1])
+        self.assertEqual([row[3] for row in rows], [expected, expected])
+        self.assertIsNone(rows[0][4])
+        self.assertTrue(rows[1][4])
+
+    def test_pypi_uses_the_snapshot_not_the_later_check(self):
+        old = pl.SNAPSHOTS[0] - timedelta(days=400)
+        rows = pl.observations({"package": [(old, "1.0")]}, with_recorded_at=True)[
+            "all"
+        ]
+        expected = pl.SNAPSHOTS[0].timestamp()
+        self.assertGreater(rows[1][1], 0)
+        self.assertEqual(rows[0][3], expected)
+        self.assertEqual(rows[1][3], expected)
+
+    def test_dailymed_uses_the_snapshot_not_the_later_check(self):
+        snapshot = dw.SNAPSHOTS[0]
+        rows = dw.observations(
+            {"label": [(snapshot, "warnings")]}, with_recorded_at=True
+        )["all"]
+        expected = datetime.combine(
+            snapshot, datetime.min.time(), tzinfo=timezone.utc
+        ).timestamp()
+        self.assertGreater(rows[1][1], 0)
+        self.assertEqual(rows[0][3], expected)
+        self.assertEqual(rows[1][3], expected)
+        cutoff = dw.SNAPSHOTS[len(dw.SNAPSHOTS) // 2]
+        self.assertEqual(
+            dw.TIME_CUTOFF,
+            datetime.combine(
+                cutoff, datetime.min.time(), tzinfo=timezone.utc
+            ).timestamp(),
+        )
+
+    def test_eia_uses_the_demand_hour_not_the_later_check(self):
+        recorded = datetime(2024, 1, 1, 0)
+        later = recorded + timedelta(hours=1)
+        all_series = {"A": {recorded: 100.0, later: 100.0}}
+        rows = list(ed.study_observations(all_series))
+        row = next(row for row in rows if row[1] == fidcal.HOUR)
+        self.assertEqual(row[3], recorded.replace(tzinfo=timezone.utc).timestamp())
+        self.assertNotEqual(row[3], later.replace(tzinfo=timezone.utc).timestamp())
+        legacy = ed.tally(
+            ed.count(all_series, lag_hours=ed.STUDY_LAG_HOURS), ed.STUDY_LAG_HOURS
+        )
+        self.assertEqual(fidcal.Tally().extend(rows).counts, legacy.counts)
+
 
 class Comparison(unittest.TestCase):
-    def test_only_intervals_may_differ(self):
+    def test_only_optional_analysis_blocks_may_differ(self):
         committed = [small_result()]
         generated = copy.deepcopy(committed)
         generated[0]["intervals"] = {"ranges": {"half_life_s": [1.0, 2.0]}}
+        generated[0]["time_split"] = {"early_observations": 40}
         self.assertEqual(
             robustness.compare_results(committed, generated),
             {"matches_committed": True},
@@ -268,6 +478,22 @@ class Comparison(unittest.TestCase):
         self.assertIn(
             "[0].brier_test.constant_base_rate", comparison["differing_paths"]
         )
+
+    def test_readme_marks_which_experiments_have_a_time_split(self):
+        rows = [
+            {"slug": "yes", "matches_committed": True, "time_split": True},
+            {"slug": "no", "matches_committed": True, "time_split": False},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            os.makedirs(os.path.join(directory, "results", "robustness"))
+            with mock.patch.object(robustness, "HERE", directory):
+                robustness.write_readme(rows, 2, 0)
+            with open(
+                os.path.join(directory, "results", "robustness", "README.md")
+            ) as f:
+                markdown = f.read()
+        self.assertIn("| yes | 2 | 0 | yes | yes |", markdown)
+        self.assertIn("| no | 2 | 0 | no | yes |", markdown)
 
 
 if __name__ == "__main__":

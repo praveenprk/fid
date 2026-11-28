@@ -41,6 +41,7 @@ SELECT ?company ?st ?start ?sp ?end ?ep WHERE {
 MONTH_PRECISION = 10  # Wikidata: 9 = year, 10 = month, 11 = day
 SNAPSHOT_YEARS = range(2004, 2017)
 LAGS = [round(q * fidcal.YEAR / 4) for q in range(0, 41)]  # 0 … 10 years, quarterly
+TIME_CUTOFF = datetime(2011, 1, 1, tzinfo=timezone.utc).timestamp()
 
 
 def parse_time(value):
@@ -106,7 +107,12 @@ def observations(companies):
                 if start <= snapshot and (end is None or end > snapshot):
                     for lag in LAGS:
                         at = snapshot + timedelta(seconds=lag)
-                        yield (company, lag, end is None or end > at)
+                        yield (
+                            company,
+                            lag,
+                            end is None or end > at,
+                            snapshot.timestamp(),
+                        )
 
 
 def main():
@@ -123,6 +129,7 @@ def main():
         guess=fidcal.YEAR,
         guess_label="employee_role: 1y",
         truth="Y is still CEO (no end date yet, and no successor started)",
+        time_cutoff=TIME_CUTOFF,
     )
     fidcal.write_results([result], "wikidata_ceo")
 
