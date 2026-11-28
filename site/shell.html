@@ -336,6 +336,11 @@
       }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/satellite.js@6.0.2/dist/satellite.min.js"
+      integrity="sha384-J3D70NIZSVUuhQbp4W22OKF/xNWQjCEXmLxpnBp4CNDaQ+TbS1mmDZ2W3wlgqpKj"
+      crossorigin="anonymous"
+    ></script>
     <script>
       // The `dash` API page.html is written against, backed by static JSON files.
       window.dash = (() => {
@@ -486,6 +491,21 @@
       <div class="lv-grid" id="sw-grid"></div>
     </section>
 
+    <section class="lv" id="satellites" aria-live="off">
+      <div class="lv-head">
+        <h2 class="lv-title">
+          <span class="lv-dot" aria-hidden="true"></span>Satellites right now
+        </h2>
+        <p class="lv-note">Age only: fid has no calibrated half-life for these yet.</p>
+        <p class="lv-note">
+          Source:
+          <a href="https://celestrak.org/">CelesTrak (celestrak.org)</a>, element sets from the US
+          Space Force via Space-Track.org; SGP4 by satellite.js (MIT).
+        </p>
+      </div>
+      <div class="lv-grid" id="tle-grid"></div>
+    </section>
+
     <script>
       // Live board: latest METAR per airport, fid score recomputed every second.
       (() => {
@@ -506,19 +526,30 @@
         const REFETCH_MS = 5 * 60 * 1000;
         const KP_REFETCH_MS = 15 * 60 * 1000;
         const WIND_REFETCH_MS = 60 * 1000;
+        const TLE_REFETCH_MS = 30 * 60 * 1000;
         const grid = document.getElementById("lv-grid");
         const spaceGrid = document.getElementById("sw-grid");
+        const tleGrid = document.getElementById("tle-grid");
         const status = document.getElementById("lv-status");
         // Live boards sit right under the page's header.
         const head = document.getElementById("top");
         if (head)
-          head.after(document.getElementById("live"), document.getElementById("space-weather"));
+          head.after(
+            document.getElementById("live"),
+            document.getElementById("space-weather"),
+            document.getElementById("satellites"),
+          );
 
         const obs = {};
         const cards = {};
         const spaceObs = {};
         const spaceCards = {};
-        const attempts = { metar: null, kp: null, wind: null };
+        const tleCards = new Map();
+        let tleData = null;
+        let tleFailed = false;
+        let tleObjects = new Map();
+        let tleMissing = new Set();
+        const attempts = { metar: null, kp: null, wind: null, tle: null };
 
         const category = (ob) => {
           const vis = Number(ob["visibility[mile]"]);
@@ -599,6 +630,15 @@
           if (fd.failed || fd.reached === null) return true;
           return nowMs - fd.reached > 2 * refreshMs;
         };
+        const TLE_STALE_MS = 6 * 60 * 60 * 1000;
+        const elementSetAge = (epochString, nowMs) =>
+          Math.max(0, (nowMs - Date.parse(epochString + "Z")) / 1000);
+        const tleUnknown = (tle, nowMs) => {
+          if (!tle || !tle.fetched_at) return true;
+          const fetched = Date.parse(tle.fetched_at);
+          return !Number.isFinite(fetched) || nowMs - fetched > TLE_STALE_MS;
+        };
+        const illustrationSeconds = (speed) => 1 / speed;
         // live-rules:end
 
         const SPACE_FEEDS = [
@@ -616,6 +656,29 @@
             refreshMs: WIND_REFETCH_MS,
             select: latestWind,
           },
+        ];
+        // The same fixed order as fetch_tle.py: the ISS is always first.
+        const SATELLITES = [
+          [25544, "ISS"],
+          [48274, "CSS (Tianhe)"],
+          [20580, "Hubble"],
+          [33591, "NOAA 19"],
+          [40697, "Sentinel-2A"],
+          [49260, "Landsat 9"],
+          [25994, "Terra"],
+          [27424, "Aqua"],
+          [43873, "GPS III SV01 (NAVSTAR 77)"],
+          [36585, "GPS IIF-1 (NAVSTAR 65)"],
+          [37846, "Galileo GSAT0101"],
+          [41866, "GOES-16"],
+          [51850, "GOES-18"],
+          [40732, "Meteosat-11"],
+          [41836, "Himawari-9"],
+          [53544, "Starlink-4303"],
+          [51990, "Starlink-3657"],
+          [58130, "Starlink-30783"],
+          [56710, "OneWeb-0561"],
+          [22566, "SL-16 rocket body"],
         ];
 
         // A METAR goes from the instrument to the board with no transform.
@@ -702,6 +765,106 @@
         };
         SPACE_FEEDS.forEach(buildSpaceCard);
 
+        const buildSatelliteCard = ([norad, name]) => {
+          const card = el("article", "lv-card");
+          const r1 = el("div", "lv-row");
+          r1.append(el("span", "lv-code", name), el("span", "lv-cat", "not calibrated"));
+          const r2 = el("div", "lv-row");
+          const regime = el("span", "lv-code", "—");
+          const state = el("span", "lv-state unknown", "UNKNOWN");
+          r2.append(regime, state);
+          const meta = el("div", "lv-meta");
+          const age = el("div");
+          const position = el("div", null, "Waiting for element sets…");
+          const height = el("div");
+          setLabeled(age, "Element sets fetched ", "never");
+          meta.append(age, position, height);
+          const illustration = el("div", "lv-raw");
+          illustration.hidden = true;
+          card.append(r1, r2, meta, illustration);
+          tleGrid.appendChild(card);
+          tleCards.set(norad, { regime, state, age, position, height, illustration });
+        };
+        SATELLITES.forEach(buildSatelliteCard);
+
+        const tleFetchedAt = () => {
+          const fetched = tleData && Date.parse(tleData.fetched_at);
+          return Number.isFinite(fetched) ? hhmm(new Date(fetched)) : "never";
+        };
+        const satelliteUnknown = (c, reason) => {
+          c.regime.textContent = "—";
+          c.state.textContent = "UNKNOWN";
+          c.state.className = "lv-state unknown";
+          c.state.hidden = false;
+          setLabeled(c.age, "Element sets fetched ", tleFetchedAt());
+          c.position.textContent = reason;
+          c.height.replaceChildren();
+          c.illustration.hidden = true;
+        };
+        const tickSatellites = (nowMs) => {
+          const stale = tleFailed || tleUnknown(tleData, nowMs);
+          for (const [norad] of SATELLITES) {
+            const c = tleCards.get(norad),
+              object = tleObjects.get(norad);
+            if (stale) {
+              satelliteUnknown(c, "Position unavailable");
+              continue;
+            }
+            if (tleMissing.has(norad) || !object) {
+              satelliteUnknown(c, "no current element set");
+              continue;
+            }
+
+            let pv, geodetic;
+            try {
+              const satrec = satellite.json2satrec(object.omm);
+              if (satrec.error) throw new Error("invalid element set");
+              const date = new Date(nowMs);
+              pv = satellite.propagate(satrec, date);
+              if (
+                satrec.error ||
+                !pv ||
+                !pv.position ||
+                !["x", "y", "z"].every((axis) => Number.isFinite(pv.position[axis]))
+              )
+                throw new Error("no propagated position");
+              geodetic = satellite.eciToGeodetic(pv.position, satellite.gstime(date));
+              if (![geodetic.latitude, geodetic.longitude, geodetic.height].every(Number.isFinite))
+                throw new Error("no geodetic position");
+            } catch {
+              satelliteUnknown(c, "Position unavailable");
+              continue;
+            }
+
+            const age = elementSetAge(object.omm.EPOCH, nowMs);
+            if (!Number.isFinite(age)) {
+              satelliteUnknown(c, "Position unavailable");
+              continue;
+            }
+            c.regime.textContent = object.regime;
+            c.state.hidden = true;
+            c.state.textContent = "";
+            c.state.className = "lv-state";
+            setLabeled(c.age, "Element set age ", clock(age));
+            setLabeled(
+              c.position,
+              "Latitude, longitude ",
+              `${((geodetic.latitude * 180) / Math.PI).toFixed(2)}°, ${((geodetic.longitude * 180) / Math.PI).toFixed(2)}°`,
+            );
+            setLabeled(c.height, "Height ", `${Math.round(geodetic.height)} km`);
+            if (norad === 25544) {
+              const v = pv.velocity,
+                speed = v && Math.hypot(v.x, v.y, v.z);
+              if (Number.isFinite(speed) && speed > 0) {
+                c.illustration.textContent = `Illustration, not a fid calibration: at ${speed.toFixed(2)} km/s, a fixed position report is more than 1 km off after about ${illustrationSeconds(speed).toFixed(2)} s.`;
+                c.illustration.hidden = false;
+              } else {
+                c.illustration.hidden = true;
+              }
+            }
+          }
+        };
+
         const tickSpace = (now, nowMs) => {
           for (const f of SPACE_FEEDS) {
             const c = spaceCards[f.key],
@@ -786,6 +949,7 @@
             else setLabeled(c.until, "Below floor for ", clock(-left));
           }
           tickSpace(now, Date.now());
+          tickSatellites(Date.now());
         };
 
         const load = async () => {
@@ -840,6 +1004,25 @@
           tick();
         };
 
+        const loadTle = async () => {
+          if (document.visibilityState !== "visible") return;
+          attempts.tle = Date.now();
+          try {
+            const r = await fetch("data/tle.json", { cache: "no-cache" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const next = await r.json();
+            if (!next || !Array.isArray(next.objects) || !Array.isArray(next.missing))
+              throw new Error("invalid element-set feed");
+            tleData = next;
+            tleFailed = false;
+            tleObjects = new Map(next.objects.map((object) => [Number(object.norad), object]));
+            tleMissing = new Set(next.missing.map(Number));
+          } catch {
+            tleFailed = true;
+          }
+          tick();
+        };
+
         const due = (attempted, interval) =>
           attempted === null || Date.now() - attempted >= interval;
         const loadDue = () => {
@@ -848,11 +1031,13 @@
           for (const f of SPACE_FEEDS) {
             if (due(attempts[f.key], f.refreshMs)) loadSpace(f);
           }
+          if (due(attempts.tle, TLE_REFETCH_MS)) loadTle();
         };
 
         loadDue();
         setInterval(load, REFETCH_MS);
         for (const f of SPACE_FEEDS) setInterval(() => loadSpace(f), f.refreshMs);
+        setInterval(loadTle, TLE_REFETCH_MS);
         setInterval(tick, 1000);
         document.addEventListener("visibilitychange", loadDue);
         dash.onData(tick);

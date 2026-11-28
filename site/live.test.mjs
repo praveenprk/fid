@@ -1,5 +1,5 @@
-// The live cards' shared feed and space-weather rules, evaluated from the
-// page itself (live-site plan, rules 1 and 5; #60).
+// The live cards' shared feed, space-weather and satellite rules, evaluated
+// from the page itself (live-site plan, rules 1 and 5; #60).
 // Plain node, no dependencies: node site/live.test.mjs
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -7,9 +7,10 @@ import { readFileSync } from "node:fs";
 const shell = readFileSync(new URL("shell.html", import.meta.url), "utf8");
 const block = shell.match(/\/\/ live-rules:begin[\s\S]*?\/\/ live-rules:end/);
 if (!block) throw new Error("site/shell.html has no live-rules:begin … live-rules:end block");
-const { latestKp, latestWind, kpAge, feedUnknown } = new Function(
-  `${block[0]}\nreturn { latestKp, latestWind, kpAge, feedUnknown };`,
-)();
+const { latestKp, latestWind, kpAge, feedUnknown, elementSetAge, tleUnknown, illustrationSeconds } =
+  new Function(
+    `${block[0]}\nreturn { latestKp, latestWind, kpAge, feedUnknown, elementSetAge, tleUnknown, illustrationSeconds };`,
+  )();
 
 const kpRows = [
   { time_tag: "2026-11-20T00:00:00", Kp: 0.67, a_running: 3, station_count: 8 },
@@ -66,4 +67,14 @@ assert.equal(feedUnknown({ reached: null, failed: false }, 0, 1000), true);
 assert.equal(feedUnknown({ reached: 0, failed: false }, 2001, 1000), true);
 assert.equal(feedUnknown({ reached: 0, failed: false }, 2000, 1000), false);
 
-console.log("site live rules: 14 assertions passed");
+const epoch = "2026-11-27T12:00:00";
+const epochMs = Date.parse(epoch + "Z");
+const fetchedMs = Date.parse("2026-11-27T13:00:00Z");
+assert.equal(elementSetAge(epoch, epochMs + 90 * 1000), 90, "EPOCH is UTC without a zone");
+const tle = { fetched_at: "2026-11-27T13:00:00Z" };
+assert.equal(tleUnknown(null, fetchedMs), true);
+assert.equal(tleUnknown(tle, fetchedMs + 6 * 60 * 60 * 1000 + 1), true);
+assert.equal(tleUnknown(tle, fetchedMs + 6 * 60 * 60 * 1000), false);
+assert.equal(illustrationSeconds(8), 0.125);
+
+console.log("site live rules: 19 assertions passed");

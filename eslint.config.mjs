@@ -18,6 +18,7 @@ export default [
         // d3 from its CDN script; dash, set on window by shell.html for page.html
         d3: "readonly",
         dash: "readonly",
+        satellite: "readonly",
       },
     },
     rules: { ...js.configs.recommended.rules },
