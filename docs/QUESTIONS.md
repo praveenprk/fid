@@ -146,3 +146,52 @@ Recommend: A, because a published number has to trace to a committed
            changes results the paper is written against.
 Raised by: docs/findings-corrections (A is applied there), while tracing the paper's numbers (#89)
 Status   : ANSWERED (governor, standing rule 2026-11-25): A, use the committed numbers → docs/FINDINGS.md, calibration/README.md
+
+### Q-008
+Scenario : MILESTONE.md, removed in #100, listed two items that were never
+           built: "`scan`, `filter`, `watch`" and "source fidelity per
+           context (airline, time of day), not only per class". Neither is
+           in the draft or tracked as an issue. The flight study supports
+           the second (calibration/results/flights_bts.md). Nothing
+           measured supports the first.
+Options  : A — Open an issue for source fidelity per context; drop `scan`,
+               `filter` and `watch`.
+           B — Open an issue for each.
+           C — Drop both; git history keeps them.
+Recommend: A, because only one of them has evidence behind it, and AGENTS.md
+           admits no behaviour the draft does not specify.
+Raised by: #100 (#99), while removing MILESTONE.md
+Status   : ANSWERED (governor, standing rule 2026-11-25): A → #101
+
+### Q-009
+Scenario : README called docs/DISCOVERY.md fid's "complete theoretical
+           foundation and design rationale". It is the original October
+           2026 essay. It predates the draft and describes commands fid does
+           not have (`scan`, `filter`, `watch`, `measure`).
+Options  : A — Keep it, labelled as the original essay, with the draft named
+               as normative.
+           B — Delete it.
+           C — Leave it as it is.
+Recommend: A, because it is the only statement of why fid exists and the
+           paper's introduction draws on it; the label removes the
+           misleading claim.
+Raised by: #100 (#99)
+Status   : ANSWERED (governor, standing rule 2026-11-25): A → README.md "Background", docs/DISCOVERY.md (applied in #100)
+
+### Q-010
+Scenario : The newcomer test (#99) asks how many steps and errors stand
+           between a developer with only the public packages and the README
+           and a first useful result. The runner that writes it has no
+           network. Facts checked on 2026-11-28: fidmeter 0.2.1 is on PyPI
+           (Python ≥ 3.9) and crates.io; npm has no `fidmeter`; the PyPI
+           wheel provides `import fid` but no `fid` command; there is no JS
+           binding.
+Options  : A — The runner writes the scripts and a static walkthrough
+               offline; a networked session then runs it from PyPI and
+               crates.io and records the results.
+           B — The governor runs the protocol by hand.
+           C — The runner gets network for this one task.
+Recommend: A, because it keeps the runner offline and measures the install
+           path reproducibly.
+Raised by: the newcomer-test task (#99)
+Status   : ANSWERED (governor, 2026-11-28): offline approach; no networked run. The report states the registry facts as given and lists what an offline test cannot show
