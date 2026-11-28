@@ -189,7 +189,7 @@ python3 robustness.py  # bootstrap ranges (200 resamples over entities) into res
 The optional bootstrap ranges resample entities within each train/test half
 with a fixed seed. Cite them only where the robustness run matches the
 committed results.
-With FID_CAL_TIME_SPLIT=1, each study also fits on facts recorded before a fixed date and scores the later ones.
+With FID_CAL_TIME_SPLIT=1, each study also fits on facts recorded and re-checked before a fixed date and scores facts recorded after it; observations that straddle the cutoff are not used.
 
 ### AI transform noise
 
