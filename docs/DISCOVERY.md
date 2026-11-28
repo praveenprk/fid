@@ -1,5 +1,10 @@
 # fid
 
+> The original design essay (October 2026), kept for its rationale. It
+> predates the draft and describes commands that fid does not have
+> (`scan`, `filter`, `watch`, `measure`). What fid does is specified in
+> [spec/draft-kumar-fid-00.md](../spec/draft-kumar-fid-00.md).
+
 **Information fidelity as a computing primitive.**
 
 The degree to which a stored representation faithfully corresponds to

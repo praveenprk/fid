@@ -274,10 +274,12 @@ is not independent. Write-up: [docs/FINDINGS.md](docs/FINDINGS.md);
 data and code: [calibration/](calibration/README.md); interactive results:
 https://praveenprk.github.io/fid/.
 
-## Full Design Document
+## Background
 
-See [docs/DISCOVERY.md](docs/DISCOVERY.md) for the complete
-theoretical foundation and design rationale.
+[docs/DISCOVERY.md](docs/DISCOVERY.md) is the original design essay
+(October 2026): why computing needs a fidelity primitive. It predates the
+draft and describes commands fid does not have; the draft
+([spec/draft-kumar-fid-00.md](spec/draft-kumar-fid-00.md)) is normative.
 
 ---
 

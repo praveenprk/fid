@@ -22,7 +22,7 @@ class SpecRef(unittest.TestCase):
     def test_docs_only_needs_nothing(self):
         self.assertIsNone(
             spec_ref.check(
-                "", [], ["docs/ROADMAP.md", "spec/draft-kumar-fid-00.md"], KNOWN
+                "", [], ["docs/FINDINGS.md", "spec/draft-kumar-fid-00.md"], KNOWN
             )
         )
 

@@ -1233,7 +1233,7 @@ mod tests {
     // spec: time-to-floor
     #[test]
     fn test_echo_search_ends_10000_periods_after_measurement() {
-        // Found by the nightshift runner while closing #16: the search ran
+        // Found while closing #16: the search ran
         // to 10,000 periods after the plain-curve crossing, not after t = 0.
         let e = EchoParams {
             period: 0.1,

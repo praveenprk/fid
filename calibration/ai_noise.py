@@ -33,10 +33,8 @@ No refusal fallback is configured: a fallback would answer on another
 model, and the noise is per model. Refusals are counted and left out.
 
 Needs the Anthropic SDK (pip install anthropic) and an API key in
-FID_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY). Cloud sessions reserve
-ANTHROPIC_API_KEY for their own sign-in and do not pass it to commands,
-and network secrets are never attached to api.anthropic.com, so in a
-cloud environment set FID_ANTHROPIC_API_KEY as an environment variable.
+FID_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY). Use FID_ANTHROPIC_API_KEY
+where the environment reserves ANTHROPIC_API_KEY for its own use.
 Responses are cached on disk (FID_CAL_CACHE, default calibration/.cache),
 so a rerun costs nothing.
 
