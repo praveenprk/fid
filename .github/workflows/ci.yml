@@ -47,8 +47,9 @@ jobs:
       - run: npx --no-install prettier --check site/*.html site/*.mjs eslint.config.mjs .prettierrc.json package.json
       - run: npx --no-install eslint site/
       # The live board's formula against fid's conformance vectors, so the
-      # site cannot drift from the library (live-site plan rule 3, #60).
-      - run: node site/formula.test.mjs
+      # site cannot drift from the library (live-site plan rule 3, #60),
+      # and the live cards' rules.
+      - run: node --test "site/*.test.mjs"
 
   rust:
     runs-on: ubuntu-latest
